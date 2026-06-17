@@ -463,11 +463,11 @@ export default function PurchaseOrderEntry() {
                 <label className={`${lbl} w-[140px] shrink-0`}>Supplier Ref. Number:</label>
                 <input value={form.supplierRefNumber} onChange={e => setField('supplierRefNumber', e.target.value)} className={inp()} />
               </div>
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[140px] shrink-0`}>Show Totals Grid:</label>
                 <input type="checkbox" checked={form.showTotalsGrid} onChange={e => setField('showTotalsGrid', e.target.checked)} className="w-4 h-4 accent-[#0097A7]" />
                 <span className="text-[12px] text-slate-500">Show Totals Grid</span>
-              </div>
+              </div>  */}
             </div>
 
             {/* Column 2 — Contact Info */}
@@ -480,10 +480,10 @@ export default function PurchaseOrderEntry() {
                 <label className={`${lbl} w-[130px] shrink-0`}>Contact No. :</label>
                 <input value={form.contactNumber} onChange={e => setField('contactNumber', e.target.value)} className={inp()} />
               </div>
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Created By :</label>
                 <input value={form.createdBy} onChange={e => setField('createdBy', e.target.value)} className={inp()} />
-              </div>
+              </div> */}
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>GST NO. :</label>
                 <input value={form.gstNo} onChange={e => setField('gstNo', e.target.value)} className={inp()} />
@@ -500,10 +500,10 @@ export default function PurchaseOrderEntry() {
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Column Visibility:</label>
                 <button className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[12px] rounded transition-colors whitespace-nowrap">Select Columns (All Visible) ▼</button>
-              </div>
+              </div> */}
             </div>
 
             {/* Column 3 — PO Info + Actions */}
@@ -514,7 +514,7 @@ export default function PurchaseOrderEntry() {
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[100px] shrink-0`}>PO Date:</label>
-                <input type="date" value={form.poDate} onChange={e => setField('poDate', e.target.value)} className={inp()} />
+                <input type="date" value={form.poDate} onChange={e => setField('poDate', e.target.value)} className={inp()} readOnly/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[100px] shrink-0`}>ETA Date :</label>

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useState, useEffect } from 'react'
 import { ChevronRight, ChevronDown, Search, Trash2, Printer, X, RefreshCw, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
@@ -25,7 +26,7 @@ const statusBadge = (s) => {
 
 const inp = 'border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7] bg-white'
 
-const HEADER_COLS_BASE = ['','Request No','Request Date','Department','Requesting User','Required Date','Status','Requesting For','Store','Created By','Created Date']
+const HEADER_COLS_BASE = ['','Request No','Request Date','Department','Requesting User','Required Date','Status','Requesting For','Vehicle Name','Created By','Created Date']
 
 export default function PrintMaterialRequest() {
   const toast = useToast()
@@ -74,6 +75,7 @@ export default function PrintMaterialRequest() {
         (r.requestingUser|| '').toLowerCase().includes(q) ||
         (r.requestingFor || '').toLowerCase().includes(q) ||
         (r.storeName     || '').toLowerCase().includes(q) ||
+        (r.vehicleName   || '').toLowerCase().includes(q) ||
         (r.status        || '').toLowerCase().includes(q)
       )
     }
@@ -211,7 +213,8 @@ export default function PrintMaterialRequest() {
                         <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusBadge(row.status)}`}>{row.status}</span>
                       </td>
                       <td className="px-3 py-2 text-center">{row.requestingFor || '—'}</td>
-                      <td className="px-3 py-2 text-center">{row.storeName || '—'}</td>
+                      {/* <td className="px-3 py-2 text-center">{row.storeName || '—'}</td> */}
+                      <td className="px-3 py-2 text-center">{row.vehicleName || '—'}</td>
                       <td className="px-3 py-2 text-center">{row.createdBy || '—'}</td>
                       <td className="px-3 py-2 text-center whitespace-nowrap">{fmtDate(row.createdAt)}</td>
                       {pickMode && (
@@ -238,7 +241,7 @@ export default function PrintMaterialRequest() {
                               <table className="w-full text-[12px] border border-slate-200 rounded">
                                 <thead>
                                   <tr className="bg-slate-100 text-slate-600 text-[11px] uppercase">
-                                    {['#','Model Name','Item Code','Item Name','Requested Qty','Material Grade','Unit','Remarks'].map(h => (
+                                    {['S.NO','Model Name','Item Code','Item Name','Requested Qty','Material Grade','Unit','Remarks'].map(h => (
                                       <th key={h} className="px-2 py-1.5 text-center font-bold whitespace-nowrap">{h}</th>
                                     ))}
                                   </tr>

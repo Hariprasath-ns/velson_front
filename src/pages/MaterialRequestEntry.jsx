@@ -7,6 +7,17 @@ import api from '../services/api'
 const today = new Date().toISOString().split('T')[0]
 const tomorrow = new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0]
 
+const getDaysDiff = (requiredDate, requestDate) => {
+  if (!requiredDate || !requestDate) return ''
+  const req = new Date(requiredDate)
+  const reqst = new Date(requestDate)
+  req.setHours(0, 0, 0, 0)
+  reqst.setHours(0, 0, 0, 0)
+  const diffTime = req - reqst
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  return isNaN(diffDays) ? '' : String(diffDays)
+}
+
 const emptyItem = () => ({
   modelName:'', itemCode:'', itemName:'', requestedQty:'', materialGrade:'', unit:'', remarks:'',
 })
@@ -46,8 +57,9 @@ export default function MaterialRequestEntry() {
   const [departments,   setDepartments]   = useState([])
   const [teams,         setTeams]         = useState([])
   const [requestingFor, setRequestingFor] = useState([])
-  const [stores,        setStores]        = useState([])
+  const [stores,        setStores]        = useState([]) // eslint-disable-line no-unused-vars
   const [vehicleTypes,  setVehicleTypes]  = useState([])
+  const [vehicleNames,  setVehicleNames]  = useState([])
   const [itemsData,     setItemsData]     = useState([])
 
   const [loading,     setLoading]     = useState(true)
@@ -59,8 +71,8 @@ export default function MaterialRequestEntry() {
   const [form, setForm] = useState({
     tempRequestNo: '', departmentTo: '', requestingUser: 'superadmin',
     team: '', requestingFor: '', requestNo: '',
-    requestDate: today, requiredDate: tomorrow, requiredDays: '',
-    storeName: '', bomPartName: '',
+    requestDate: today, requiredDate: tomorrow, requiredDays: '1',
+    storeName: '', bomPartName: '', vehicleName: '',
   })
   const [items, setItems] = useState([emptyItem()])
   const [remarks, setRemarks] = useState('')
@@ -78,7 +90,10 @@ export default function MaterialRequestEntry() {
       api.get('/api/material-request/next-no', { skipGlobalLoader: true })
         .then(r => r.data?.mrNo || '')
         .catch(() => ''),
-    ]).then(([depts, tms, reqFor, strs, vTypes, itms, mrNo]) => {
+      api.get('/api/vehicle-master', { skipGlobalLoader: true })
+        .then(r => r.data?.data || [])
+        .catch(() => []),
+    ]).then(([depts, tms, reqFor, strs, vTypes, itms, mrNo, vehicles]) => {
       setDepartments(depts)
       setTeams(tms)
       setRequestingFor(reqFor)
@@ -86,6 +101,11 @@ export default function MaterialRequestEntry() {
       setVehicleTypes(vTypes)
       setItemsData(itms)
       setNextMrNo(mrNo)
+      const uniqueNames = [...new Set([
+        ...vehicles.map(v => v.vehicleName).filter(Boolean),
+        'Rig A', 'Rig B', 'Rig C', 'Rig D', 'Rig E', 'Rig F', 'Rig G', 'NEW FABRICATION', 'KOBELCO'
+      ])]
+      setVehicleNames(uniqueNames)
       setForm(f => ({ ...f, requestNo: mrNo }))
     }).finally(() => setLoading(false))
   }, [])
@@ -93,6 +113,13 @@ export default function MaterialRequestEntry() {
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const setItemField = (idx, k, v) => {
+    if (k === 'itemCode' && v) {
+      const isDuplicate = items.some((r, i) => i !== idx && r.itemCode === v)
+      if (isDuplicate) {
+        toast?.error ? toast.error('This item is already added') : alert('This item is already added')
+        return
+      }
+    }
     setItems(rows => rows.map((r, i) => {
       if (i !== idx) return r
       if (k !== 'itemCode') return { ...r, [k]: v }
@@ -130,6 +157,7 @@ export default function MaterialRequestEntry() {
         requiredDays:   d.requiredDays   || '',
         storeName:      d.storeName      || '',
         bomPartName:    d.bomPartName    || '',
+        vehicleName:    d.vehicleName    || '',
       }))
       setRemarks(d.remarks || '')
 
@@ -168,8 +196,9 @@ export default function MaterialRequestEntry() {
         requiredDays:   form.requiredDays,
         storeName:      form.storeName,
         bomPartName:    form.bomPartName,
+        vehicleName:    form.vehicleName,
         remarks,
-        status:    'Draft',
+        status:    'Pending',
         createdBy: form.requestingUser || 'superadmin',
         items: items.filter(r => r.itemCode || r.itemName || r.modelName),
       }
@@ -183,8 +212,8 @@ export default function MaterialRequestEntry() {
       setForm({
         tempRequestNo:'', departmentTo:'', requestingUser:'superadmin',
         team:'', requestingFor:'', requestNo: newMrNo,
-        requestDate:today, requiredDate:tomorrow, requiredDays:'',
-        storeName:'', bomPartName:'',
+        requestDate:today, requiredDate:tomorrow, requiredDays:'1',
+        storeName:'', bomPartName:'', vehicleName:'',
       })
       setItems([emptyItem()])
       setRemarks('')
@@ -199,8 +228,8 @@ export default function MaterialRequestEntry() {
     setForm({
       tempRequestNo:'', departmentTo:'', requestingUser:'superadmin',
       team:'', requestingFor:'', requestNo: nextMrNo,
-      requestDate:today, requiredDate:tomorrow, requiredDays:'',
-      storeName:'', bomPartName:'',
+      requestDate:today, requiredDate:tomorrow, requiredDays:'1',
+      storeName:'', bomPartName:'', vehicleName:'',
     })
     setItems([emptyItem()])
     setRemarks('')
@@ -231,7 +260,7 @@ export default function MaterialRequestEntry() {
             {/* Column 1 */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[130px] shrink-0`}>Temp Request No :</label>
+                <label className={`${lbl} w-[130px] shrink-0`}>Existing Request No :</label>
                 <div className="flex flex-1 gap-1">
                   <input
                     value={form.tempRequestNo}
@@ -260,10 +289,10 @@ export default function MaterialRequestEntry() {
                   {departments.map(d => <option key={d}>{d}</option>)}
                 </LoadingSelect>
               </div>
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Requesting User :</label>
                 <input value={form.requestingUser} readOnly className={`${inp()} bg-slate-50`} />
-              </div>
+              </div> */}
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Team :</label>
                 <LoadingSelect loading={loading} value={form.team} onChange={e => setField('team', e.target.value)} className={inp()}>
@@ -291,44 +320,65 @@ export default function MaterialRequestEntry() {
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Request Date :</label>
-                <input type="date" value={form.requestDate} onChange={e => setField('requestDate', e.target.value)} className={inp()} />
+                <input type="date" value={form.requestDate} onChange={e => setField('requestDate', e.target.value)} className={inp()} readOnly/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Required Date :</label>
-                <input type="date" value={form.requiredDate} onChange={e => setField('requiredDate', e.target.value)} className={inp()} />
+                <input
+                  type="date"
+                  value={form.requiredDate}
+                  onChange={e => {
+                    const rDate = e.target.value
+                    setForm(f => ({
+                      ...f,
+                      requiredDate: rDate,
+                      requiredDays: getDaysDiff(rDate, f.requestDate),
+                    }))
+                  }}
+                  className={inp()}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Required Day's :</label>
-                <input value={form.requiredDays} onChange={e => setField('requiredDays', e.target.value)} className={inp()} />
+                <input
+                  value={form.requiredDays}
+                  onChange={e => setField('requiredDays', e.target.value)}
+                  placeholder="Required Days"
+                  className={inp()}
+                  readOnly
+                />
               </div>
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Store Name :</label>
                 <LoadingSelect loading={loading} value={form.storeName} onChange={e => setField('storeName', e.target.value)} className={inp()}>
                   <option value="">Select Store</option>
                   {stores.map(s => <option key={s}>{s}</option>)}
                 </LoadingSelect>
-              </div>
+              </div> */}
+               <div className="flex items-center gap-2">
+                <label className={`${lbl} w-[120px] shrink-0`}>Vehicle Name:</label>
+                <input
+                  value={form.vehicleName}
+                  onChange={e => setField('vehicleName', e.target.value)}
+                  placeholder="Enter Vehicle Name"
+                  className={inp()}
+                />
+               </div>
             </div>
 
             {/* Column 3 — BOM + Image + buttons */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[120px] shrink-0`}>BOM Part Name :</label>
-                <select value={form.bomPartName} onChange={e => setField('bomPartName', e.target.value)} className={inp()}>
-                  <option value="">Select BOM Part Name</option>
-                </select>
-              </div>
               <div className="flex items-start gap-2">
                 <label className={`${lbl} w-[120px] shrink-0 pt-1`}>Part Image :</label>
-                <div className="flex-1 h-[60px] border border-slate-200 rounded bg-slate-50 flex items-center justify-center overflow-hidden">
+                <div className="flex-1 h-[120px] border border-slate-200 rounded bg-slate-50 flex items-center justify-center overflow-hidden">
                   {partImage
                     ? <img src={partImage} alt="Part Preview" className="h-full w-full object-contain" />
                     : <span className="text-[11px] text-slate-400">Item Image</span>
                   }
                 </div>
               </div>
-              <div className="flex gap-2 pt-1">
-                <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm">
+              <div className="flex gap-2 pt-1 justify-end">
+                <button onClick={addRow} className="flex items-center gap-1 px-2 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm">
                   <Plus className="w-3.5 h-3.5"/> Add Row
                 </button>
                 <button onClick={() => { if(items.length>1) setItems(r => r.slice(0,-1)) }} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap">
@@ -350,8 +400,8 @@ export default function MaterialRequestEntry() {
               <table className="min-w-full text-[12.5px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">#</th>
-                    {['Model Name','Item Code','Item Name','Requested Qty','Material Grade','Unit','Remarks','Action'].map(h => (
+                    <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">S.NO</th>
+                    {['Model Name','Item Code','Item Name','Material Grade','Requested Qty','Unit','Remarks','Action'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -375,8 +425,8 @@ export default function MaterialRequestEntry() {
                         </LoadingSelect>
                       </td>
                       <td className="px-1 py-1"><input value={row.itemName} readOnly className={`${inp()} bg-slate-50 min-w-[150px]`} /></td>
+                      <td className="px-1 py-1"><input value={row.materialGrade} onChange={e=>setItemField(idx,'materialGrade',e.target.value)} className={`${inp()} bg-slate-50`} /></td>
                       <td className="px-1 py-1"><input value={row.requestedQty} onChange={e=>setItemField(idx,'requestedQty',e.target.value)} className={inp()} /></td>
-                      <td className="px-1 py-1"><input value={row.materialGrade} readOnly className={`${inp()} bg-slate-50`} /></td>
                       <td className="px-1 py-1"><input value={row.unit} onChange={e=>setItemField(idx,'unit',e.target.value)} className={`${inp()} w-16`} /></td>
                       <td className="px-1 py-1"><input value={row.remarks} onChange={e=>setItemField(idx,'remarks',e.target.value)} className={inp()} /></td>
                       <td className="px-2 py-1 text-center">
@@ -392,7 +442,7 @@ export default function MaterialRequestEntry() {
 
           {/* Remarks + Submit/Cancel */}
           <div className="flex items-start gap-4 pt-2">
-            <label className={`${lbl} w-[100px] shrink-0 pt-1`}>Remark's :</label>
+            <label className={`${lbl} w-[100px] shrink-0 pt-1`}>Note :</label>
             <textarea rows={2} value={remarks} onChange={e => setRemarks(e.target.value)} className="flex-1 border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] resize-none bg-white" />
           </div>
           <div className="flex gap-2 justify-center pt-1">

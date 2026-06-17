@@ -207,6 +207,13 @@ export default function PurchaseRequestEntry() {
   }
 
   const handleItemCodeChange = (idx, code) => {
+    if (code) {
+      const isDuplicate = items.some((r, i) => i !== idx && r.code === code)
+      if (isDuplicate) {
+        toast?.error ? toast.error('This item is already added') : alert('This item is already added')
+        return
+      }
+    }
     const item = itemsData.find(i => i.partNo === code)
     setItems(rows => rows.map((r, i) => i !== idx ? r : {
       ...r,
@@ -450,7 +457,7 @@ export default function PurchaseRequestEntry() {
                 <tr>
                   <th className="p-2 text-center text-white w-8"><input type="checkbox" className="accent-[#0097A7]" /></th>
                   <th className="p-2 text-center text-white w-8">#</th>
-                  {['Code', 'Item Name', 'Specification', 'Job No', 'Machine No', 'Unit', 'Qty', 'ETA', 'QC Dept', 'Purpose', 'Action'].map(h => (
+                  {['Item Code', 'Item Name', 'Specification', 'Job No', 'Machine No', 'Unit', 'Qty', 'ETA', 'QC Dept', 'Purpose', 'Action'].map(h => (
                     <th key={h} className="p-2 text-left font-medium text-white whitespace-nowrap border-l border-slate-700">{h}</th>
                   ))}
                 </tr>

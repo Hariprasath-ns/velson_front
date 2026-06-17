@@ -47,13 +47,13 @@ export const NAV = [
       { id: 'item-master',      label: 'Item Master',             page: 'ItemMaster' },
     ],
   },
-  {
-    id: 'person-masters', label: 'Person Masters', icon: UserCircle, hiddenRoles: ['user'],
-    children: [
-      { id: 'supplier-master', label: 'Supplier Master', page: 'SupplierMaster' },
-      { id: 'customer-master', label: 'Customer Master', page: 'CustomerMaster' },
-    ],
-  },
+    {
+      id: 'person-masters', label: 'Person Masters', icon: UserCircle, hiddenRoles: ['user'],
+      children: [
+        { id: 'supplier-master', label: 'Supplier Master', page: 'SupplierMaster' },
+        { id: 'customer-master', label: 'Customer Master', page: 'CustomerMaster' },
+      ],
+    },
   {
     id: 'service', label: 'Service', icon: Wrench,
     children: [
@@ -177,6 +177,13 @@ export const NAV = [
       { id: 'prod-machine-breakdown',      label: 'BreakDown Entry',           page: 'MachineBreakDown' },
     ],
   },
+    {
+    id: 'approval', label: 'Approval', icon: UserCircle, hiddenRoles: ['user'],
+    children: [
+      { id: 'mr-approval',          label: 'MR Approval',          page: 'MRApproval' },
+      { id: 'ipr-approval',         label: 'PR Approval',          page: 'IPRApproval' },
+    ],
+  },
   {
     id: 'technical', label: 'Technical', icon: Settings, hiddenRoles: ['user'],
     children: [
@@ -190,12 +197,12 @@ export const NAV = [
       // { id: 'rejected-job-list',    label: 'Rejected Job List',    page: 'RejectedJobList' },
       { id: 'process-completed',    label: 'Process Completed',    page: 'ProcessCompleted' },
       // { id: 'file-uploads',         label: 'File Uploads',         page: 'FileUploads' },
-      { id: 'mr-approval',          label: 'MR Approval',          page: 'MRApproval' },
+      // { id: 'mr-approval',          label: 'MR Approval',          page: 'MRApproval' },
       { id: 'nc-job-created',       label: 'NC Job Created',       page: 'NCJobCreated' },
       { id: 'nc-approval',          label: 'NC Approval',          page: 'NCApproval' },
       // { id: 'job-entry-closed',     label: 'Job Entry Closed',     page: 'JobEntryClosed' },
       // { id: 'job-card-cancel',      label: 'Job Card Cancel',      page: 'JobCardCancel' },
-      { id: 'ipr-approval',         label: 'PR Approval',          page: 'IPRApproval' },
+      // { id: 'ipr-approval',         label: 'PR Approval',          page: 'IPRApproval' },
       { id: 'job-qty-mismatch',     label: 'Job Qty Mismatch',     page: 'JobQtyMismatch' },
       { id: 'process-card-close',   label: 'Process Card Close',   page: 'ProcessCardClose' },
       { id: 'job-qc-entry',         label: 'Job QC Entry',         page: 'JobQCEntry' },
