@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-main: #0097A7;
+  --color-main-light: #D4F1F4;
+  --color-main-dark: #007a87;
+  --color-accent: #00BCD4;
+  --color-surface: #ffffff;
+  --color-background: #f8fafc;
+  --color-text-main: #1e293b;
+  --color-text-muted: #64748b;
+}
+
+* { font-family: 'Inter', 'Poppins', sans-serif; }
+body { background-color: #f8fafc; color: #1e293b; 
+}
+::-webkit-scrollbar {
+  display: none;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.15s;
+}
+.form-input::placeholder { color: #94a3b8; }
+.form-input:focus { border-color: #0097A7; box-shadow: 0 0 0 3px rgba(0,151,167,0.15); }
+
+.form-select {
+  width: 100%;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #64748b;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  transition: all 0.15s;
+}
+.form-select:focus { border-color: #0097A7; box-shadow: 0 0 0 3px rgba(0,151,167,0.15); }
+
+/* Premium Dashboard Entrance Animations (2-second duration) */
+@keyframes dashboardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-dashboard {
+  animation: dashboardFadeIn 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pieChartEntrance {
+  from {
+    transform: scale(0.9) rotate(-15deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-pie-chart {
+  animation: pieChartEntrance 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes gaugeEntrance {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-gauge-entry {
+  animation: gaugeEntrance 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
