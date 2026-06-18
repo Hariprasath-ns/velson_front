@@ -30,11 +30,6 @@ export default function Users() {
   const currentUser = auth?.user;
   const toast = useToast();
 
-  // Redirect if not admin
-  if (!currentUser || currentUser.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   // Hook state
   const {
     users,
@@ -52,7 +47,7 @@ export default function Users() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useState(DEFAULT_SORT);
-  
+
   // Modal & Form states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
@@ -81,7 +76,7 @@ export default function Users() {
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users;
     const q = search.toLowerCase();
-    return users.filter(u => 
+    return users.filter(u =>
       String(u.name || '').toLowerCase().includes(q) ||
       String(u.email || '').toLowerCase().includes(q) ||
       String(u.role || '').toLowerCase().includes(q)
@@ -150,7 +145,7 @@ export default function Users() {
   const handleSave = async () => {
     const isEdit = !!editUser;
     const { isValid, errors: valErrors } = validateUser(form, isEdit);
-    
+
     if (!isValid) {
       setErrors(valErrors);
       return;
@@ -164,7 +159,7 @@ export default function Users() {
 
     setSaving(true);
     let success = false;
-    
+
     if (isEdit) {
       const payload = {
         name: form.name.trim(),
@@ -202,6 +197,11 @@ export default function Users() {
     }
   };
 
+  // Redirect if not admin — placed after all hooks per Rules of Hooks
+  if (!currentUser || currentUser.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="p-5 space-y-5 w-full min-w-0">
       <div className="flex items-center gap-2 text-[12px] text-slate-400">
@@ -215,7 +215,7 @@ export default function Users() {
           <h1 className="text-lg font-bold text-slate-800 uppercase tracking-wider">User Masters</h1>
           <p className="text-[12px] text-slate-500">Manage database user roles, login credentials, and account statuses.</p>
         </div>
-        
+
         <button
           onClick={handleAddNewClick}
           className="flex items-center gap-1.5 px-4 py-2 bg-[#0097A7] hover:bg-[#007a87] text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm"
@@ -231,7 +231,7 @@ export default function Users() {
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
         />
-        
+
         <UserTable
           users={pagedUsers}
           totalEntries={filteredUsers.length}
