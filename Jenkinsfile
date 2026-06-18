@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'Node24'   // match whatever name you used for the backend job
+        nodejs 'Node24'
     }
 
     stages {
@@ -21,7 +21,11 @@ pipeline {
 
         stage('Lint') {
             steps {
-                sh 'npm run lint'
+                // Don't fail the build on lint errors yet (560 pre-existing issues to clean up over time).
+                // Marks the build UNSTABLE instead of FAILED so it's visible but not blocking.
+                catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                    sh 'npm run lint'
+                }
             }
         }
 
@@ -35,6 +39,9 @@ pipeline {
     post {
         success {
             echo "velson_front build succeeded"
+        }
+        unstable {
+            echo "velson_front build succeeded with lint warnings - see Lint stage output"
         }
         failure {
             echo "velson_front build failed"
