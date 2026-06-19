@@ -23,7 +23,7 @@ export function useUserPermissions(currentUser) {
   }, [currentUserId, currentUserEmail]);
 
   const isAdmin = useCallback(() => {
-    return currentUser?.role === 'admin';
+    return (currentUser?.role || '').toLowerCase() === 'admin';
   }, [currentUser]);
 
   return {

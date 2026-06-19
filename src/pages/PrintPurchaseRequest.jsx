@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Trash2, Printer, Eye, Pencil } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useModulePermission } from '../hooks/useModulePermission'
 
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const fmtDate = d => {
@@ -13,10 +14,11 @@ const inp = 'border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outli
 const lbl = 'text-[12px] font-semibold text-slate-600 whitespace-nowrap'
 const iconBtn = 'flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#0097A7] transition-colors cursor-pointer select-none'
 
-const applyFilter = (records, from, to) => {
+const applyFilter = (records, from, to, pickMode) => {
   const f = from ? new Date(from) : null
   const t = to   ? new Date(to + 'T23:59:59') : null
   return records.filter(pr => {
+    if (pickMode && pr.status !== 'Approved') return false
     const d = new Date(pr.prDate)
     if (f && d < f) return false
     if (t && d > t) return false
@@ -59,7 +61,7 @@ const doExcelExport = (data, from, to) => {
     cols.join(','),
     ...rows.map(r => cols.map(c => `"${String(r[c]).replace(/"/g,'""')}"`).join(','))
   ]
-  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob(['�' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
   downloadBlob(blob, `purchase-requests-${from}-${to}.csv`)
 }
 
@@ -118,6 +120,9 @@ const doPrint = (data, from, to) => {
 
 /* ─── component ───────────────────────────────────────────── */
 export default function PrintPurchaseRequest() {
+  const { canEdit, canDelete, canPrint } = useModulePermission('print-purchase-request')
+  const pickMode = window.__velsonPrPickMode === true
+
   const [fromDate, setFromDate]     = useState('2026-04-01')
   const [toDate, setToDate]         = useState(new Date().toISOString().split('T')[0])
   const [activeRow, setActiveRow]   = useState(null)
@@ -141,6 +146,12 @@ export default function PrintPurchaseRequest() {
   const [hiddenCols, setHiddenCols]     = useState(new Set())
   const settingsRef = useRef(null)
 
+  const handlePickSelect = (row) => {
+    window.__velsonPrPickMode = false
+    window.__velsonPrPickId = row.id
+    window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'PurchaseOrderEntry' } }))
+  }
+
   useEffect(() => {
     const handler = e => {
       if (settingsRef.current && !settingsRef.current.contains(e.target)) setSettingsOpen(false)
@@ -157,7 +168,7 @@ export default function PrintPurchaseRequest() {
         const json = await res.json()
         if (json.success && json.data) {
           setAllData(json.data)
-          setData(applyFilter(json.data, fromDate, toDate))
+          setData(applyFilter(json.data, fromDate, toDate, pickMode))
         }
       } catch (err) {
         console.error('Error fetching purchase requests:', err)
@@ -170,7 +181,7 @@ export default function PrintPurchaseRequest() {
 
   /* ── date search ── */
   const handleSearch = () => {
-    setData(applyFilter(allData, fromDate, toDate))
+    setData(applyFilter(allData, fromDate, toDate, pickMode))
     setActiveRow(null)
     setFilterText('')
   }
@@ -206,8 +217,10 @@ export default function PrintPurchaseRequest() {
   const handlePrint = () => doPrint(displayData, fromDate, toDate)
 
   /* ── close ── */
-  const handleClose = () =>
-    window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'Dashboard' } }))
+  const handleClose = () => {
+    if (pickMode) { window.__velsonPrPickMode = false }
+    window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: pickMode ? 'PurchaseOrderEntry' : 'Dashboard' } }))
+  }
 
   /* ── header-level delete (deletes active row) ── */
   const handleHeaderDelete = () => {
@@ -225,7 +238,7 @@ export default function PrintPurchaseRequest() {
       if (res.ok && json.success !== false) {
         const updated = allData.filter(r => r.id !== deleteTarget.id)
         setAllData(updated)
-        setData(applyFilter(updated, fromDate, toDate))
+        setData(applyFilter(updated, fromDate, toDate, pickMode))
         setActiveRow(null)
       }
     } catch (err) {
@@ -352,7 +365,7 @@ export default function PrintPurchaseRequest() {
     }
   }
 
-  const totalActionCols = 3 // View + Edit + Delete always visible
+  const totalActionCols = pickMode ? 1 : 3
   const colSpanTotal    = visibleCols.length + totalActionCols
 
   return (
@@ -363,32 +376,41 @@ export default function PrintPurchaseRequest() {
         {/* <ChevronRight className="w-3 h-3" /> */}
         <span className="hover:text-[#0097A7] cursor-pointer">Purchase</span>
         <ChevronRight className="w-3 h-3" />
-        <span className="text-[#0097A7] font-semibold">Print Purchase Request</span>
+        <span className="text-[#0097A7] font-semibold">{pickMode ? 'Select Purchase Request' : 'Print Purchase Request'}</span>
       </div>
 
       <div className="bg-white rounded border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden">
         {/* Header */}
         <div className="bg-[#0097A7] px-4 py-2.5 flex items-center justify-between shrink-0">
-          <h2 className="text-white font-semibold text-[14px]">Print Purchase Request</h2>
+          <h2 className="text-white font-semibold text-[14px]">{pickMode ? 'Select a Purchase Request' : 'Print Purchase Request'}</h2>
           <div className="flex gap-2">
-            <button
-              onClick={handleHeaderDelete}
-              disabled={activeRow === null}
-              className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors flex items-center gap-1 disabled:opacity-40"
-            >
-              <Trash2 className="w-3 h-3" /> Delete
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors flex items-center gap-1"
-            >
-              <Printer className="w-3 h-3" /> Print Purchase Request
-            </button>
+            {!pickMode && (
+              <>
+                <button
+                  onClick={handleHeaderDelete}
+                  disabled={activeRow === null || !canDelete}
+                  title={!canDelete ? "No permission to delete" : ""}
+                  className={`px-3 py-1 text-white text-[12px] rounded transition-colors flex items-center gap-1 disabled:opacity-40
+                    ${!canDelete ? 'bg-slate-500/40 cursor-not-allowed' : 'bg-white/20 hover:bg-white/30'}`}
+                >
+                  <Trash2 className="w-3 h-3" /> Delete
+                </button>
+                <button
+                  onClick={handlePrint}
+                  disabled={!canPrint}
+                  title={!canPrint ? "No permission to print" : ""}
+                  className={`px-3 py-1 text-white text-[12px] rounded transition-colors flex items-center gap-1 disabled:opacity-40
+                    ${!canPrint ? 'bg-slate-500/40 cursor-not-allowed' : 'bg-white/20 hover:bg-white/30'}`}
+                >
+                  <Printer className="w-3 h-3" /> Print Purchase Request
+                </button>
+              </>
+            )}
             <button
               onClick={handleClose}
               className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors flex items-center gap-1"
             >
-              <X className="w-3 h-3" /> Close
+              <X className="w-3 h-3" /> {pickMode ? 'Cancel' : 'Close'}
             </button>
           </div>
         </div>
@@ -419,30 +441,30 @@ export default function PrintPurchaseRequest() {
               <input value={displayData.length} readOnly className="w-10 text-center border border-slate-300 rounded text-[12px] py-0.5 bg-slate-50" />
             </div>
             <div className="h-4 w-px bg-slate-300" />
-            <button onClick={handleDoc} className={iconBtn} title="Export as Word document">
+            <button onClick={handleDoc} disabled={!canPrint} className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`} title={!canPrint ? "No permission to print" : "Export as Word document"}>
               <FileText className="w-4 h-4 text-[#0097A7]" /> Dos
             </button>
-            <button onClick={handleExcel} className={iconBtn} title="Export as Excel/CSV">
+            <button onClick={handleExcel} disabled={!canPrint} className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`} title={!canPrint ? "No permission to print" : "Export as Excel/CSV"}>
               <FileSpreadsheet className="w-4 h-4 text-[#0097A7]" /> Excel
             </button>
-            <button onClick={handlePrint} className={iconBtn} title="Export as PDF / Print">
+            <button onClick={handlePrint} disabled={!canPrint} className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`} title={!canPrint ? "No permission to print" : "Export as PDF / Print"}>
               <FilePdf className="w-4 h-4 text-red-500" /> Pdf
             </button>
-            <button
+            {/* <button
               onClick={() => { setFilterOpen(o => !o); if (filterOpen) setFilterText('') }}
               className={`${iconBtn} ${filterOpen ? 'text-[#0097A7]' : ''}`}
               title="Toggle search filter"
             >
               <Filter className={`w-4 h-4 ${filterOpen ? 'text-[#0097A7]' : 'text-blue-500'}`} /> Filter
-            </button>
+            </button> */}
             <div className="relative" ref={settingsRef}>
-              <button
+              {/* <button
                 onClick={() => setSettingsOpen(o => !o)}
                 className={`${iconBtn} ${settingsOpen ? 'text-[#0097A7]' : ''}`}
                 title="Column visibility settings"
               >
                 <Settings className="w-4 h-4 text-slate-700" /> Setting
-              </button>
+              </button> */}
               {settingsOpen && (
                 <div className="absolute right-0 top-7 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-3 min-w-[180px]">
                   <p className="text-[11px] font-bold text-slate-500 uppercase mb-2 tracking-wide">Show / Hide Columns</p>
@@ -504,10 +526,15 @@ export default function PrintPurchaseRequest() {
                   {visibleCols.map(h => (
                     <th key={h} className="p-2 font-medium border-x border-slate-700 whitespace-nowrap">{h}</th>
                   ))}
-                  {/* Action columns always visible */}
-                  <th className="p-2 font-medium border-x border-slate-700 text-center">View</th>
-                  <th className="p-2 font-medium border-x border-slate-700 text-center">Edit</th>
-                  <th className="p-2 font-medium border-x border-slate-700 text-center">Delete</th>
+                  {pickMode ? (
+                    <th className="p-2 font-medium border-x border-slate-700 text-center">Select</th>
+                  ) : (
+                    <>
+                      {/* <th className="p-2 font-medium border-x border-slate-700 text-center">View</th> */}
+                      <th className="p-2 font-medium border-x border-slate-700 text-center">Edit</th>
+                      <th className="p-2 font-medium border-x border-slate-700 text-center">Delete</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
@@ -526,33 +553,48 @@ export default function PrintPurchaseRequest() {
                       className={`cursor-pointer transition-colors ${activeRow === i ? 'bg-[#0097A7]/20' : 'hover:bg-slate-50'}`}
                     >
                       {visibleCols.map(col => renderCell(pr, col, jobNo))}
-                      <td className="p-1.5 border-x border-slate-200 text-center">
-                        <button
-                          onClick={e => { e.stopPropagation(); setViewPR(pr) }}
-                          className="text-[#0097A7] hover:text-[#007a87] transition-colors"
-                          title="View details"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                      <td className="p-1.5 border-x border-slate-200 text-center">
-                        <button
-                          onClick={e => handleEdit(pr, e)}
-                          className="text-amber-500 hover:text-amber-600 transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                      <td className="p-1.5 border-x border-slate-200 text-center">
-                        <button
-                          onClick={e => { e.stopPropagation(); setDeleteTarget(pr) }}
-                          className="text-red-500 hover:text-red-600 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
+                      {pickMode ? (
+                        <td className="p-1.5 border-x border-slate-200 text-center" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => handlePickSelect(pr)}
+                            className="px-3 py-1 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-semibold rounded transition-colors"
+                          >
+                            Select
+                          </button>
+                        </td>
+                      ) : (
+                        <>
+                          {/* <td className="p-1.5 border-x border-slate-200 text-center">
+                            <button
+                              onClick={e => { e.stopPropagation(); setViewPR(pr) }}
+                              className="text-[#0097A7] hover:text-[#007a87] transition-colors"
+                              title="View details"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          </td> */}
+                          <td className="p-1.5 border-x border-slate-200 text-center">
+                            <button
+                              onClick={e => handleEdit(pr, e)}
+                              disabled={!canEdit}
+                              className={`transition-colors ${!canEdit ? 'text-slate-300 cursor-not-allowed' : 'text-amber-500 hover:text-amber-600'}`}
+                              title={!canEdit ? "No permission to edit" : "Edit"}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                          <td className="p-1.5 border-x border-slate-200 text-center">
+                            <button
+                              onClick={e => { e.stopPropagation(); setDeleteTarget(pr) }}
+                              disabled={!canDelete}
+                              className={`transition-colors ${!canDelete ? 'text-slate-300 cursor-not-allowed' : 'text-red-500 hover:text-red-600'}`}
+                              title={!canDelete ? "No permission to delete" : "Delete"}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   )
                 })}

@@ -76,14 +76,17 @@ export default function UserForm({ form, sf, errors, isEditMode, isSelf }) {
           <span className="text-red-500">*</span> User Role
         </label>
         <select
-          value={form.role || ROLES.USER}
+          value={form.role || ''}
           onChange={(e) => sf('role', e.target.value)}
           className={inputClass(errors.role) + (isSelf ? ' opacity-60 cursor-not-allowed bg-slate-50' : '')}
           disabled={isSelf}
         >
-          <option value={ROLES.USER}>User (Operational)</option>
-          <option value={ROLES.STAFF}>Staff (Staff Level)</option>
-          <option value={ROLES.ADMIN}>Admin (Full Control)</option>
+          <option value="">-- Select Role --</option>
+          {Object.values(ROLES).map((roleVal) => (
+            <option key={roleVal} value={roleVal}>
+              {roleVal}
+            </option>
+          ))}
         </select>
         {isSelf && <p className="text-[11px] text-slate-400 mt-1">You cannot change your own role.</p>}
         {errors.role && <p className="text-[11px] text-red-500 mt-1">{errors.role}</p>}

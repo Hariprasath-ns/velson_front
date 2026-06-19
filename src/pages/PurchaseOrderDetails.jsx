@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, Search, Trash2, Printer, Eye, X, Pencil, Filter, Settings, FileText, FileSpreadsheet, File as FilePdf } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useModulePermission } from '../hooks/useModulePermission'
 
 const BASE = 'http://localhost:3000'
 const today = new Date().toISOString().split('T')[0]
@@ -97,6 +98,7 @@ const doPrint = data => {
 }
 
 export default function PurchaseOrderDetails() {
+  const { canEdit, canDelete, canPrint } = useModulePermission('purchase-order-details')
   const [fromDate, setFromDate]     = useState(thirtyDaysAgo)
   const [toDate, setToDate]         = useState(today)
   const [statusFilter, setStatusFilter] = useState('')
@@ -286,16 +288,19 @@ export default function PurchaseOrderDetails() {
         <div className="bg-[#0097A7] px-4 py-2.5 flex items-center justify-between shrink-0">
           <h2 className="text-white font-semibold text-[14px]">Purchase Order Details</h2>
           <div className="flex gap-2">
-            <button
+            {/* <button
               onClick={headerDelete}
               disabled={activeRow === null}
               className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors flex items-center gap-1 disabled:opacity-40"
             >
               <Trash2 className="w-3 h-3" /> Delete
-            </button>
+            </button> */}
             <button
               onClick={handlePrint}
-              className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors flex items-center gap-1"
+              disabled={!canPrint}
+              title={!canPrint ? "No permission to print" : ""}
+              className={`px-3 py-1 text-white text-[12px] rounded transition-colors flex items-center gap-1 disabled:opacity-40
+                ${!canPrint ? 'bg-slate-500/40 cursor-not-allowed' : 'bg-white/20 hover:bg-white/30'}`}
             >
               <Printer className="w-3 h-3" /> Print
             </button>
@@ -342,13 +347,13 @@ export default function PurchaseOrderDetails() {
               <input value={displayRows.length} readOnly className="w-10 text-center border border-slate-300 rounded text-[12px] py-0.5 bg-slate-50" />
             </div>
             <div className="h-4 w-px bg-slate-300" />
-            <button onClick={() => doDocExport(displayRows)} className={iconBtn} title="Export as Word">
+            <button onClick={() => doDocExport(displayRows)} disabled={!canPrint} className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`} title={!canPrint ? "No permission to print" : "Export as Word"}>
               <FileText className="w-4 h-4 text-[#0097A7]" /> Dos
             </button>
-            <button onClick={() => doExcelExport(displayRows)} className={iconBtn} title="Export as CSV">
+            <button onClick={() => doExcelExport(displayRows)} disabled={!canPrint} className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`} title={!canPrint ? "No permission to print" : "Export as CSV"}>
               <FileSpreadsheet className="w-4 h-4 text-[#0097A7]" /> Excel
             </button>
-            <button onClick={handlePrint} className={iconBtn} title="Print">
+            <button onClick={handlePrint} disabled={!canPrint} className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`} title={!canPrint ? "No permission to print" : "Print"}>
               <FilePdf className="w-4 h-4 text-red-500" /> Pdf
             </button>
             <button
@@ -408,7 +413,7 @@ export default function PurchaseOrderDetails() {
                   {visibleCols.map(h => (
                     <th key={h} className="p-2 font-medium border-x border-slate-700 whitespace-nowrap">{h}</th>
                   ))}
-                  <th className="p-2 font-medium border-x border-slate-700 text-center">View</th>
+                  {/* <th className="p-2 font-medium border-x border-slate-700 text-center">View</th> */}
                   <th className="p-2 font-medium border-x border-slate-700 text-center">Edit</th>
                   <th className="p-2 font-medium border-x border-slate-700 text-center">Delete</th>
                   <th className="p-2 font-medium border-x border-slate-700 text-center">Print</th>
@@ -440,30 +445,36 @@ export default function PurchaseOrderDetails() {
                       }
                     })}
                     {/* View */}
-                    <td className="p-1.5 border-x border-slate-200 text-center">
+                    {/* <td className="p-1.5 border-x border-slate-200 text-center">
                       <button onClick={e => { e.stopPropagation(); setViewPO(row) }}
                         className="text-[#0097A7] hover:text-[#007a87] transition-colors" title="View details">
                         <Eye className="w-3.5 h-3.5" />
                       </button>
-                    </td>
+                    </td> */}
                     {/* Edit */}
                     <td className="p-1.5 border-x border-slate-200 text-center">
                       <button onClick={e => handleEdit(row, e)}
-                        className="text-amber-500 hover:text-amber-600 transition-colors" title="Edit">
+                        disabled={!canEdit}
+                        className={`transition-colors ${!canEdit ? 'text-slate-300 cursor-not-allowed' : 'text-amber-500 hover:text-amber-600'}`}
+                        title={!canEdit ? "No permission to edit" : "Edit"}>
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                     </td>
                     {/* Delete */}
                     <td className="p-1.5 border-x border-slate-200 text-center">
                       <button onClick={e => { e.stopPropagation(); setDeleteTarget(row) }}
-                        className="text-red-500 hover:text-red-600 transition-colors" title="Delete">
+                        disabled={!canDelete}
+                        className={`transition-colors ${!canDelete ? 'text-slate-300 cursor-not-allowed' : 'text-red-500 hover:text-red-600'}`}
+                        title={!canDelete ? "No permission to delete" : "Delete"}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </td>
                     {/* Print */}
                     <td className="p-1.5 border-x border-slate-200 text-center">
                       <button onClick={e => { e.stopPropagation(); doPrint([row]) }}
-                        className="text-purple-500 hover:text-purple-700 transition-colors" title="Print">
+                        disabled={!canPrint}
+                        className={`transition-colors ${!canPrint ? 'text-slate-300 cursor-not-allowed' : 'text-purple-500 hover:text-purple-700'}`}
+                        title={!canPrint ? "No permission to print" : "Print"}>
                         <Printer className="w-3.5 h-3.5" />
                       </button>
                     </td>

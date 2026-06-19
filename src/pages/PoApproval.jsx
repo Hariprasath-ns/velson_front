@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Printer } from 'lucide-react'
+import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Printer, Eye } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useModulePermission } from '../hooks/useModulePermission'
@@ -15,32 +15,31 @@ const inp = 'border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outli
 const lbl = 'text-[12px] font-semibold text-slate-600 whitespace-nowrap'
 const iconBtn = 'flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#0097A7] transition-colors cursor-pointer select-none'
 
-const applyFilter = (records, from, to) => {
-  const f = from ? new Date(from) : null
-  const t = to   ? new Date(to + 'T23:59:59') : null
-  return records.filter(pr => {
-    const d = new Date(pr.prDate)
-    if (f && d < f) return false
-    if (t && d > t) return false
-    return true
-  })
-}
-
-const ALL_COLS = [
-  'Request No', 'Request Date', 'Department Name', 'Job No',
-  'Request User', 'Required Date', 'Approval',
+const STATUS_OPTIONS = [
+  { value: '',         label: 'All' },
+  { value: 'Pending',  label: 'P.O Pending' },
+  { value: 'Approval', label: 'P.O Approved' },
+  { value: 'Rejected', label: 'P.O Rejected' },
 ]
+
+const statusColor = s => ({
+  Pending:  'text-amber-600 font-medium',
+  Approval: 'text-green-600 font-medium',
+  Rejected: 'text-red-500 font-medium',
+}[s] ?? 'text-slate-600')
+
+const ALL_COLS = ['PO No', 'PO Date', 'PO Type', 'Supplier Name', 'Contact Person', 'Status', 'Remarks']
 
 /* ─── export helpers ──────────────────────────────────────── */
 const buildRows = (data) =>
-  data.map(pr => ({
-    'Request No':      pr.prNo || '',
-    'Request Date':    fmtDate(pr.prDate),
-    'Department Name': pr.department || '',
-    'Job No':          pr.details?.map(d => d.jobNo).filter(Boolean).join('; ') || '',
-    'Request User':    pr.requestingUser || '',
-    'Required Date':   fmtDate(pr.requiredDate),
-    'Approval':        pr.status || '',
+  data.map(r => ({
+    'PO No':          r.poNo || '',
+    'PO Date':        fmtDate(r.poDate),
+    'PO Type':        r.poType || '',
+    'Supplier Name':  r.supplier?.supplierName || '',
+    'Contact Person': r.contactPerson || '',
+    'Status':         r.status || '',
+    'Remarks':        r.remarks || '',
   }))
 
 const downloadBlob = (blob, filename) => {
@@ -59,8 +58,8 @@ const doExcelExport = (data, from, to) => {
     cols.join(','),
     ...rows.map(r => cols.map(c => `"${String(r[c]).replace(/"/g,'""')}"`).join(','))
   ]
-  const blob = new Blob(['' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
-  downloadBlob(blob, `purchase-requests-${from}-${to}.csv`)
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  downloadBlob(blob, `purchase-orders-${from}-${to}.csv`)
 }
 
 const doDocExport = (data, from, to) => {
@@ -76,13 +75,13 @@ const doDocExport = (data, from, to) => {
   const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
 <head><meta charset='utf-8'><style>body{font-family:Arial;font-size:12px}h2{font-size:15px}p{font-size:11px;color:#555}</style></head>
 <body>
-<h2>Purchase Request List</h2>
+<h2>Purchase Order List</h2>
 <p>Date Range: ${from} to ${to} &nbsp;&nbsp; Generated: ${new Date().toLocaleDateString()}</p>
 <table border="1" style="border-collapse:collapse;width:100%"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
 <p style="margin-top:8px">Total Records: ${rows.length}</p>
 </body></html>`
   const blob = new Blob([html], { type: 'application/msword' })
-  downloadBlob(blob, `purchase-requests-${from}-${to}.doc`)
+  downloadBlob(blob, `purchase-orders-${from}-${to}.doc`)
 }
 
 const doPrint = (data, from, to) => {
@@ -93,7 +92,7 @@ const doPrint = (data, from, to) => {
     `<tr class="${i%2?'alt':''}"><td>${cols.map(c => r[c]).join('</td><td>')}</td></tr>`
   ).join('')
   const win = window.open('', '_blank', 'width=1100,height=750')
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Purchase Requests</title>
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Purchase Orders</title>
 <style>
   *{box-sizing:border-box}
   body{font-family:Arial,sans-serif;font-size:11px;margin:16px;color:#222}
@@ -106,7 +105,7 @@ const doPrint = (data, from, to) => {
   .footer{margin-top:10px;font-size:10px;color:#777}
   @media print{@page{margin:1cm}button{display:none}}
 </style></head><body>
-<h2>Purchase Request List</h2>
+<h2>Purchase Order List</h2>
 <p class="meta">Date Range: ${from} to ${to} &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString()} &nbsp;|&nbsp; Records: ${rows.length}</p>
 <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
 <p class="footer">Total Rows: ${rows.length}</p>
@@ -116,25 +115,30 @@ const doPrint = (data, from, to) => {
   setTimeout(() => { win.print() }, 400)
 }
 
-export default function PRApproval() {
-  const { canEdit, canPrint } = useModulePermission('ipr-approval')
+export default function PoApproval() {
+  const { canEdit, canPrint } = useModulePermission('po-approval')
   const toast = useToast()
 
-  const [fromDate, setFromDate]     = useState('2026-04-01')
-  const [toDate, setToDate]         = useState(new Date().toISOString().split('T')[0])
-  const [selectedPrId, setSelectedPrId] = useState(null)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const today = new Date().toISOString().split('T')[0]
+
+  const [fromDate, setFromDate]     = useState(thirtyDaysAgo)
+  const [toDate, setToDate]         = useState(today)
+  const [statusFilter, setStatusFilter] = useState('')
+  const [selectedPoId, setSelectedPoId] = useState(null)
   const [allData, setAllData]       = useState([])
   const [data, setData]             = useState([])
   const [loading, setLoading]       = useState(false)
+  const [searching, setSearching]   = useState(false)
 
   const [approving, setApproving]   = useState(false)
   const [rejecting, setRejecting]   = useState(false)
 
-  // inline filter (Filter button)
+  // inline filter
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterText, setFilterText] = useState('')
 
-  // column visibility (Settings button)
+  // column visibility settings
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [hiddenCols, setHiddenCols]     = useState(new Set())
   const settingsRef = useRef(null)
@@ -150,13 +154,20 @@ export default function PRApproval() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/api/purchase-request', { skipGlobalLoader: true })
+      const res = await api.get('/api/purchase-master', { skipGlobalLoader: true })
       const list = res.data?.data || []
       setAllData(list)
-      setData(applyFilter(list, fromDate, toDate))
+      // apply initial filters
+      let filtered = list
+      if (statusFilter) filtered = filtered.filter(r => r.status === statusFilter)
+      filtered = filtered.filter(r => {
+        const d = r.poDate ? r.poDate.split('T')[0] : ''
+        return d >= fromDate && d <= toDate
+      })
+      setData(filtered)
     } catch (err) {
-      console.error('Error fetching purchase requests:', err)
-      toast.error('Failed to load purchase requests')
+      console.error('Error fetching POs:', err)
+      toast.error('Failed to load purchase orders')
     } finally {
       setLoading(false)
     }
@@ -166,26 +177,32 @@ export default function PRApproval() {
     fetchData()
   }, [])
 
-  /* ── date search ── */
   const handleSearch = () => {
-    setData(applyFilter(allData, fromDate, toDate))
-    setSelectedPrId(null)
+    setSearching(true)
+    let result = allData
+    if (statusFilter) result = result.filter(r => r.status === statusFilter)
+    result = result.filter(r => {
+      const d = r.poDate ? r.poDate.split('T')[0] : ''
+      return d >= fromDate && d <= toDate
+    })
+    setData(result)
+    setSelectedPoId(null)
     setFilterText('')
+    setSearching(false)
   }
 
-  const selectedPr = data.find(pr => pr.id === selectedPrId)
+  const selectedPo = data.find(po => po.id === selectedPoId)
 
   /* ── live column filter ── */
   const displayData = filterText.trim()
-    ? data.filter(pr => {
+    ? data.filter(r => {
         const q = filterText.toLowerCase()
-        const jobNo = pr.details?.map(d => d.jobNo).filter(Boolean).join(' ') || ''
         return (
-          (pr.prNo || '').toLowerCase().includes(q) ||
-          (pr.department || '').toLowerCase().includes(q) ||
-          (pr.requestingUser || '').toLowerCase().includes(q) ||
-          (pr.status || '').toLowerCase().includes(q) ||
-          jobNo.toLowerCase().includes(q)
+          (r.poNo || '').toLowerCase().includes(q) ||
+          (r.poType || '').toLowerCase().includes(q) ||
+          (r.supplier?.supplierName || '').toLowerCase().includes(q) ||
+          (r.contactPerson || '').toLowerCase().includes(q) ||
+          (r.status || '').toLowerCase().includes(q)
         )
       })
     : data
@@ -209,64 +226,24 @@ export default function PRApproval() {
     window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'Dashboard' } }))
 
   /* ── approve ── */
-  const handleApprove = async (pr) => {
+  const handleApprove = async (po) => {
     setApproving(true)
     try {
-      // If PR already has a PO number, navigate to edit that existing PO
-      if (pr.poNo) {
-        const poListRes = await api.get('/api/purchase-master')
-        const poListJson = poListRes.data
-        if (poListJson.success) {
-          const existingPO = poListJson.data.find(p => p.poNo === pr.poNo)
-          if (existingPO) {
-            localStorage.setItem('velson:po-edit', String(existingPO.id))
-            window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'PurchaseOrderEntry' } }))
-            return
-          }
-        }
+      const res = await api.put(`/api/purchase-master/${po.id}`, {
+        ...po,
+        items: po.details || [],
+        status: 'Approval',
+        updatedBy: 'Admin'
+      })
+      const json = res.data
+      if (json.success) {
+        toast.success(`Purchase Order ${po.poNo} approved.`)
+        const patch = r => r.id === po.id ? { ...r, status: 'Approval' } : r
+        setAllData(prev => prev.map(patch))
+        setData(prev => prev.map(patch))
+      } else {
+        toast.error(json.message || 'Approval failed')
       }
-
-      // First-time approval: generate a new PO number
-      const nextRes = await api.get('/api/purchase-master/next-no')
-      const nextJson = nextRes.data
-      if (!nextJson.success) throw new Error('Could not generate PO number')
-      const poNo = nextJson.poNo
-      const poDate = new Date().toISOString().split('T')[0]
-
-      // Update PR status to Approved and save the generated PO number
-      const payload = {
-        prDate: pr.prDate,
-        requiredDate: pr.requiredDate,
-        department: pr.department,
-        departmentId: pr.departmentId,
-        requestingUser: pr.requestingUser,
-        team: pr.team,
-        teamId: pr.teamId,
-        requestingFor: pr.requestingFor,
-        requestingForId: pr.requestingForId,
-        remarks: pr.remarks,
-        status: 'Approved',
-        poNo,
-        poDate,
-        updatedBy: 'Admin',
-        items: pr.details || [],
-      }
-
-      const prRes = await api.put(`/api/purchase-request/${pr.id}`, payload)
-      const prJson = prRes.data
-      if (!prJson.success) throw new Error(prJson.message || 'Failed to approve request')
-
-      toast.success(`Purchase Request ${pr.prNo} approved.`)
-
-      const patch = r => r.id === pr.id ? { ...r, status: 'Approved', poNo, poDate } : r
-      setAllData(prev => prev.map(patch))
-      setData(prev => prev.map(patch))
-
-      // Pre-fill PurchaseOrderEntry with PR data; PO will be created there
-      localStorage.setItem('velson:po-prefill', JSON.stringify({
-        poNo, poDate, prNo: pr.prNo, items: pr.details || [],
-      }))
-      window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'PurchaseOrderEntry' } }))
     } catch (err) {
       console.error('Approve failed:', err)
       toast.error('Approval failed: ' + (err.response?.data?.message || err.message))
@@ -276,29 +253,24 @@ export default function PRApproval() {
   }
 
   /* ── reject ── */
-  const handleReject = async (pr) => {
+  const handleReject = async (po) => {
     setRejecting(true)
     try {
-      const payload = {
-        prDate: pr.prDate,
-        requiredDate: pr.requiredDate,
-        department: pr.department,
-        departmentId: pr.departmentId,
-        requestingUser: pr.requestingUser,
-        team: pr.team,
-        teamId: pr.teamId,
-        requestingFor: pr.requestingFor,
-        requestingForId: pr.requestingForId,
-        remarks: pr.remarks,
+      const res = await api.put(`/api/purchase-master/${po.id}`, {
+        ...po,
+        items: po.details || [],
         status: 'Rejected',
-        updatedBy: 'Admin',
-        items: pr.details || [],
+        updatedBy: 'Admin'
+      })
+      const json = res.data
+      if (json.success) {
+        toast.warning(`Purchase Order ${po.poNo} rejected.`)
+        const patch = r => r.id === po.id ? { ...r, status: 'Rejected' } : r
+        setAllData(prev => prev.map(patch))
+        setData(prev => prev.map(patch))
+      } else {
+        toast.error(json.message || 'Rejection failed')
       }
-      await api.put(`/api/purchase-request/${pr.id}`, payload)
-      toast.warning(`Purchase Request ${pr.prNo} rejected.`)
-      const patch = r => r.id === pr.id ? { ...r, status: 'Rejected' } : r
-      setAllData(prev => prev.map(patch))
-      setData(prev => prev.map(patch))
     } catch (err) {
       console.error('Reject failed:', err)
       toast.error('Rejection failed: ' + (err.response?.data?.message || err.message))
@@ -307,35 +279,36 @@ export default function PRApproval() {
     }
   }
 
-
-  const renderCell = (pr, col, jobNo) => {
+  const renderCell = (row, col) => {
     switch (col) {
-      case 'Request No':    return <td key={col} className="p-1.5 border-x border-slate-200 font-medium text-[#0097A7]">{pr.prNo}</td>
-      case 'Request Date':  return <td key={col} className="p-1.5 border-x border-slate-200">{fmtDate(pr.prDate)}</td>
-      case 'Department Name': return <td key={col} className="p-1.5 border-x border-slate-200">{pr.department || ''}</td>
-      case 'Job No':        return <td key={col} className="p-1.5 border-x border-slate-200">{jobNo}</td>
-      case 'Request User':  return <td key={col} className="p-1.5 border-x border-slate-200">{pr.requestingUser || ''}</td>
-      case 'Required Date': return <td key={col} className="p-1.5 border-x border-slate-200">{fmtDate(pr.requiredDate)}</td>
-      case 'Approval':      return <td key={col} className="p-1.5 border-x border-slate-200"><span className={`font-medium ${pr.status === 'Approved' ? 'text-green-600' : pr.status === 'Rejected' ? 'text-red-500' : 'text-amber-600'}`}>{pr.status}</span></td>
+      case 'PO No':          return <td key={col} className="p-1.5 border-x border-slate-200 font-medium text-[#0097A7]">{row.poNo}</td>
+      case 'PO Date':        return <td key={col} className="p-1.5 border-x border-slate-200">{fmtDate(row.poDate)}</td>
+      case 'PO Type':        return <td key={col} className="p-1.5 border-x border-slate-200">{row.poType || '—'}</td>
+      case 'Supplier Name':  return <td key={col} className="p-1.5 border-x border-slate-200 font-medium">{row.supplier?.supplierName || '—'}</td>
+      case 'Contact Person': return <td key={col} className="p-1.5 border-x border-slate-200">{row.contactPerson || '—'}</td>
+      case 'Status':         return <td key={col} className="p-1.5 border-x border-slate-200"><span className={`font-medium ${statusColor(row.status)}`}>{row.status || '—'}</span></td>
+      case 'Remarks':        return <td key={col} className="p-1.5 border-x border-slate-200 text-slate-500">{row.remarks || '—'}</td>
       default: return null
     }
   }
 
   const colSpanTotal = visibleCols.length
 
+  const headerBg = s => s === 'Approval' ? 'bg-green-600' : s === 'Rejected' ? 'bg-red-500' : 'bg-[#0097A7]'
+
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden h-screen flex flex-col">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-[12px] text-slate-400 shrink-0">
-        <span className="hover:text-[#0097A7] cursor-pointer">Approval</span>
+        <span className="hover:text-[#0097A7] cursor-pointer">Purchase</span>
         <ChevronRight className="w-3 h-3" />
-        <span className="text-[#0097A7] font-semibold">PR Approval</span>
+        <span className="text-[#0097A7] font-semibold">PO Approval</span>
       </div>
 
       <div className="bg-white rounded border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden">
         {/* Header */}
         <div className="bg-[#0097A7] px-4 py-2.5 flex items-center justify-between shrink-0">
-          <h2 className="text-white font-semibold text-[14px]">PR Approval Pending</h2>
+          <h2 className="text-white font-semibold text-[14px]">Purchase Order Details</h2>
           <div className="flex gap-2">
             <button
               onClick={handlePrint}
@@ -366,11 +339,21 @@ export default function PRApproval() {
               <label className={lbl}>To Date :</label>
               <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className={inp} />
             </div>
+            <div className="flex items-center gap-3">
+              {STATUS_OPTIONS.map(opt => (
+                <label key={opt.value} className="flex items-center gap-1 text-[12.5px] cursor-pointer whitespace-nowrap text-slate-700">
+                  <input type="radio" name="poStatus" value={opt.value} checked={statusFilter === opt.value}
+                    onChange={() => setStatusFilter(opt.value)} className="accent-[#0097A7]" />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
             <button
               onClick={handleSearch}
-              className="flex items-center gap-1.5 px-4 py-1 border border-[#0097A7] text-[#0097A7] bg-white hover:bg-[#0097A7]/10 rounded text-[12px] font-medium transition-colors shadow-sm"
+              disabled={searching || loading}
+              className="flex items-center gap-1.5 px-4 py-1 border border-[#0097A7] text-[#0097A7] bg-white hover:bg-[#0097A7]/10 rounded text-[12px] font-medium transition-colors shadow-sm disabled:opacity-75"
             >
-              <span className="w-2 h-2 rounded-full bg-red-500"></span> Search
+              <span className="w-2 h-2 rounded-full bg-red-500"></span> {searching ? 'Searching…' : 'Search'}
             </button>
           </div>
 
@@ -440,7 +423,7 @@ export default function PRApproval() {
               type="text"
               value={filterText}
               onChange={e => setFilterText(e.target.value)}
-              placeholder="Search across Request No, Department, User, Status, Job No…"
+              placeholder="Search across PO No, Supplier, Type, Status…"
               className="flex-1 border border-blue-200 rounded px-3 py-1 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white"
             />
             {filterText && (
@@ -475,18 +458,15 @@ export default function PRApproval() {
                       {filterText ? 'No matching records' : 'No records found'}
                     </td>
                   </tr>
-                ) : displayData.map((pr, i) => {
-                  const jobNo = pr.details?.map(d => d.jobNo).filter(Boolean).join(', ') || ''
-                  return (
-                    <tr
-                      key={pr.id}
-                      onClick={() => setSelectedPrId(pr.id)}
-                      className={`cursor-pointer transition-colors ${selectedPrId === pr.id ? 'bg-[#0097A7]/10 font-semibold' : 'hover:bg-slate-50'}`}
-                    >
-                      {visibleCols.map(col => renderCell(pr, col, jobNo))}
-                    </tr>
-                  )
-                })}
+                ) : displayData.map((row, i) => (
+                  <tr
+                    key={row.id}
+                    onClick={() => setSelectedPoId(row.id)}
+                    className={`cursor-pointer transition-colors ${selectedPoId === row.id ? 'bg-[#0097A7]/10 font-semibold' : 'hover:bg-slate-50'}`}
+                  >
+                    {visibleCols.map(col => renderCell(row, col))}
+                  </tr>
+                ))}
               </tbody>
               <tfoot className="sticky bottom-0 bg-[#f4f6ce] font-semibold text-slate-800 border-t-2 border-slate-300">
                 <tr>
@@ -501,22 +481,22 @@ export default function PRApproval() {
       </div>
 
       {/* Modal Popup Overlay */}
-      {selectedPr && (
+      {selectedPo && (
         <div
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setSelectedPrId(null)}
+          onClick={() => setSelectedPoId(null)}
         >
           <div
             className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="bg-[#0097A7] px-5 py-3.5 flex items-center justify-between shrink-0">
+            <div className={`${headerBg(selectedPo.status)} px-5 py-3.5 flex items-center justify-between shrink-0`}>
               <h3 className="text-white font-semibold text-[15px]">
-                Purchase Request Details - <span className="font-mono">{selectedPr.prNo}</span>
+                Purchase Order Details - <span className="font-mono">{selectedPo.poNo}</span>
               </h3>
               <button
-                onClick={() => setSelectedPrId(null)}
+                onClick={() => setSelectedPoId(null)}
                 className="text-white/80 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -529,50 +509,80 @@ export default function PRApproval() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
                 <div className="space-y-2">
                   <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Request No</span>
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">PO Number</span>
                     <span className="text-slate-400">:</span>
-                    <span className="text-slate-800 font-mono font-semibold">{selectedPr.prNo}</span>
+                    <span className="text-slate-800 font-mono font-semibold">{selectedPo.poNo}</span>
                   </div>
                   <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Department</span>
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">PO Date</span>
                     <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPr.department || '—'}</span>
+                    <span className="text-slate-800">{fmtDate(selectedPo.poDate)}</span>
                   </div>
                   <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Requesting User</span>
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">ETA Date</span>
                     <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPr.requestingUser || selectedPr.createdBy || '—'}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Required Date</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{fmtDate(selectedPr.requiredDate)}</span>
+                    <span className="text-slate-800">{fmtDate(selectedPo.etaDate)}</span>
                   </div>
                   <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Team</span>
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">PO Type</span>
                     <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPr.team || '—'}</span>
+                    <span className="text-slate-800">{selectedPo.poType || '—'}</span>
                   </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Requesting For</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPr.requestingFor || '—'}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
                   <div className="flex gap-2">
                     <span className="w-32 font-semibold text-slate-500 shrink-0">Status</span>
                     <span className="text-slate-400">:</span>
-                    <span className={`font-semibold ${selectedPr.status === 'Approved' ? 'text-green-600' : selectedPr.status === 'Rejected' ? 'text-red-500' : 'text-amber-600'}`}>{selectedPr.status}</span>
+                    <span className={`font-semibold ${statusColor(selectedPo.status)}`}>{selectedPo.status || '—'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">Supplier</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-800 font-medium">{selectedPo.supplier?.supplierName || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">Contact Person</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-800">{selectedPo.contactPerson || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">Contact No</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-800">{selectedPo.contactNumber || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">GST No</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-800">{selectedPo.gstNo || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">Supplier Ref No</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-800">{selectedPo.supplierRefNo || '—'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">Sub Total</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-800 font-medium">{selectedPo.subTotal != null ? `₹ ${Number(selectedPo.subTotal).toFixed(2)}` : '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">Grand Total</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-900 font-bold">{selectedPo.totalAmount != null ? `₹ ${Number(selectedPo.totalAmount).toFixed(2)}` : '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-32 font-semibold text-slate-500 shrink-0">Created By</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-800">{selectedPo.createdBy || '—'}</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="w-32 font-semibold text-slate-500 shrink-0">Remarks</span>
                     <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPr.remarks || '—'}</span>
+                    <span className="text-slate-800">{selectedPo.remarks || '—'}</span>
                   </div>
                 </div>
               </div>
@@ -580,71 +590,83 @@ export default function PRApproval() {
               {/* Item table */}
               <div>
                 <p className="text-[13px] font-bold text-slate-700 mb-2.5">Requested Items</p>
-                {selectedPr.details?.length > 0 ? (
+                {selectedPo.details?.length > 0 ? (
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
                     <table className="w-full text-[12px] border-collapse">
                       <thead className="bg-slate-100 border-b border-slate-200">
                         <tr>
-                          {['#','Item Code','Item Name','Specification','Qty','UOM','Job No','Machine No','Purpose'].map(h => (
-                            <th key={h} className="px-3 py-2 text-left font-semibold text-slate-600 border-r border-slate-200 last:border-r-0">{h}</th>
+                          {['#','Item Code','Item Name','Description','UOM','Qty','Unit Price','Disc%','Amount','GST%','Net Amt'].map(h => (
+                            <th key={h} className="px-3 py-2 text-left font-semibold text-slate-600 border-r border-slate-200 last:border-r-0 whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedPr.details.map((d, idx) => (
+                        {selectedPo.details.map((d, idx) => (
                           <tr key={idx} className={`border-b border-slate-200 last:border-b-0 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
                             <td className="px-3 py-2 text-slate-500 border-r border-slate-200">{idx + 1}</td>
                             <td className="px-3 py-2 font-mono text-[#0097A7] border-r border-slate-200">{d.itemCode || '—'}</td>
                             <td className="px-3 py-2 font-medium text-slate-800 border-r border-slate-200">{d.itemName || '—'}</td>
-                            <td className="px-3 py-2 text-slate-600 border-r border-slate-200">{d.specification || '—'}</td>
-                            <td className="px-3 py-2 font-bold text-slate-900 border-r border-slate-200">{d.qty ?? 0}</td>
+                            <td className="px-3 py-2 text-slate-600 border-r border-slate-200">{d.description || '—'}</td>
                             <td className="px-3 py-2 text-slate-500 border-r border-slate-200">{d.uom || '—'}</td>
-                            <td className="px-3 py-2 text-slate-600 border-r border-slate-200">{d.jobNo || '—'}</td>
-                            <td className="px-3 py-2 text-slate-600 border-r border-slate-200">{d.machineNo || '—'}</td>
-                            <td className="px-3 py-2 text-slate-500">{d.purpose || '—'}</td>
+                            <td className="px-3 py-2 font-bold text-slate-900 border-r border-slate-200">{d.qty ?? 0}</td>
+                            <td className="px-3 py-2 text-slate-800 border-r border-slate-200">{d.unitPrice ?? 0}</td>
+                            <td className="px-3 py-2 text-slate-500 border-r border-slate-200">{d.discPer ?? 0}</td>
+                            <td className="px-3 py-2 text-slate-800 border-r border-slate-200">{d.amount ?? 0}</td>
+                            <td className="px-3 py-2 text-slate-500 border-r border-slate-200">{d.gstPer ?? 0}</td>
+                            <td className="px-3 py-2 font-bold text-slate-900">{d.netAmt ?? 0}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <p className="text-[12px] text-slate-400 italic">No items associated with this request.</p>
+                  <p className="text-[12px] text-slate-400 italic">No items associated with this order.</p>
                 )}
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-slate-50 px-6 py-4 flex justify-end items-center border-t border-slate-200 gap-3 shrink-0">
-              {selectedPr.status === 'Pending' ? (
-                <>
-                  <button
-                    onClick={() => handleReject(selectedPr)}
-                    disabled={approving || rejecting || !canEdit}
-                    title={!canEdit ? "No permission to reject" : ""}
-                    className={`px-6 py-2 text-white text-[13px] font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center gap-1.5 active:scale-95
-                      ${!canEdit ? 'bg-slate-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
-                  >
-                    {rejecting ? 'Rejecting…' : 'Reject'}
-                  </button>
-                  <button
-                    onClick={() => handleApprove(selectedPr)}
-                    disabled={approving || rejecting || !canEdit}
-                    title={!canEdit ? "No permission to approve" : ""}
-                    className={`px-6 py-2 text-white text-[13px] font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center gap-1.5 active:scale-95
-                      ${!canEdit ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0097A7] hover:bg-[#007a87]'}`}
-                  >
-                    {approving ? 'Approving…' : 'Approve'}
-                  </button>
-                </>
-              ) : selectedPr.status === 'Approved' ? (
-                <span className="px-5 py-2 bg-emerald-100 text-emerald-700 text-[13px] font-semibold rounded-lg border border-emerald-200">
-                  ✓ Approved
-                </span>
-              ) : (
-                <span className="px-5 py-2 bg-red-100 text-red-600 text-[13px] font-semibold rounded-lg border border-red-200">
-                  ✗ Rejected
-                </span>
-              )}
+            <div className="bg-slate-50 px-6 py-4 flex justify-between items-center border-t border-slate-200 shrink-0">
+              <span className="text-[12px] text-slate-400">{selectedPo.details?.length || 0} item(s)</span>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSelectedPoId(null)}
+                  disabled={approving || rejecting}
+                  className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-[13px] font-semibold rounded-lg transition-colors border border-slate-300 disabled:opacity-50"
+                >
+                  Close
+                </button>
+                {selectedPo.status === 'Pending' ? (
+                  <>
+                    <button
+                      onClick={() => handleReject(selectedPo)}
+                      disabled={approving || rejecting || !canEdit}
+                      title={!canEdit ? "No permission to reject" : ""}
+                      className={`px-6 py-2 text-white text-[13px] font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center gap-1.5 active:scale-95
+                        ${!canEdit ? 'bg-slate-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
+                    >
+                      {rejecting ? 'Rejecting…' : 'Reject'}
+                    </button>
+                    <button
+                      onClick={() => handleApprove(selectedPo)}
+                      disabled={approving || rejecting || !canEdit}
+                      title={!canEdit ? "No permission to approve" : ""}
+                      className={`px-6 py-2 text-white text-[13px] font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center gap-1.5 active:scale-95
+                        ${!canEdit ? 'bg-slate-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                    >
+                      {approving ? 'Approving…' : 'Approve'}
+                    </button>
+                  </>
+                ) : selectedPo.status === 'Approval' ? (
+                  <span className="px-5 py-2 bg-emerald-100 text-emerald-700 text-[13px] font-semibold rounded-lg border border-emerald-200">
+                    ✓ Approved
+                  </span>
+                ) : (
+                  <span className="px-5 py-2 bg-red-100 text-red-600 text-[13px] font-semibold rounded-lg border border-red-200">
+                    ✗ Rejected
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -1,9 +1,17 @@
 import React from 'react';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Shield } from 'lucide-react';
 
-export default function UserActions({ onEdit, onDelete, canDelete, isDeleting }) {
+export default function UserActions({ onEdit, onDelete, onManageAccess, canDelete, isDeleting }) {
   return (
     <div className="flex justify-center gap-2">
+      <button
+        onClick={onManageAccess}
+        className="px-3 py-1.5 bg-[#475569] hover:bg-slate-700 text-white text-[12px] rounded transition-colors"
+        title="Rights Assignment"
+      >
+        <Shield className="w-4 h-4" />
+      </button>
+
       <button
         onClick={onEdit}
         className="px-3 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] rounded transition-colors"

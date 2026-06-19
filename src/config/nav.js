@@ -182,6 +182,7 @@ export const NAV = [
     children: [
       { id: 'mr-approval',          label: 'MR Approval',          page: 'MRApproval' },
       { id: 'ipr-approval',         label: 'PR Approval',          page: 'IPRApproval' },
+      { id: 'po-approval',          label: 'PO Approval',          page: 'PoApproval' },
     ],
   },
   {

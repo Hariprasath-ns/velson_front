@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Layout from './components/Layout'
-import { PAGE_TO_PATH } from './config/nav'
+import { PAGE_TO_PATH, NAV } from './config/nav'
 import { useAuth } from './context/AuthContext'
+import { useModulePermission } from './hooks/useModulePermission'
 
 import BookingEntryNew from './pages/BookingEntryNew'
 import ServiceQuotation from './pages/ServiceQuotation'
@@ -132,6 +133,7 @@ import MRApproval from './pages/MRApproval'
 import JobEntryClosed from './pages/JobEntryClosed'
 import JobCardCancel from './pages/JobCardCancel'
 import IPRApproval from './pages/IPRApproval'
+import PoApproval from './pages/PoApproval'
 import ReferenceMaster from './pages/ReferenceMaster'
 import LoginPage from './pages/LoginPage'
 import { DashboardPage } from './pages/OtherPages'
@@ -270,6 +272,7 @@ const PAGE_COMPONENTS = {
   JobEntryClosed:              JobEntryClosed,
   JobCardCancel:               JobCardCancel,
   IPRApproval:                 IPRApproval,
+  PoApproval:                  PoApproval,
   JobQtyMismatch:              JobQtyMismatch,
   ProcessCardClose:            ProcessCardClose,
   JobQCEntry:                  JobQCEntry,
@@ -295,6 +298,36 @@ function NavigationEventBridge() {
   return null
 }
 
+const PAGE_TO_MODULE = (() => {
+  const map = {}
+  for (const item of NAV) {
+    const hasChildren = item.children && item.children.length > 0
+    if (!hasChildren) {
+      if (item.page && !map[item.page]) {
+        map[item.page] = item.id.replace(/-top$/, '')
+      }
+    } else {
+      for (const child of item.children) {
+        if (child.page && !map[child.page]) {
+          map[child.page] = child.id
+        }
+      }
+    }
+  }
+  return map
+})()
+
+function ProtectedRoute({ pageKey, children }) {
+  const moduleCode = PAGE_TO_MODULE[pageKey]
+  const { canDisplay } = useModulePermission(moduleCode || '')
+
+  if (!moduleCode || canDisplay) {
+    return children
+  }
+
+  return <Navigate to="/dashboard" replace />
+}
+
 function AppRoutes() {
   return (
     <>
@@ -305,7 +338,17 @@ function AppRoutes() {
           {Object.entries(PAGE_COMPONENTS).map(([pageKey, Component]) => {
             const path = PAGE_TO_PATH[pageKey]
             if (!path) return null
-            return <Route key={pageKey} path={path} element={<Component />} />
+            return (
+              <Route
+                key={pageKey}
+                path={path}
+                element={
+                  <ProtectedRoute pageKey={pageKey}>
+                    <Component />
+                  </ProtectedRoute>
+                }
+              />
+            )
           })}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

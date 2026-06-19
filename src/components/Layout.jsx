@@ -38,18 +38,75 @@ export default function Layout({ children }) {
     logout()
   }
 
-  // Filter nav items based on hiddenRoles
-  const visibleNav = NAV.map(item => {
-    if (item.hiddenRoles?.includes(userRole)) return null
-    if (item.children) {
-      const visibleChildren = item.children.filter(
-        child => !child.hiddenRoles?.includes(userRole)
-      )
-      if (item.children.length > 0 && visibleChildren.length === 0) return null
-      return { ...item, children: visibleChildren }
+  const HIDDEN_FOR_STAFF = [
+    "users",
+    "reference-master",
+    "system-info-master",
+    "db-copy",
+    "restore-db",
+    "receipt-entry",
+    "receipt-details",
+    "voucher-entry",
+    "day-report",
+    "day-book",
+    "ledger-balance",
+    "monthly-ledger-balance",
+    "outstanding-receipt-report",
+    "payment-entry",
+    "payment-details",
+    "journal-entry",
+  ];
+
+  const HIDDEN_FOR_USER = [
+    ...HIDDEN_FOR_STAFF,
+    "company-master", "employee-master", "ledger-group-master", "machine-master", "contractor-master", "process-master", "part-usage-list", "qc-check-method", "qc-inspection-char", "qc-standard-master", "auto-po",
+    "part-number-base", "tax-ledger", "tax-master-menu", "item-group", "item-master",
+    "supplier-master", "customer-master", "vehicle-master",
+    "quotation-entry", "quotation-details", "marketing-log",
+    "purchase-order", "purchase-order-details", "purchase-request", "print-purchase-request",
+    "material-request", "print-material-request", "gate-entry", "gate-entry-report", "grn-entry", "grn-entry-report",
+    "bom-creation", "customerwise-bom-report", "index-creation", "index-creation-report", "upload-bom", "main-index", "main-index-report", "view-model",
+    "customer-complaint-entry", "ccms-entry-details", "dc-entry", "dc-details-report",
+    "breakdown-approval-list", "nc-approval", "nc-job-created", "nc-dc-entry", "nc-dc-details",
+    "barcode-details", "auto-job-entry", "service-job-entry-details", "conformation-list", "conformation-entry-details",
+    "job-card-entry", "process-menu", "tech-auto-job", "view-job-status", "waiting-for-approval", "update-route-details", "process-completed", "mr-approval", "nc-job-created", "nc-approval", "ipr-approval", "job-qty-mismatch", "process-card-close", "job-qc-entry",
+    "credit-sales", "sales-details", "quotation-sales", "quotation-details", "dc-sales", "dc-details", "service-bill-entry", "service-bill-details", "service-labour-bill-details", "temp-service-bill-details",
+  ];
+
+  const userRoleUpper = userRole.toUpperCase();
+
+  const canDisplayModule = (moduleCode) => {
+    if (userRoleUpper === "ADMIN" || auth?.user?.id === 0) return true;
+    
+    if (auth?.user?.permissions && auth?.user?.permissions.length > 0) {
+      const perm = auth.user.permissions.find((p) => p.module === moduleCode);
+      return perm ? !!perm.canDisplay : false;
     }
-    return item
-  }).filter(Boolean)
+    
+    if (userRoleUpper === "USER" && HIDDEN_FOR_USER.includes(moduleCode)) return false;
+    if (userRoleUpper === "STAFF" && HIDDEN_FOR_STAFF.includes(moduleCode)) return false;
+    
+    return true;
+  };
+
+  // Filter nav items based on custom permissions and hiddenRoles
+  const visibleNav = NAV.map(item => {
+    const itemCode = item.id.replace(/-top$/, "");
+    const isHiddenRole = item.hiddenRoles?.some(r => r.toUpperCase() === userRoleUpper);
+    if (isHiddenRole) return null;
+    if (!item.children && !canDisplayModule(itemCode)) return null;
+
+    if (item.children) {
+      const visibleChildren = item.children.filter(child => {
+        const isChildHiddenRole = child.hiddenRoles?.some(r => r.toUpperCase() === userRoleUpper);
+        if (isChildHiddenRole) return false;
+        return canDisplayModule(child.id);
+      });
+      if (visibleChildren.length === 0) return null;
+      return { ...item, children: visibleChildren };
+    }
+    return item;
+  }).filter(Boolean);
 
   return (
     <div className="flex h-screen bg-[#f4f6f8] overflow-hidden">

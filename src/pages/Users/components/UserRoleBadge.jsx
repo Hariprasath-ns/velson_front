@@ -5,9 +5,9 @@ export default function UserRoleBadge({ role }) {
   const label = getRoleLabel(role);
   let colorClass = 'bg-slate-100 text-slate-700 border border-slate-200';
   
-  if (role === 'admin') {
+  if ((role || '').toUpperCase() === 'ADMIN') {
     colorClass = 'bg-[#E0F7FA] text-[#006064] border border-[#B2EBF2]';
-  } else if (role === 'staff') {
+  } else if ((role || '').toUpperCase() === 'STAFF') {
     colorClass = 'bg-purple-100 text-purple-800 border border-purple-200';
   }
   

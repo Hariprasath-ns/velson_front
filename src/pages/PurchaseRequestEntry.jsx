@@ -3,6 +3,7 @@ import { ChevronRight, Plus, Trash2, X, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
 import api from '../services/api'
+import { useModulePermission } from '../hooks/useModulePermission'
 
 const today = new Date().toISOString().split('T')[0]
 const BASE = 'http://localhost:3000'
@@ -30,6 +31,7 @@ const FieldLoader = ({ loading, children, className = '' }) => (
 export default function PurchaseRequestEntry() {
   const toast = useToast()
   const { show: showLoader, hide: hideLoader } = useLoading()
+  const { canSave, canEdit } = useModulePermission('purchase-request')
   const [form, setForm] = useState({
     department: '', departmentId: null, requestingUser: 'admin',
     team: '', teamId: null, requestingFor: '', requestingForId: null,
@@ -37,13 +39,13 @@ export default function PurchaseRequestEntry() {
     remarks: ''
   })
   const [items, setItems] = useState([emptyItem()])
-  const [departments, setDepartments]             = useState([])
-  const [teams, setTeams]                         = useState([])
+  const [departments, setDepartments] = useState([])
+  const [teams, setTeams] = useState([])
   const [requestingForOpts, setRequestingForOpts] = useState([])
-  const [itemsData, setItemsData]                 = useState([])
-  const [loading, setLoading]                     = useState(true)
-  const [submitting, setSubmitting]               = useState(false)
-  const [editId, setEditId]                       = useState(null)
+  const [itemsData, setItemsData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [editId, setEditId] = useState(null)
   const initDone = useRef(false)
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function PurchaseRequestEntry() {
       setLoading(true)
 
       // Capture both flags synchronously before any async work
-      const editRaw  = localStorage.getItem('velson:pr-edit')
+      const editRaw = localStorage.getItem('velson:pr-edit')
       const editIdVal = editRaw ? parseInt(editRaw, 10) : null
       if (editRaw) localStorage.removeItem('velson:pr-edit')
 
@@ -65,15 +67,15 @@ export default function PurchaseRequestEntry() {
         // MR pick fetch always starts in parallel — regardless of cache state
         const mrPickPromise = mrPickId
           ? api.get(`/api/material-request/${mrPickId}`, { skipGlobalLoader: true })
-              .then(r => r.data?.data ?? null)
-              .catch(() => null)
+            .then(r => r.data?.data ?? null)
+            .catch(() => null)
           : Promise.resolve(null)
 
         let dj, tj, rj, ij
 
         if (_ddCache) {
           // Return from pick — reuse cached dropdowns, only fetch next-no
-          ;({ dj, tj, rj, ij } = _ddCache)
+          ; ({ dj, tj, rj, ij } = _ddCache)
           setDepartments(dj.data)
           setTeams(tj.data)
           setRequestingForOpts(rj.data)
@@ -86,7 +88,7 @@ export default function PurchaseRequestEntry() {
             fetch(`${BASE}/api/reference-master/Requesting_for_purchase`),
             fetch(`${BASE}/api/item-master?limit=10000`),
           ])
-          ;[dj, tj, rj, ij] = await Promise.all([dRes.json(), tRes.json(), rRes.json(), iRes.json()])
+            ;[dj, tj, rj, ij] = await Promise.all([dRes.json(), tRes.json(), rRes.json(), iRes.json()])
           if (dj.success) setDepartments(dj.data)
           if (tj.success) setTeams(tj.data)
           if (rj.success) setRequestingForOpts(rj.data)
@@ -104,34 +106,34 @@ export default function PurchaseRequestEntry() {
           if (nj.success) setForm(f => ({ ...f, requestNo: nj.prNo, financialYear: nj.financialYear }))
           if (mr) {
             const deptRec = dj.success ? dj.data.find(d => d.description === mr.departmentTo) : null
-            const rfRec   = rj.success ? rj.data.find(r => r.description === mr.requestingFor) : null
+            const rfRec = rj.success ? rj.data.find(r => r.description === mr.requestingFor) : null
             setForm(f => ({
               ...f,
-              department:      mr.departmentTo   || '',
-              departmentId:    deptRec?.id        ?? null,
-              requestingUser:  mr.requestingUser  || f.requestingUser,
-              requestingFor:   mr.requestingFor   || '',
-              requestingForId: rfRec?.id           ?? null,
-              requiredDate:    mr.requiredDate ? mr.requiredDate.split('T')[0] : f.requiredDate,
-              remarks:         mr.remarks || '',
+              department: mr.departmentTo || '',
+              departmentId: deptRec?.id ?? null,
+              requestingUser: mr.requestingUser || f.requestingUser,
+              requestingFor: mr.requestingFor || '',
+              requestingForId: rfRec?.id ?? null,
+              requiredDate: mr.requiredDate ? mr.requiredDate.split('T')[0] : f.requiredDate,
+              remarks: mr.remarks || '',
             }))
             if (mr.details?.length > 0) {
               const itemsList = ij.success ? ij.data : []
               setItems(mr.details.map(d => {
                 const matched = itemsList.find(i => i.partNo === d.itemCode)
                 return {
-                  itemId:        matched?.id     ?? null,
-                  code:          d.itemCode      || '',
-                  itemName:      d.itemName      || matched?.partName || '',
+                  itemId: matched?.id ?? null,
+                  code: d.itemCode || '',
+                  itemName: d.itemName || matched?.partName || '',
                   specification: d.materialGrade || matched?.description || '',
-                  jobNo:         d.modelName     || '',
-                  machineNo:     '',
-                  unit:          d.unit          || '',
-                  qty:           String(d.requestedQty ?? ''),
-                  eta:           '',
-                  qcDept:        '',
-                  purpose:       d.remarks       || '',
-                  selected:      false,
+                  jobNo: d.modelName || '',
+                  machineNo: '',
+                  unit: d.unit || '',
+                  qty: String(d.requestedQty ?? ''),
+                  eta: '',
+                  qcDept: '',
+                  purpose: d.remarks || '',
+                  selected: false,
                 }
               }))
             }
@@ -144,33 +146,33 @@ export default function PurchaseRequestEntry() {
             const pr = prJson.data
             setForm(f => ({
               ...f,
-              requestNo:      pr.prNo,
-              financialYear:  pr.financialYear,
-              requestDate:    pr.prDate     ? pr.prDate.split('T')[0]     : today,
-              requiredDate:   pr.requiredDate ? pr.requiredDate.split('T')[0] : today,
-              department:     pr.department     || '',
-              departmentId:   pr.departmentId   ?? null,
+              requestNo: pr.prNo,
+              financialYear: pr.financialYear,
+              requestDate: pr.prDate ? pr.prDate.split('T')[0] : today,
+              requiredDate: pr.requiredDate ? pr.requiredDate.split('T')[0] : today,
+              department: pr.department || '',
+              departmentId: pr.departmentId ?? null,
               requestingUser: pr.requestingUser || 'admin',
-              team:           pr.team           || '',
-              teamId:         pr.teamId         ?? null,
-              requestingFor:  pr.requestingFor  || '',
+              team: pr.team || '',
+              teamId: pr.teamId ?? null,
+              requestingFor: pr.requestingFor || '',
               requestingForId: pr.requestingForId ?? null,
-              remarks:        pr.remarks        || '',
+              remarks: pr.remarks || '',
             }))
             if (pr.details?.length > 0) {
               setItems(pr.details.map(d => ({
-                itemId:        d.itemId    || null,
-                code:          d.itemCode  || '',
-                itemName:      d.itemName  || '',
+                itemId: d.itemId || null,
+                code: d.itemCode || '',
+                itemName: d.itemName || '',
                 specification: d.specification || '',
-                jobNo:         d.jobNo     || '',
-                machineNo:     d.machineNo || '',
-                unit:          d.uom       || '',
-                qty:           String(d.qty ?? ''),
-                eta:           d.eta ? d.eta.split('T')[0] : '',
-                qcDept:        '',
-                purpose:       d.purpose   || '',
-                selected:      false,
+                jobNo: d.jobNo || '',
+                machineNo: d.machineNo || '',
+                unit: d.uom || '',
+                qty: String(d.qty ?? ''),
+                eta: d.eta ? d.eta.split('T')[0] : '',
+                qcDept: '',
+                purpose: d.purpose || '',
+                selected: false,
               })))
             }
           }
@@ -218,8 +220,8 @@ export default function PurchaseRequestEntry() {
     setItems(rows => rows.map((r, i) => i !== idx ? r : {
       ...r,
       itemId: item?.id ?? null,
-      code:          code,
-      itemName:      item?.partName    ?? '',
+      code: code,
+      itemName: item?.partName ?? '',
       specification: item?.description ?? '',
     }))
   }
@@ -249,34 +251,34 @@ export default function PurchaseRequestEntry() {
       const mappedItems = items
         .filter(r => r.code)
         .map(r => ({
-          itemId:        r.itemId,
-          itemCode:      r.code,
-          itemName:      r.itemName,
+          itemId: r.itemId,
+          itemCode: r.code,
+          itemName: r.itemName,
           specification: r.specification,
-          jobNo:         r.jobNo,
-          machineNo:     r.machineNo,
-          uom:           r.unit,
-          qty:           r.qty,
-          eta:           r.eta || null,
-          purpose:       r.purpose,
+          jobNo: r.jobNo,
+          machineNo: r.machineNo,
+          uom: r.unit,
+          qty: r.qty,
+          eta: r.eta || null,
+          purpose: r.purpose,
         }))
 
       if (editId) {
         // ── Update existing PR ──
         const payload = {
-          prDate:        form.requestDate,
-          requiredDate:  form.requiredDate,
-          department:    form.department,
-          departmentId:  form.departmentId,
+          prDate: form.requestDate,
+          requiredDate: form.requiredDate,
+          department: form.department,
+          departmentId: form.departmentId,
           requestingUser: form.requestingUser,
-          team:          form.team,
-          teamId:        form.teamId,
-          requestingFor:   form.requestingFor,
+          team: form.team,
+          teamId: form.teamId,
+          requestingFor: form.requestingFor,
           requestingForId: form.requestingForId,
-          remarks:         form.remarks,
-          status:          'Draft',
-          updatedBy:       form.requestingUser || 'Admin',
-          items:           mappedItems,
+          remarks: form.remarks,
+          status: 'Pending',
+          updatedBy: form.requestingUser || 'Admin',
+          items: mappedItems,
         }
         const res = await fetch(`${BASE}/api/purchase-request/${editId}`, {
           method: 'PUT',
@@ -293,21 +295,21 @@ export default function PurchaseRequestEntry() {
       } else {
         // ── Create new PR ──
         const payload = {
-          prNo:          form.requestNo,
+          prNo: form.requestNo,
           financialYear: form.financialYear,
-          prDate:        form.requestDate,
-          requiredDate:  form.requiredDate,
-          department:    form.department,
-          departmentId:  form.departmentId,
+          prDate: form.requestDate,
+          requiredDate: form.requiredDate,
+          department: form.department,
+          departmentId: form.departmentId,
           requestingUser: form.requestingUser,
-          team:          form.team,
-          teamId:        form.teamId,
-          requestingFor:   form.requestingFor,
+          team: form.team,
+          teamId: form.teamId,
+          requestingFor: form.requestingFor,
           requestingForId: form.requestingForId,
-          remarks:         form.remarks,
-          status:          'Draft',
-          createdBy:       form.requestingUser,
-          items:           mappedItems,
+          remarks: form.remarks,
+          status: 'Pending',
+          createdBy: form.requestingUser,
+          items: mappedItems,
         }
         const res = await fetch(`${BASE}/api/purchase-request`, {
           method: 'POST',
@@ -338,7 +340,7 @@ export default function PurchaseRequestEntry() {
       window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'PrintPurchaseRequest' } }))
     } else {
       setForm(f => ({ ...f, department: '', departmentId: null, team: '', teamId: null, requestingFor: '', requestingForId: null, remarks: '', requestDate: today, requiredDate: today }))
-      setItems([emptyItem()]) 
+      setItems([emptyItem()])
     }
   }
 
@@ -504,7 +506,13 @@ export default function PurchaseRequestEntry() {
             <label className={`${lbl} pt-1`}>Remarks:</label>
             <textarea rows="2" value={form.remarks} onChange={e => setField('remarks', e.target.value)} className={`${inp()} resize-none`} />
           </div>
-          <button onClick={handleSubmit} disabled={loading || submitting} className="px-6 py-2 bg-[#0097A7] hover:bg-[#007a87] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[13px] font-bold rounded shadow-sm transition-colors mt-2">
+          <button
+            onClick={handleSubmit}
+            disabled={loading || submitting || !(editId ? canEdit : canSave)}
+            title={!(editId ? canEdit : canSave) ? "You do not have permission to perform this action" : ""}
+            className={`px-6 py-2 text-white text-[13px] font-bold rounded shadow-sm transition-colors mt-2 disabled:opacity-60
+              ${!(editId ? canEdit : canSave) ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0097A7] hover:bg-[#007a87]'}`}
+          >
             {editId ? 'Update Request' : 'Submit For Approval'}
           </button>
         </div>

@@ -1,10 +1,9 @@
-PurchaseOrderEntry.jsx
-
 import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, Plus, Trash2, Send, X } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
 import { SpinnerLoader } from '../components/LocalLoader'
+import { useModulePermission } from '../hooks/useModulePermission'
 
 const PO_TYPES = ['Purchase Order','Purchase Return','Job Work']
 
@@ -47,6 +46,7 @@ const ComboInput = ({ id, value, onChange, className, placeholder, suggestions =
 export default function PurchaseOrderEntry() {
   const toast = useToast()
   const { show: showLoader, hide: hideLoader } = useLoading()
+  const { canSave, canEdit } = useModulePermission('purchase-order')
   const [form, setForm] = useState({
     supplierId: null,
     supplierName: '', supplierAddress: '', contactPerson: '', contactNumber: '',
@@ -193,10 +193,48 @@ export default function PurchaseOrderEntry() {
         } catch (e) {
           console.error('PO edit load error:', e)
         }
-      // Pre-fill from PR approval
+      // Pre-fill from PR pick or PR approval
       } else {
         const raw = localStorage.getItem('velson:po-prefill')
-        if (raw) {
+        const prPickId = window.__velsonPrPickId ?? null
+        if (prPickId) window.__velsonPrPickId = null
+
+        if (prPickId) {
+          try {
+            const prRes = await fetch(`http://localhost:3000/api/purchase-request/${prPickId}`)
+            const prJson = await prRes.json()
+            if (prJson && prJson.success && prJson.data) {
+              const pr = prJson.data
+              await fetchNextPoNo()
+              const prefillItems = pr.details?.length > 0
+                ? pr.details.map(d => {
+                    const master = loadedItems.find(it => it.partNo === d.itemCode)
+                    const qtyVal = parseFloat(d.qty) || 0
+                    const priceVal = master?.purchaseRate || 0
+                    const amtVal = qtyVal * priceVal
+                    return {
+                      ...emptyItem(),
+                      purchaseReqNo: pr.prNo,
+                      itemId:        master?.id             || null,
+                      itemCode:      d.itemCode             || '',
+                      itemName:      d.itemName             || master?.partName    || '',
+                      description:   d.specification        || master?.description || '',
+                      hsnCode:       master?.hsnCode        || '',
+                      uom:           d.uom                  || master?.uom        || '',
+                      supplierPartNo: master?.outsourcePartNo || '',
+                      qty:           String(d.qty ?? ''),
+                      unitPrice:     master?.purchaseRate != null ? String(master.purchaseRate) : '',
+                      amount:        amtVal > 0 ? amtVal.toFixed(2) : '',
+                      netAmt:        amtVal > 0 ? amtVal.toFixed(2) : '',
+                    }
+                  })
+                : [{ ...emptyItem(), purchaseReqNo: pr.prNo }]
+              setItems(prefillItems)
+            }
+          } catch (e) {
+            console.error('PO PR pick load error:', e)
+          }
+        } else if (raw) {
           localStorage.removeItem('velson:po-prefill')
           try {
             const prefill = JSON.parse(raw)
@@ -205,6 +243,9 @@ export default function PurchaseOrderEntry() {
             const prefillItems = prefill.items?.length > 0
               ? prefill.items.map(d => {
                   const master = loadedItems.find(it => it.partNo === d.itemCode)
+                  const qtyVal = parseFloat(d.qty) || 0
+                  const priceVal = master?.purchaseRate || 0
+                  const amtVal = qtyVal * priceVal
                   return {
                     ...emptyItem(),
                     purchaseReqNo: prefill.prNo,
@@ -216,6 +257,9 @@ export default function PurchaseOrderEntry() {
                     uom:           d.uom                  || master?.uom        || '',
                     supplierPartNo: master?.outsourcePartNo || '',
                     qty:           String(d.qty ?? ''),
+                    unitPrice:     master?.purchaseRate != null ? String(master.purchaseRate) : '',
+                    amount:        amtVal > 0 ? amtVal.toFixed(2) : '',
+                    netAmt:        amtVal > 0 ? amtVal.toFixed(2) : '',
                   }
                 })
               : [{ ...emptyItem(), purchaseReqNo: prefill.prNo }]
@@ -294,9 +338,11 @@ export default function PurchaseOrderEntry() {
           updated.hsnCode = item.hsnCode || ''
           updated.uom = item.uom || ''
           updated.supplierPartNo = item.outsourcePartNo || ''
+          updated.unitPrice = item.purchaseRate != null ? String(item.purchaseRate) : ''
         } else {
           updated.itemId = null
           updated.supplierPartNo = ''
+          updated.unitPrice = ''
         }
       }
       const q = parseFloat(k === 'qty' ? v : updated.qty) || 0
@@ -528,7 +574,15 @@ export default function PurchaseOrderEntry() {
               </div>
               {/* Action buttons */}
               <div className="flex gap-2 pt-1 flex-wrap">
-                <button className="px-3 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap">Pick From Request</button>
+                <button
+                  onClick={() => {
+                    window.__velsonPrPickMode = true
+                    window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'PrintPurchaseRequest' } }))
+                  }}
+                  className="px-3 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap"
+                >
+                  Pick From Request
+                </button>
                 <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm">
                   <Plus className="w-3.5 h-3.5"/> Add Row
                 </button>
@@ -548,9 +602,9 @@ export default function PurchaseOrderEntry() {
               <table className="min-w-full text-[12.5px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8"><input type="checkbox" className="accent-[#0097A7]"/></th>
-                    <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">#</th>
-                    {['Item Code','Purchase Req No','Supplier Part No','Item Name','Description','HSN Code','UOM','Qty','Unit Price','Disc %','Disc Amt','Amount','GST %','GST Amt','Net Amt','Action'].map(h => (
+                    {/* <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8"><input type="checkbox" className="accent-[#0097A7]"/></th> */}
+                    <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">S.NO</th>
+                    {['Item Code','Purchase Req No','Item Name','Description','HSN Code','UOM','Qty','Unit Price','Disc %','Disc Amt','Amount','GST %','GST Amt','Net Amt','Action'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -558,7 +612,7 @@ export default function PurchaseOrderEntry() {
                 <tbody>
                   {items.map((row, idx) => (
                     <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''}`}>
-                      <td className="px-2 py-1 text-center"><input type="checkbox" className="accent-[#0097A7]"/></td>
+                      {/* <td className="px-2 py-1 text-center"><input type="checkbox" className="accent-[#0097A7]"/></td> */}
                       <td className="px-2 py-1 text-center text-slate-500">{idx+1}</td>
                       <td className="px-1 py-1">
                         <select value={row.itemCode} onChange={e=>setItemField(idx,'itemCode',e.target.value)} className={inp()}>
@@ -572,7 +626,7 @@ export default function PurchaseOrderEntry() {
                           {purchaseRequests.map(pr => <option key={pr} value={pr}>{pr}</option>)}
                         </select>
                       </td>
-                      <td className="px-1 py-1"><input value={row.supplierPartNo} onChange={e=>setItemField(idx,'supplierPartNo',e.target.value)} className={inp()} /></td>
+                      {/* <td className="px-1 py-1"><input value={row.supplierPartNo} onChange={e=>setItemField(idx,'supplierPartNo',e.target.value)} className={inp()} /></td> */}
                       <td className="px-1 py-1"><input value={row.itemName} onChange={e=>setItemField(idx,'itemName',e.target.value)} className={`${inp()} ${row.itemId?'bg-slate-50':''}`} /></td>
                       <td className="px-1 py-1"><input value={row.description} onChange={e=>setItemField(idx,'description',e.target.value)} className={`${inp()} min-w-[120px] ${row.itemId?'bg-slate-50':''}`} /></td>
                       <td className="px-1 py-1"><input value={row.hsnCode} onChange={e=>setItemField(idx,'hsnCode',e.target.value)} className={`${inp()} ${row.itemId?'bg-slate-50':''}`} /></td>
@@ -650,8 +704,10 @@ export default function PurchaseOrderEntry() {
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-semibold rounded transition-colors shadow-sm disabled:opacity-70"
+                  disabled={submitting || !(editPoId ? canEdit : canSave)}
+                  title={!(editPoId ? canEdit : canSave) ? "You do not have permission to perform this action" : ""}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 text-white text-[12px] font-semibold rounded transition-colors shadow-sm disabled:opacity-70
+                    ${!(editPoId ? canEdit : canSave) ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0097A7] hover:bg-[#007a87]'}`}
                 >
                   <Send className="w-3.5 h-3.5"/> {editPoId ? 'Update' : 'Submit'}
                 </button>

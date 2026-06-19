@@ -52,7 +52,25 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// ── Response interceptor (success) ──────────────────────────────────────────
+// ── Response interceptor ──────────────────────────────────────────
+let isRefreshing = false
+let refreshSubscribers = []
+
+function subscribeTokenRefresh(cb) {
+  refreshSubscribers.push(cb)
+}
+
+function onRefreshed(token) {
+  refreshSubscribers.forEach((cb) => cb(token))
+  refreshSubscribers = []
+}
+
+function handleAuthFailure() {
+  localStorage.removeItem('velson_auth')
+  window.dispatchEvent(new CustomEvent('velson:logout'))
+  window.location.href = '/'
+}
+
 api.interceptors.response.use(
   (response) => {
     if (!response.config.skipGlobalLoader) {
@@ -61,11 +79,70 @@ api.interceptors.response.use(
     }
     return response
   },
-  (error) => {
+  async (error) => {
     if (!error.config?.skipGlobalLoader) {
       _count = Math.max(0, _count - 1)
       if (_count === 0 && _loader.hide) _loader.hide()
     }
+
+    const originalRequest = error.config
+    const response = error.response
+    
+    // Check if error is 401 with AUTH_TOKEN_EXPIRED error code
+    const isExpired = response && response.status === 401 && response.data?.errorCode === 'AUTH_TOKEN_EXPIRED'
+
+    if (isExpired && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(api(originalRequest))
+          })
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      return new Promise((resolve, reject) => {
+        let auth = null
+        try {
+          const raw = localStorage.getItem('velson_auth')
+          if (raw) auth = JSON.parse(raw)
+        } catch {}
+
+        const refreshToken = auth?.refreshToken
+        if (!refreshToken) {
+          isRefreshing = false
+          handleAuthFailure()
+          return reject(error)
+        }
+
+        // Request token refresh using plain axios instance
+        axios.post('/api/auth/refresh', { refreshToken })
+          .then((res) => {
+            const { token, refreshToken: newRefreshToken } = res.data
+            
+            const updatedAuth = { ...auth, token, refreshToken: newRefreshToken }
+            localStorage.setItem('velson_auth', JSON.stringify(updatedAuth))
+            
+            isRefreshing = false
+            onRefreshed(token)
+            
+            // Notify AuthContext and retry
+            window.dispatchEvent(new CustomEvent('velson:auth_refreshed', { detail: updatedAuth }))
+
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(api(originalRequest))
+          })
+          .catch((err) => {
+            isRefreshing = false
+            handleAuthFailure()
+            reject(err)
+          })
+      })
+    }
+
     const msg = error.response?.data?.message || error.message
     window.dispatchEvent(new CustomEvent('app-toast', {
       detail: { message: msg, type: 'error', title: 'System Error' }

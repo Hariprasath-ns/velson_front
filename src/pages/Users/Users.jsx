@@ -9,6 +9,7 @@ import { useToast } from '../../components/Toast';
 import UserFilters from './components/UserFilters';
 import UserTable from './components/UserTable';
 import UserModal from './components/UserModal';
+import UserPermissions from './components/UserPermissions';
 
 // Hooks, validation, utils, constants
 import { useUsers } from './hooks/useUsers';
@@ -47,6 +48,8 @@ export default function Users() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useState(DEFAULT_SORT);
+  const [activeTab, setActiveTab] = useState('users'); // 'users' or 'permissions'
+  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState(null);
 
   // Modal & Form states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -198,7 +201,7 @@ export default function Users() {
   };
 
   // Redirect if not admin — placed after all hooks per Rules of Hooks
-  if (!currentUser || currentUser.role !== 'admin') {
+  if (!currentUser || (currentUser.role || '').toLowerCase() !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -216,36 +219,74 @@ export default function Users() {
           <p className="text-[12px] text-slate-500">Manage database user roles, login credentials, and account statuses.</p>
         </div>
 
+        {activeTab === 'users' && (
+          <button
+            onClick={handleAddNewClick}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#0097A7] hover:bg-[#007a87] text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> Add User
+          </button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200">
         <button
-          onClick={handleAddNewClick}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[#0097A7] hover:bg-[#007a87] text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm"
+          onClick={() => setActiveTab('users')}
+          className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'users'
+              ? 'border-[#0097A7] text-[#0097A7] bg-white rounded-t'
+              : 'border-transparent text-slate-500 hover:text-[#0097A7]'
+          }`}
         >
-          <Plus className="w-4 h-4" /> Add User
+          User Accounts
+        </button>
+        <button
+          onClick={() => setActiveTab('permissions')}
+          className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'permissions'
+              ? 'border-[#0097A7] text-[#0097A7] bg-white rounded-t'
+              : 'border-transparent text-slate-500 hover:text-[#0097A7]'
+          }`}
+        >
+          Rights Assignment
         </button>
       </div>
 
-      <div className="bg-white rounded border border-slate-200 shadow-sm">
-        <UserFilters
-          search={search}
-          onSearchChange={setSearch}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-        />
+      {activeTab === 'users' ? (
+        <div className="bg-white rounded border border-slate-200 shadow-sm">
+          <UserFilters
+            search={search}
+            onSearchChange={setSearch}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+          />
 
-        <UserTable
-          users={pagedUsers}
-          totalEntries={filteredUsers.length}
-          page={page}
-          onPageChange={setPage}
-          pageSize={pageSize}
-          sort={sort}
-          onSortChange={setSort}
-          onEditClick={handleEditClick}
-          onDeleteClick={handleDeleteClick}
-          canDeleteUser={canDeleteUser}
-          isDeletingId={loading ? (confirmDelete?.id ?? null) : null}
+          <UserTable
+            users={pagedUsers}
+            totalEntries={filteredUsers.length}
+            page={page}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            sort={sort}
+            onSortChange={setSort}
+            onEditClick={handleEditClick}
+            onDeleteClick={handleDeleteClick}
+            onManageAccess={(user) => {
+              setSelectedUserForPermissions(user);
+              setActiveTab('permissions');
+            }}
+            canDeleteUser={canDeleteUser}
+            isDeletingId={loading ? (confirmDelete?.id ?? null) : null}
+          />
+        </div>
+      ) : (
+        <UserPermissions
+          users={users}
+          selectedUserFromTable={selectedUserForPermissions}
+          onClearSelectedUser={() => setSelectedUserForPermissions(null)}
         />
-      </div>
+      )}
 
       <UserModal
         isOpen={isModalOpen}

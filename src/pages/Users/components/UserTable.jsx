@@ -15,6 +15,7 @@ export default function UserTable({
   onSortChange,
   onEditClick,
   onDeleteClick,
+  onManageAccess,
   canDeleteUser,
   isDeletingId
 }) {
@@ -118,6 +119,7 @@ export default function UserTable({
                       <UserActions 
                         onEdit={() => onEditClick(row)}
                         onDelete={() => onDeleteClick(row)}
+                        onManageAccess={() => onManageAccess(row)}
                         canDelete={canDelete}
                         isDeleting={isDeletingId === row.id}
                       />

@@ -4,6 +4,7 @@ import { X, Save, RotateCcw, List, Edit, Trash2, Info, ChevronRight, Loader2 } f
 import { useToast } from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { TableSkeleton } from '../components/LocalLoader'
+import { useModulePermission } from '../hooks/useModulePermission'
 
 const PAGE_SIZES = [5, 10, 25, 50]
 
@@ -131,6 +132,7 @@ function DetailModal({ row, onClose }) {
 export default function CompanyMaster() {
   const toast = useToast()
   const fileRef = useRef(null)
+  const { canSave, canEdit, canDelete } = useModulePermission('company-master')
 
   const [rows, setRows] = useState([])
   const [companyTypes, setCompanyTypes] = useState([])
@@ -421,11 +423,21 @@ export default function CompanyMaster() {
 
               {/* Buttons */}
               <div className="flex gap-2 pt-1">
-                <button onClick={handleSave} disabled={saving}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[13px] font-semibold rounded transition-colors shadow-sm disabled:opacity-60">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {editId !== null ? 'Update' : 'Create'}
-                </button>
+                {(() => {
+                  const canWrite = editId !== null ? canEdit : canSave;
+                  return (
+                    <button 
+                      onClick={handleSave} 
+                      disabled={saving || !canWrite}
+                      title={!canWrite ? "You do not have permission to perform this action" : ""}
+                      className={`flex items-center gap-1.5 px-4 py-1.5 text-white text-[13px] font-semibold rounded transition-colors shadow-sm disabled:opacity-60
+                        ${!canWrite ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#27ae60] hover:bg-[#229954]'}`}
+                    >
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      {editId !== null ? 'Update' : 'Create'}
+                    </button>
+                  );
+                })()}
                 <button onClick={handleClear} disabled={saving}
                   className="flex items-center gap-1.5 px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[13px] font-semibold rounded transition-colors shadow-sm disabled:opacity-60">
                   <RotateCcw className="w-4 h-4" /> Clear
@@ -499,14 +511,24 @@ export default function CompanyMaster() {
                   <td className="px-3 py-2 text-center">{row.state}</td>
                   <td className="px-3 py-2 text-center font-mono text-[12px]">{row.gstin}</td>
                   <td className="px-3 py-2 text-center">
-                    <button onClick={() => handleEdit(row)}
-                      className="px-3 py-1.5 bg-[--color-main] hover:bg-[#3498db] text-white text-[12px] rounded transition-colors">
+                    <button 
+                      onClick={() => handleEdit(row)}
+                      disabled={!canEdit}
+                      title={!canEdit ? "No permission to edit" : "Edit"}
+                      className={`px-3 py-1.5 text-white text-[12px] rounded transition-colors
+                        ${!canEdit ? 'bg-slate-300 cursor-not-allowed' : 'bg-[--color-main] hover:bg-[#3498db]'}`}
+                    >
                       <Edit className="w-4 h-4" />
                     </button>
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <button onClick={() => setConfirmDelete(row.id)} disabled={deleting}
-                      className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] rounded transition-colors disabled:opacity-60">
+                    <button 
+                      onClick={() => setConfirmDelete(row.id)} 
+                      disabled={deleting || !canDelete}
+                      title={!canDelete ? "No permission to delete" : "Delete"}
+                      className={`px-3 py-1.5 text-white text-[12px] rounded transition-colors disabled:opacity-60
+                        ${!canDelete ? 'bg-slate-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'}`}
+                    >
                       {deleting && confirmDelete === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </button>
                   </td>

@@ -64,6 +64,7 @@ export default function PrintMaterialRequest() {
   useEffect(() => { fetchData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = allRows.filter(r => {
+    if (pickMode && r.status !== 'Approved') return false
     const rd = r.requestDate ? r.requestDate.slice(0, 10) : ''
     if (fromDate && rd < fromDate) return false
     if (toDate   && rd > toDate)   return false
@@ -113,7 +114,7 @@ export default function PrintMaterialRequest() {
         {/* Toolbar */}
         <div className="bg-[--color-main] px-4 py-2.5 flex items-center justify-between">
           <h2 className="text-white font-semibold text-[14px]">
-            {pickMode ? 'Select a Material Request' : 'Material Request List'}
+            {pickMode ? 'Select an Approved Material Request' : 'Material Request List'}
           </h2>
           <div className="flex items-center gap-2">
             <button onClick={fetchData} className="flex items-center gap-1 px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors">
