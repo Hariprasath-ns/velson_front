@@ -1501,6 +1501,7 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
     { label: 'Location', value: item.location || '—' },
     { label: 'Item Type', value: item.itemTypeName || resolve(dropdowns.itemTypes, item.itemTypeId) },
     { label: 'QC Type', value: item.qcTypeName || resolve(dropdowns.qcTypes, item.qcTypeId) },
+    { label: 'Barcode Type', value: item.barcodeType || '—' },
     { label: 'Remarks', value: item.remark || '—' },
     { label: 'Material Grade', value: item.materialGradeName || resolve(dropdowns.materialGrades, item.materialGradeId) },
     { label: 'Material Type', value: item.materialTypeName || resolve(dropdowns.materialTypes, item.materialTypeId) },
