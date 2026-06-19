@@ -13,7 +13,7 @@ const TAX_RATE_MAP = { 'LOCAL': 18, 'INTER': 28 }
 
 const today = new Date().toISOString().split('T')[0]
 
-const emptyItem = () => ({ itemCode:'', itemName:'', supplierPartNo:'', description:'', hsnCode:'', unit:'', stockQty:'', orderQty:'', qty:'', unitPrice:'', total:'', discPer:'', discAmt:'', finalPrice:'', taxPer:'', netAmt:'' })
+const emptyItem = () => ({ itemCode:'', itemName:'', qcType:'', supplierPartNo:'', description:'', hsnCode:'', unit:'', stockQty:'', orderQty:'', qty:'', unitPrice:'', total:'', discPer:'', discAmt:'', finalPrice:'', taxPer:'', netAmt:'' })
 const emptyFreightRow = () => ({ freightName:'', amount:'', taxPer:'', gstAmt:'0', igstAmt:'0', netTotal:'0' })
 
 const DEFAULT_FREIGHT_NAMES = [
@@ -44,6 +44,7 @@ export default function GRNEntry() {
   const [itemsLoading, setItemsLoading] = useState(false)
   const [editId, setEditId] = useState(null)
   const [suppliersData, setSuppliersData] = useState([])
+  const [itemsData, setItemsData] = useState([])
 
   useEffect(() => {
     setRefLoading(true)
@@ -93,6 +94,11 @@ export default function GRNEntry() {
           const types = (res.data.data || []).map(r => r.description || r.code).filter(Boolean)
           setCurrencies(types)
           if (types.length) setForm(f => ({ ...f, currency: f.currency || types[0] }))
+        }).catch(() => {}),
+
+      api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
+        .then(res => {
+          setItemsData(res.data.data || [])
         }).catch(() => {}),
     ]
 
@@ -152,6 +158,7 @@ export default function GRNEntry() {
       setItems(grn.details?.length > 0 ? grn.details.map(d => ({
         itemCode:       d.itemCode       || '',
         itemName:       d.itemName       || '',
+        qcType:         d.qcType         || '',
         supplierPartNo: d.supplierPartNo || '',
         description:    d.description   || '',
         hsnCode:        d.hsnCode        || '',
@@ -274,24 +281,57 @@ export default function GRNEntry() {
           }))
           // Enrich gate items with unitPrice, discPer, taxPer from PO details
           if (po.details && po.details.length && gateItems.length) {
-            setItems(gateItems.map(gi => {
+            const enriched = gateItems.map(gi => {
               const pd = po.details.find(d => d.itemCode === gi.itemCode)
-              if (!pd) return gi
+              const matchedItem = itemsData.find(it => it.partNo === gi.itemCode);
+              if (!pd) {
+                return {
+                  ...gi,
+                  qcType: matchedItem?.qcTypeName || ''
+                }
+              }
               return calcItemRow({
                 ...gi,
                 unitPrice: String(pd.unitPrice || ''),
                 discPer: String(pd.discPer || ''),
                 taxPer: String(pd.gstPer || ''),
+                qcType: matchedItem?.qcTypeName || '',
               })
-            }))
+            })
+            setItems(enriched)
           } else if (gateItems.length) {
-            setItems(gateItems)
+            const enriched = gateItems.map(gi => {
+              const matchedItem = itemsData.find(it => it.partNo === gi.itemCode);
+              return {
+                ...gi,
+                qcType: matchedItem?.qcTypeName || ''
+              }
+            })
+            setItems(enriched)
           }
         })
-        .catch(() => { if (gateItems.length) setItems(gateItems) })
+        .catch(() => {
+          if (gateItems.length) {
+            const enriched = gateItems.map(gi => {
+              const matchedItem = itemsData.find(it => it.partNo === gi.itemCode);
+              return {
+                ...gi,
+                qcType: matchedItem?.qcTypeName || ''
+              }
+            })
+            setItems(enriched)
+          }
+        })
         .finally(() => setItemsLoading(false))
     } else if (gateItems.length) {
-      setItems(gateItems)
+      const enriched = gateItems.map(gi => {
+        const matchedItem = itemsData.find(it => it.partNo === gi.itemCode);
+        return {
+          ...gi,
+          qcType: matchedItem?.qcTypeName || ''
+        }
+      })
+      setItems(enriched)
     }
     setShowGateModal(false)
   }
@@ -331,20 +371,25 @@ export default function GRNEntry() {
     }))
     // Populate items from PO details (itemCode, itemName, unitPrice, etc.)
     if (po.details && po.details.length) {
-      setItems(po.details.map(d => calcItemRow({
-        ...emptyItem(),
-        itemCode: d.itemCode || '',
-        itemName: d.itemName || '',
-        supplierPartNo: d.supplierPartNo || '',
-        description: d.description || '',
-        hsnCode: d.hsnCode || '',
-        unit: d.uom || '',
-        orderQty: String(d.qty || ''),
-        qty: String(d.qty || ''),
-        unitPrice: String(d.unitPrice || ''),
-        discPer: String(d.discPer || ''),
-        taxPer: String(d.gstPer || ''),
-      })))
+      const parsedItems = po.details.map(d => {
+        const matchedItem = itemsData.find(it => it.partNo === d.itemCode);
+        return calcItemRow({
+          ...emptyItem(),
+          itemCode: d.itemCode || '',
+          itemName: d.itemName || d.partName || matchedItem?.partName || '',
+          supplierPartNo: d.supplierPartNo || matchedItem?.outsourcePartNo || '',
+          description: d.description || matchedItem?.description || '',
+          hsnCode: d.hsnCode || matchedItem?.hsnCode || '',
+          unit: d.uom || matchedItem?.uom || '',
+          orderQty: String(d.qty || ''),
+          qty: String(d.qty || ''),
+          unitPrice: String(d.unitPrice || ''),
+          discPer: String(d.discPer || ''),
+          taxPer: String(d.gstPer || ''),
+          qcType: matchedItem?.qcTypeName || '',
+        })
+      })
+      setItems(parsedItems)
     }
     setShowPoModal(false)
   }
@@ -380,7 +425,27 @@ export default function GRNEntry() {
   const setItemField = (idx,k,v) => {
     setItems(rows=>rows.map((r,i)=>{
       if(i!==idx) return r
-      const u={...r,[k]:v}
+      let u={...r,[k]:v}
+      if (k === 'itemCode') {
+        const item = itemsData.find(it => it.partNo === v)
+        if (item) {
+          u.itemName = item.partName || ''
+          u.description = item.description || ''
+          u.hsnCode = item.hsnCode || ''
+          u.unit = item.uom || ''
+          u.supplierPartNo = item.outsourcePartNo || ''
+          u.unitPrice = item.purchaseRate != null ? String(item.purchaseRate) : ''
+          u.qcType = item.qcTypeName || ''
+        } else {
+          u.itemName = ''
+          u.description = ''
+          u.hsnCode = ''
+          u.unit = ''
+          u.supplierPartNo = ''
+          u.unitPrice = ''
+          u.qcType = ''
+        }
+      }
       const q=parseFloat(k==='qty'?v:u.qty)||0
       const p=parseFloat(k==='unitPrice'?v:u.unitPrice)||0
       const tot=q*p; u.total=tot.toFixed(2)
@@ -596,13 +661,13 @@ export default function GRNEntry() {
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>PO No :</label>
                 <input value={form.poNo} readOnly className={`${inp()} flex-1 bg-slate-50`}/>
-                <button onClick={openPoSearch} disabled={poLoading} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 disabled:opacity-60">
+                {/* <button onClick={openPoSearch} disabled={poLoading} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 disabled:opacity-60">
                   {poLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : null}Search
-                </button>
+                </button> */}
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>PO Date :</label>
-                <input type="date" value={form.poDate} onChange={e=>setField('poDate',e.target.value)} className={inp()}/>
+                <input type="date" value={form.poDate} readOnly onChange={e=>setField('poDate',e.target.value)} className={inp()}/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Tax Type :</label>
@@ -624,7 +689,7 @@ export default function GRNEntry() {
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>GRN Date :</label>
-                <input type="date" value={form.grnDate} onChange={e=>setField('grnDate',e.target.value)} className={inp()}/>
+                <input type="date" value={form.grnDate} readOnly onChange={e=>setField('grnDate',e.target.value)} className={`${inp()} bg-slate-50`}/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>Invoice No :</label>
@@ -632,32 +697,14 @@ export default function GRNEntry() {
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>Invoice Date :</label>
-                <input type="date" value={form.invoiceDate} onChange={e=>setField('invoiceDate',e.target.value)} className={inp()}/>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[110px] shrink-0`}>QC Type :</label>
-                <select value={form.qcType} onChange={e=>setField('qcType',e.target.value)} className={inp()}>
-                  {qcTypes.length === 0 && <option value="">Loading...</option>}
-                  {qcTypes.map(q=><option key={q} value={q}>{q}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[110px] shrink-0`}></label>
-                <div className="flex items-center gap-3">
-                  {['Dis_Per','Dis_Amt'].map(v=>(
-                    <label key={v} className="flex items-center gap-1 text-[12.5px] cursor-pointer">
-                      <input type="radio" name="discType" value={v} checked={form.discountType===v} onChange={()=>setField('discountType',v)} className="accent-[#0097A7]"/>
-                      {v==='Dis_Per'?'Dis Per':'Dis Amt'}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><Plus className="w-3.5 h-3.5"/> Add Row</button>
-                <button onClick={()=>{if(items.length>1)setItems(r=>r.slice(0,-1))}} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap"><Trash2 className="w-3.5 h-3.5"/> Delete Selected Item</button>
+                <input type="date" value={form.invoiceDate} readOnly onChange={e=>setField('invoiceDate',e.target.value)} className={inp()}/>
               </div>
             </div>
           </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><Plus className="w-3.5 h-3.5"/> Add Row</button>
+                <button onClick={()=>{if(items.length>1)setItems(r=>r.slice(0,-1))}} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap"><Trash2 className="w-3.5 h-3.5"/> Delete Selected Item</button>
+              </div>
 
           {/* Items */}
           <div className="mt-2">
@@ -679,48 +726,49 @@ export default function GRNEntry() {
                   </div>
                 </div>
               )}
-              <table className="min-w-full text-[12.5px]">
+              <table className="min-w-full text-[11px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8"><input type="checkbox" className="accent-[#0097A7]"/></th>
-                    <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">#</th>
-                    {['Item Code','Item Name','Supplier Part No','Description','HSN Code','Unit','Stock Qty','Order Qty','Qty','Unit Price','Total','Disc %','Disc Amt','Final Price','Tax %','Net Amt'].map(h=>(
-                      <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
+                    {/* <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8"><input type="checkbox" className="accent-[#0097A7]"/></th> */}
+                    <th className="px-1.5 py-1 text-center font-bold text-slate-600 text-[10px] uppercase w-8">S.NO</th>
+                    {['Item Code','Item Name','QC Type','Supplier Part No','HSN Code','Unit','Stock Qty','Order Qty','Qty','Unit Price','Total','Disc %','Disc Amt','Final Price','Tax %','Net Amt'].map(h=>(
+                      <th key={h} className="px-1.5 py-1 text-center font-bold text-slate-600 text-[10px] uppercase leading-tight max-w-[80px] break-words">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row,idx)=>(
                     <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''}`}>
-                      <td className="px-2 py-1 text-center"><input type="checkbox" className="accent-[#0097A7]"/></td>
-                      <td className="px-2 py-1 text-center text-slate-500">{idx+1}</td>
-                      <td className="px-1 py-1"><input value={row.itemCode} onChange={e=>setItemField(idx,'itemCode',e.target.value)} className={inp()}/></td>
-                      <td className="px-1 py-1"><input value={row.itemName} onChange={e=>setItemField(idx,'itemName',e.target.value)} className={`${inp()} min-w-[120px]`}/></td>
-                      <td className="px-1 py-1"><input value={row.supplierPartNo} onChange={e=>setItemField(idx,'supplierPartNo',e.target.value)} className={inp()}/></td>
-                      <td className="px-1 py-1"><input value={row.description} onChange={e=>setItemField(idx,'description',e.target.value)} className={`${inp()} min-w-[100px]`}/></td>
-                      <td className="px-1 py-1"><input value={row.hsnCode} onChange={e=>setItemField(idx,'hsnCode',e.target.value)} className={inp()}/></td>
-                      <td className="px-1 py-1"><input value={row.unit} onChange={e=>setItemField(idx,'unit',e.target.value)} className={`${inp()} w-14`}/></td>
-                      <td className="px-1 py-1"><input value={row.stockQty} onChange={e=>setItemField(idx,'stockQty',e.target.value)} className={`${inp()} w-16`}/></td>
-                      <td className="px-1 py-1"><input value={row.orderQty} onChange={e=>setItemField(idx,'orderQty',e.target.value)} className={`${inp()} w-16`}/></td>
-                      <td className="px-1 py-1"><input value={row.qty} onChange={e=>setItemField(idx,'qty',e.target.value)} className={`${inp()} w-14`}/></td>
-                      <td className="px-1 py-1"><input value={row.unitPrice} onChange={e=>setItemField(idx,'unitPrice',e.target.value)} className={`${inp()} w-18`}/></td>
-                      <td className="px-1 py-1"><input value={row.total} readOnly className={`${inp()} bg-slate-50 w-18`}/></td>
-                      <td className="px-1 py-1"><input value={row.discPer} onChange={e=>setItemField(idx,'discPer',e.target.value)} className={`${inp()} w-14`}/></td>
-                      <td className="px-1 py-1"><input value={row.discAmt} readOnly className={`${inp()} bg-slate-50 w-16`}/></td>
-                      <td className="px-1 py-1"><input value={row.finalPrice} readOnly className={`${inp()} bg-slate-50 w-18`}/></td>
-                      <td className="px-1 py-1"><input value={row.taxPer} onChange={e=>setItemField(idx,'taxPer',e.target.value)} className={`${inp()} w-14`}/></td>
-                      <td className="px-1 py-1"><input value={row.netAmt} readOnly className={`${inp()} bg-slate-50 w-18`}/></td>
+                      {/* <td className="px-2 py-1 text-center"><input type="checkbox" className="accent-[#0097A7]"/></td> */}
+                      <td className="px-1.5 py-1 text-center text-slate-500">{idx+1}</td>
+                      <td className="px-0.5 py-1"><input value={row.itemCode} onChange={e=>setItemField(idx,'itemCode',e.target.value)} className={`${inp()} w-20`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.itemName} onChange={e=>setItemField(idx,'itemName',e.target.value)} className={`${inp()} w-24`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.qcType} onChange={e=>setItemField(idx,'qcType',e.target.value)} className={`${inp()} w-20`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.supplierPartNo} onChange={e=>setItemField(idx,'supplierPartNo',e.target.value)} className={`${inp()} w-20`}/></td>
+                      {/* <td className="px-1 py-1"><input value={row.description} onChange={e=>setItemField(idx,'description',e.target.value)} className={`${inp()} min-w-[100px]`}/></td> */}
+                      <td className="px-0.5 py-1"><input value={row.hsnCode} onChange={e=>setItemField(idx,'hsnCode',e.target.value)} className={`${inp()} w-16`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.unit} onChange={e=>setItemField(idx,'unit',e.target.value)} className={`${inp()} w-10`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.stockQty} onChange={e=>setItemField(idx,'stockQty',e.target.value)} className={`${inp()} w-12`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.orderQty} onChange={e=>setItemField(idx,'orderQty',e.target.value)} className={`${inp()} w-12`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.qty} onChange={e=>setItemField(idx,'qty',e.target.value)} className={`${inp()} w-10`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.unitPrice} onChange={e=>setItemField(idx,'unitPrice',e.target.value)} className={`${inp()} w-16 min-w-[70px]`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.total} readOnly className={`${inp()} bg-slate-50 w-20 min-w-[85px]`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.discPer} onChange={e=>setItemField(idx,'discPer',e.target.value)} className={`${inp()} w-10`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.discAmt} readOnly className={`${inp()} bg-slate-50 w-14 min-w-[70px]`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.finalPrice} readOnly className={`${inp()} bg-slate-50 w-20 min-w-[85px]`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.taxPer} onChange={e=>setItemField(idx,'taxPer',e.target.value)} className={`${inp()} w-10`}/></td>
+                      <td className="px-0.5 py-1"><input value={row.netAmt} readOnly className={`${inp()} bg-slate-50 w-24 min-w-[100px]`}/></td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-slate-300 bg-slate-100">
-                    <td colSpan={17} className="px-3 py-1.5 text-right text-[12px] font-bold text-slate-700 uppercase tracking-wide">Net Total :</td>
-                    <td className="px-1 py-1">
+                    <td colSpan={16} className="px-3 py-1.5 text-right text-[12px] font-bold text-slate-700 uppercase tracking-wide">Net Total :</td>
+                    <td className="px-0.5 py-1">
                       <input
                         value={items.reduce((s,r)=>s+(parseFloat(r.netAmt)||0),0).toFixed(2)}
                         readOnly
-                        className={`${inp()} bg-slate-200 w-18 font-bold text-slate-800`}
+                        className={`${inp()} bg-slate-200 w-24 min-w-[100px] font-bold text-slate-800`}
                       />
                     </td>
                   </tr>
@@ -754,7 +802,7 @@ export default function GRNEntry() {
                 <label className={`${lbl} w-[120px] shrink-0`}>TCS Ledger :</label>
                 <select value={tcsLedger} onChange={e=>setTcsLedger(e.target.value)} className={inp()}><option>TCS A/C</option></select>
               </div>
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-5">
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
