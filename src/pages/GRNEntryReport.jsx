@@ -126,7 +126,7 @@ export default function GRNEntryReport() {
     @media print{@page{margin:1cm}}</style></head>
     <body>
     <h2>GOODS RECEIPT NOTE</h2>
-    <div class="sub">${grn.grnNo} &nbsp;|&nbsp; Date: ${fmtD(grn.grnDate)}</div>
+    <div class="sub">${grn.grnNo} &nbsp;|&nbsp; Date: ${fmtD(grn.grnDate)} ${grn.grnbarcode ? `&nbsp;|&nbsp; Barcode: ${grn.grnbarcode}` : ''}</div>
     <div class="info">
       <div class="info-row"><span class="info-lbl">Supplier:</span>${grn.supplierName||'-'}</div>
       <div class="info-row"><span class="info-lbl">GRN Type:</span>${grn.grnType||'-'}</div>
@@ -158,7 +158,7 @@ export default function GRNEntryReport() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length/pageSize))
   const paged = filtered.slice((page-1)*pageSize, page*pageSize)
-  const cols = ['GRN No','GRN Date','Gate Entry No','Supplier Name','PO No','Invoice No','Invoice Date','GRN Type','Taxable Amt','Tax Amt','Freight Tax Amt','TCS %','TCS Amt','Total Amount','Status','Edit','Delete','Print']
+  const cols = ['GRN No','Barcode','GRN Date','Gate Entry No','Supplier Name','PO No','Invoice No','Invoice Date','GRN Type','Taxable Amt','Tax Amt','Freight Tax Amt','TCS %','TCS Amt','Total Amount','Status','Edit','Delete','Print']
 
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
@@ -195,17 +195,18 @@ export default function GRNEntryReport() {
         </div>
 
         {loading ? (
-          <TableSkeleton rows={5} cols={['6%','7%','6%','12%','8%','7%','7%','7%','7%','7%','5%','5%','5%','7%','6%','4%','4%','4%']} />
+          <TableSkeleton rows={5} cols={['6%','8%','7%','6%','12%','8%','7%','7%','7%','7%','7%','5%','5%','5%','7%','6%','4%','4%','4%']} />
         ) : (
         <div className="overflow-x-auto w-full">
           <table className="min-w-full text-[12.5px]">
             <thead><tr className="bg-slate-50 border-b border-slate-200">{cols.map(h=><th key={h} className="px-3 py-2 text-center font-bold text-slate-600 text-[11px] uppercase tracking-wide whitespace-nowrap">{h}</th>)}</tr></thead>
             <tbody>
               {paged.length===0 ? (
-                <tr><td colSpan={18} className="text-center py-12 text-slate-400 text-[13px]">No GRN entries found.</td></tr>
+                <tr><td colSpan={19} className="text-center py-12 text-slate-400 text-[13px]">No GRN entries found.</td></tr>
               ) : paged.map((row,idx)=>(
                 <tr key={row.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${idx%2===1?'bg-slate-50/50':''}`}>
                   <td className="px-3 py-2 text-center font-medium text-[#0097A7]">{row.grnNo}</td>
+                  <td className="px-3 py-2 text-center font-semibold text-slate-700">{row.grnbarcode||'-'}</td>
                   <td className="px-3 py-2 text-center">{fmtDate(row.grnDate)}</td>
                   <td className="px-3 py-2 text-center">{row.gateEntryNo||'-'}</td>
                   <td className="px-3 py-2 text-center font-medium">{row.supplierName||'-'}</td>
