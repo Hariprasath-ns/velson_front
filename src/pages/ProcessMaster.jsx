@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment, useRef } from 'react'
-import { X, Save, RotateCcw, List, Edit, Trash2, Info, ChevronRight, ChevronDown, Search, Settings2, Image as ImageIcon, FileText, Plus, Loader2, AlertTriangle, XCircle } from 'lucide-react'
+import { X, Save, RotateCcw, Edit, Trash2, ChevronRight, ChevronDown, Search, Settings2, Image as ImageIcon, FileText, Plus, Loader2, AlertTriangle, XCircle } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 

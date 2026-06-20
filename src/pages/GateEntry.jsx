@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronRight, Search, Send, X, Loader2 } from 'lucide-react'
+import { ChevronRight, Search, Send, X } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
 import { SpinnerLoader } from '../components/LocalLoader'

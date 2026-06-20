@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronRight, Save, Trash2, X, Plus, RotateCcw, Search, FileText, Image as ImageIcon } from 'lucide-react'
+import { ChevronRight, Save, Trash2, X, Plus, RotateCcw, Search, Image as ImageIcon } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 

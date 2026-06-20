@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { 
   ChevronRight, Save, X, Search, RefreshCw, Trash2, Eraser, 
   FileSpreadsheet, Camera, Truck, ChevronUp, CheckCircle2, ShieldAlert,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { X, Save, ChevronRight, Plus, Trash2, RotateCcw } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toast'

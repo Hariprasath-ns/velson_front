@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react'
-import { ChevronRight, ChevronDown, Search, X, Clock, CheckCircle2, XCircle, Eye, Ban, Loader2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, Search, X, Clock, CheckCircle2, XCircle, Ban } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'

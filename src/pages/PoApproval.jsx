@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Printer, Eye } from 'lucide-react'
+import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Printer } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useModulePermission } from '../hooks/useModulePermission'

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, Fragment } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import {
   ChevronRight, ChevronDown, FileSpreadsheet, Search, Save, Edit, Trash2, RotateCcw, Image
@@ -834,6 +834,23 @@ export default function ServiceSpareEntry() {
       return
     }
     const selectedParts = selectedPartsList.map(r => r.id)
+    
+    const items = []
+    bomRows.forEach(assembly => {
+      if (Array.isArray(assembly.parts)) {
+        assembly.parts.forEach(p => {
+          items.push({
+            partNo: p.partNo,
+            partName: p.partName,
+            requiredQty: p.fasterQty,
+            issuedQty: p.issuedQty || 0,
+            balanceQty: p.fasterQty - (p.issuedQty || 0),
+            uom: p.unit || 'Nos'
+          })
+        })
+      }
+    })
+
     const newEntry = {
       serviceJobNo,
       bookingCustomerCode,
@@ -851,8 +868,10 @@ export default function ServiceSpareEntry() {
       status,
       selectedParts,
       totalAmount: getTotalAmount(),
-      savedDate: new Date().toISOString().split('T')[0]
+      savedDate: new Date().toISOString().split('T')[0],
+      items
     }
+
 
     try {
       let updated

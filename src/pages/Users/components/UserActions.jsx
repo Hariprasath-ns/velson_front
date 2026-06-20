@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Edit, Trash2, Shield } from 'lucide-react';
 
 export default function UserActions({ onEdit, onDelete, onManageAccess, canDelete, isDeleting }) {

@@ -97,6 +97,8 @@ export const NAV = [
       { id: 'gate-entry-report',      label: 'Gate Entry Report',      page: 'GateEntryReport' },
       { id: 'grn-entry',              label: 'GRN Entry',              page: 'GRNEntry' },
       { id: 'grn-entry-report',       label: 'GRN Entry Report',       page: 'GRNEntryReport' },
+      { id: 'material-issue',         label: 'Material Issue',         page: 'MaterialIssue' },
+      { id: 'stock-management',       label: 'Stock Management',       page: 'StockManagement' },
     ],
   },
   {

@@ -101,6 +101,8 @@ import PurchaseOrderOverallReport from './pages/PurchaseOrderOverallReport'
 import CurrentStock from './pages/CurrentStock'
 import QCCompletedList from './pages/QCCompletedList'
 import MaterialIssueCorrection from './pages/MaterialIssueCorrection'
+import StockManagement from './pages/StockManagement'
+import MaterialIssue from './pages/MaterialIssue'
 import StockDetails from './pages/StockDetails'
 import QCEntryReport from './pages/QCEntryReport'
 import CreditSales from './pages/CreditSales'
@@ -179,6 +181,7 @@ const PAGE_COMPONENTS = {
   EmployeeMaster:              EmployeeMaster,
   LedgerGroupMaster:           LedgerGroupMaster,
   MachineMaster:               MachineMaster,
+  MaterialIssue:               MaterialIssue,
   VehicleServiceMaster:        VehicleServiceMaster,
   ContractorMaster:            ContractorMaster,
   ProcessMaster:               ProcessMaster,
@@ -235,6 +238,7 @@ const PAGE_COMPONENTS = {
   InwardReports:               InwardReports,
   OutwardDetails:              OutwardDetails,
   MinStock:                    MinStock,
+  StockManagement:             StockManagement,
   MaterialIssuedDetails:       MaterialIssuedDetails,
   CompletedJobList:            CompletedJobList,
   PurchaseOrderReport:         PurchaseOrderReport,

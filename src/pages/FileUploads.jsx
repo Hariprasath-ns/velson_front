@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronRight, Search, X, FileSpreadsheet, FileText, Filter, Settings, Printer, Upload, Eye, RefreshCw } from 'lucide-react'
+import { ChevronRight, X, FileSpreadsheet, FileText, Filter, Settings, Printer, Upload, Eye, RefreshCw } from 'lucide-react'
 import { useToast } from '../components/Toast'
 
 const FilterInput = ({ value, onChange, type = 'text', className = '' }) => (

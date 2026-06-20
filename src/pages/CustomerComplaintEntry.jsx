@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ChevronRight, Save, X, Camera, Send, CheckCircle2, User, Phone, MapPin, ClipboardList, RotateCcw, Search, Trash2, Mail, Map, Plus, ImageIcon, Loader2 } from 'lucide-react'
+import { Save, X, CheckCircle2, Trash2, Plus, ImageIcon } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { SpinnerLoader } from '../components/LocalLoader'

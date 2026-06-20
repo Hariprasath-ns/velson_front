@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
 import UserStatusBadge from './UserStatusBadge';
 import UserRoleBadge from './UserRoleBadge';

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { getStatusLabel } from '../utils/userHelpers';
 
 export default function UserStatusBadge({ isActive }) {

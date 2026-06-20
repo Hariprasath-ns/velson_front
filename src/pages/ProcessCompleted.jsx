@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { ChevronRight, Search, X, FileSpreadsheet, FileText, Filter, Settings, Printer } from 'lucide-react'
 import { useToast } from '../components/Toast'
 

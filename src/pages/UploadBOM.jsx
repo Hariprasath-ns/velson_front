@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { ChevronRight, Upload, Search, Download, X, Trash2, FileSpreadsheet, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronRight, Upload, Search, X, Trash2, FileSpreadsheet, RotateCcw } from 'lucide-react'
 import { useToast } from '../components/Toast'
 
 // ── Shared UI primitives ──

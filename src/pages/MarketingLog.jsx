@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronRight, Upload, Eye, Search, RotateCcw, Save, Trash2, X, FileText, FileUp, Loader2 } from 'lucide-react'
+import { ChevronRight, Upload, Eye, Search, RotateCcw, Save, Trash2, X, FileText, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import ConfirmDialog from '../components/ConfirmDialog'

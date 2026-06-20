@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { getRoleLabel } from '../utils/userHelpers';
 
 export default function UserRoleBadge({ role }) {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, createContext, useContext } from 'react'
-import { Loader2 } from 'lucide-react'
+
 import { DotmTriangle6 } from '../components/ui/dotm-triangle-6'
 import { registerLoader } from '../services/api'
 

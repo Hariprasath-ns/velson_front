@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Trash2, Pencil, Search, Plus, Eye, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, X, Pencil, Plus } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 import api from '../services/api'

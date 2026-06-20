@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronRight, Search, Trash2, Printer, Eye, X, Pencil, Filter, Settings, FileText, FileSpreadsheet, File as FilePdf } from 'lucide-react'
+import { ChevronRight, Trash2, Printer, X, Pencil, Filter, Settings, FileText, FileSpreadsheet, File as FilePdf } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useModulePermission } from '../hooks/useModulePermission'
 

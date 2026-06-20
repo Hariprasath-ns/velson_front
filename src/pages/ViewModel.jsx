@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { ChevronRight, Search, FileText, X, Layers, Printer, FileDown, RotateCcw, Box } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronRight, Search, X, Layers, Printer, RotateCcw, Box } from 'lucide-react'
 import { useToast } from '../components/Toast'
 // ── Shared UI primitives ──
 const Label = ({ children, required }) => (
