@@ -1526,7 +1526,7 @@ export default function ServiceSpareEntry() {
               </div>
 
               {/* BOM Table */}
-              <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
+              <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
                 <table className="w-full text-left border-collapse min-w-[860px]">
                   <thead className="bg-slate-50 text-[12px] uppercase text-slate-400 font-bold border-b border-slate-200 sticky top-0 z-10">
                     <tr className="h-8">

@@ -7,8 +7,7 @@ import api from '../services/api'
 
 // Helper Styling primitives
 const inp = (readOnly = false, className = '') =>
-  `w-full px-2.5 py-1 text-[13px] h-[32px] border border-slate-350 rounded bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7] transition-all duration-150 ${
-    readOnly ? 'bg-slate-50 cursor-not-allowed text-slate-500 font-bold font-mono' : 'hover:border-slate-405'
+  `w-full px-2.5 py-1 text-[13px] h-[32px] border border-slate-350 rounded bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7] transition-all duration-150 ${readOnly ? 'bg-slate-50 cursor-not-allowed text-slate-500 font-bold font-mono' : 'hover:border-slate-405'
   } ${className}`
 
 const lbl = 'text-[11.5px] font-bold text-slate-500 whitespace-nowrap uppercase tracking-wide'
@@ -135,15 +134,21 @@ export default function MaterialIssue() {
   const [barcodeSearch, setBarcodeSearch] = useState('')
   const [availableStock, setAvailableStock] = useState(0.0)
 
-  // BOM items list
-  const [bomItems, setBomItems] = useState([])
-  const [selectedBomItem, setSelectedBomItem] = useState(null)
-  const [showBOM, setShowBOM] = useState(true)
-
   // Main table list
   const [issuedItems, setIssuedItems] = useState([])
   const [searchText, setSearchText] = useState('')
   const [selectedGridRows, setSelectedGridRows] = useState([]) // indices of rows selected in the main grid
+
+  // BOM items list
+  const [rawBomItems, setRawBomItems] = useState([])
+  const bomItems = useMemo(() => {
+    return rawBomItems.filter(it => {
+      const localIssued = issuedItems.filter(li => li.partNo === it.partNo).reduce((sum, li) => sum + li.qty, 0)
+      return it.balanceQty - localIssued > 0
+    })
+  }, [rawBomItems, issuedItems])
+  const [selectedBomItem, setSelectedBomItem] = useState(null)
+  const [showBOM, setShowBOM] = useState(true)
 
   // Load Initial Master Data
   const loadInitialData = async () => {
@@ -196,7 +201,7 @@ export default function MaterialIssue() {
   const handleJobNoChange = async (val) => {
     setServiceJobNo(val)
     setServicePartNo('')
-    setBomItems([])
+    setRawBomItems([])
     setSelectedBomItem(null)
     clearTransactionFields()
 
@@ -233,18 +238,14 @@ export default function MaterialIssue() {
     clearTransactionFields()
 
     if (!val) {
-      setBomItems([])
+      setRawBomItems([])
       return
     }
 
     try {
       const bomRes = await api.get(`/api/material-issue/bom-items?servicePartNo=${encodeURIComponent(val)}&serviceJobNo=${encodeURIComponent(serviceJobNo)}`)
       const items = bomRes.data?.data || []
-      const filtered = items.filter(it => {
-        const localIssued = issuedItems.filter(li => li.partNo === it.partNo).reduce((sum, li) => sum + li.qty, 0)
-        return it.balanceQty - localIssued > 0
-      })
-      setBomItems(filtered)
+      setRawBomItems(items)
     } catch (err) {
       console.error(err)
       toast.error('Failed to load BOM items')
@@ -391,10 +392,6 @@ export default function MaterialIssue() {
 
     clearTransactionFields()
     setSelectedBomItem(null)
-
-    if (servicePartNo) {
-      handleServicePartNoChange(servicePartNo)
-    }
   }
 
   // Delete selected items from grid
@@ -406,17 +403,13 @@ export default function MaterialIssue() {
     setIssuedItems(prev => prev.filter((_, idx) => !selectedGridRows.includes(idx)))
     setSelectedGridRows([])
     toast.success('Selected items removed')
-
-    if (servicePartNo) {
-      handleServicePartNoChange(servicePartNo)
-    }
   }
 
   // Clear Form
   const handleClearAll = () => {
     setServiceJobNo('')
     setServicePartNo('')
-    setBomItems([])
+    setRawBomItems([])
     setSelectedBomItem(null)
     clearTransactionFields()
     setIssuedItems([])
@@ -485,12 +478,26 @@ export default function MaterialIssue() {
 
   // Image lookup
   const partImageSrc = useMemo(() => {
-    const matched = itemMasterList.find(im => im.partNo === partNo)
-    if (matched && matched.imagePath) {
-      return matched.imagePath
+    let pNo = partNo
+    if (!pNo && servicePartNo) {
+      pNo = servicePartNo.split(' - ')[0].trim()
+    }
+    if (!pNo) return null
+
+    const matched = itemMasterList.find(im => im.partNo === pNo)
+    if (matched) {
+      if (matched.hasImage) {
+        return `/api/item-master/${matched.id}/download-image`
+      }
+      if (matched.imagePath) {
+        if (matched.imagePath.startsWith('http') || matched.imagePath.startsWith('/')) {
+          return matched.imagePath
+        }
+        return `/uploads/${matched.imagePath}`
+      }
     }
     return null
-  }, [partNo, itemMasterList])
+  }, [partNo, servicePartNo, itemMasterList])
 
   // Summary stats
   const totalQty = useMemo(() => issuedItems.reduce((sum, it) => sum + it.qty, 0), [issuedItems])
@@ -523,260 +530,62 @@ export default function MaterialIssue() {
   }
 
   return (
-    <div className="bg-[#f4f6f8] min-h-screen text-slate-800 pb-10">
-      <div className="px-6 py-6">
-        
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-[12px] text-slate-400 mb-5">
-          <span className="hover:text-[#0097A7] cursor-pointer transition-colors uppercase">Stores</span>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-[#0097A7] font-semibold uppercase">Material Issue</span>
+    <div className="h-[calc(100vh-46px)] w-full flex flex-col overflow-hidden bg-slate-50 text-slate-800">
+      
+      {/* 1. Static Top Header Bar */}
+      <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shrink-0 shadow-sm z-10">
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Stores</span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+          <span className="text-[13px] font-bold text-slate-700 uppercase tracking-wide">Material Issue Entry</span>
+         
         </div>
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold rounded text-[12px] transition-colors shadow-sm">
+            <FileSpreadsheet size={14} /> Export Excel
+          </button>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('velson:navigate', { detail: 'Dashboard' }))}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-bold rounded text-[12px] transition-colors shadow-sm"
+          >
+            <X size={14} /> Close
+          </button>
+        </div>
+      </div>
 
-        {/* Outer Frame */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[900px]">
+      {/* 2. Scrollable Middle Content Container */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        
+        {/* Top Section: Item Issue Details & Receiver Details Panel */}
+        <div className="grid grid-cols-12 gap-5 items-start">
           
-          {/* Main Top Header */}
-          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <div className="w-3.5 h-3.5 bg-red-700 rounded-sm" />
-              <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">Material Issue Entry</h2>
-            </div>
-            <div className="flex items-center gap-4 text-[12.5px] text-slate-600">
-              <label className="flex items-center gap-1.5 cursor-pointer font-bold">
-                <input
-                  type="checkbox"
-                  checked={validate}
-                  onChange={e => setValidate(e.target.checked)}
-                  className="w-4 h-4 accent-[#0097A7]"
-                />
-                Validate
-              </label>
-              <button className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold rounded text-[11.5px] transition-colors">
-                <FileSpreadsheet size={14} /> Excel
-              </button>
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent('velson:navigate', { detail: 'Dashboard' }))}
-                className="flex items-center gap-1 px-3 py-1 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-bold rounded text-[11.5px] transition-colors shadow-sm"
-              >
-                <X size={14} /> Close
-              </button>
-            </div>
-          </div>
-
-          <div className="p-5 flex-1 flex flex-col space-y-6">
-            
-            {/* Top Layout - Header Panels */}
-            <div className="grid grid-cols-12 gap-5 items-stretch">
-              
-              {/* Column 1 - Left Document Details */}
-              <div className="col-span-12 md:col-span-4 space-y-2.5 bg-slate-50/50 p-3 rounded-xl border border-slate-200 shadow-sm">
+          {/* Card C: Transaction Item Entry Form (Left) */}
+          <div className="col-span-12 lg:col-span-7 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+            <div>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-4">
                 <div className="flex items-center gap-2">
-                  <label className={`${lbl} w-[100px] shrink-0`}>Issue No :</label>
-                  <input value={issueNo} readOnly className={`${inp(true)} bg-yellow-50/60 font-semibold text-slate-700`} />
+                  <div className="w-1.5 h-3.5 bg-[#0097A7] rounded-sm" />
+                  <h3 className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Item Issue Details</h3>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className={`${lbl} w-[100px] shrink-0`}>Issue Date :</label>
-                  <input
-                    type="date"
-                    value={issueDate}
-                    onChange={e => setIssueDate(e.target.value)}
-                    className={inp(false)}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className={`${lbl} w-[100px] shrink-0`}>Department :</label>
-                  <select
-                    value={department}
-                    onChange={e => setDepartment(e.target.value)}
-                    className={inp(false)}
+                <div className="flex justify-end gap-3 shrink-0">
+                  <button
+                    onClick={clearTransactionFields}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold rounded shadow-sm transition-all"
                   >
-                    <option value="Production">Production</option>
-                    <option value="Service">Service</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Stores">Stores</option>
-                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className={`${lbl} w-[100px] shrink-0`}>* Remarks :</label>
-                  <input
-                    value={remarks}
-                    onChange={e => setRemarks(e.target.value)}
-                    placeholder="Required"
-                    className={inp(false, remarks === '' ? 'border-red-400' : '')}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className={`${lbl} w-[100px] shrink-0`}>* Model :</label>
-                  <select
-                    value={model}
-                    onChange={e => setModel(e.target.value)}
-                    disabled={!!serviceJobNo}
-                    className={inp(!!serviceJobNo, model === '' ? 'border-red-400' : '')}
+                    <RotateCcw size={14} /> Clear Item Fields
+                  </button>
+                  <button
+                    onClick={handleSaveItem}
+                    className="flex items-center gap-1.5 px-5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded shadow transition-all active:scale-95"
                   >
-                    <option value="">-- Select Model --</option>
-                    {models.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                    <Save size={14} /> Add Item to Grid
+                  </button>
                 </div>
               </div>
 
-              {/* Right Side container - spans 8 columns */}
-              <div className="col-span-12 md:col-span-8 flex flex-col gap-4">
-                
-                {/* Nested Grid for Incharge & Customer details (left) and Part Image & Stock Details (right) */}
-                <div className="grid grid-cols-12 gap-4">
-                  
-                  {/* Incharge & Customer details */}
-                  <div className="col-span-12 md:col-span-6 space-y-2.5 bg-slate-50/50 p-3 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <label className={`${lbl} w-[110px] shrink-0`}>Incharge Name:</label>
-                      <select
-                        value={inchargeName}
-                        onChange={e => setInchargeName(e.target.value)}
-                        className={inp(false)}
-                      >
-                        <option value="">-- Select Incharge --</option>
-                        {employees.map(emp => <option key={emp.id} value={emp.empName}>{emp.empName}</option>)}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className={`${lbl} w-[110px] shrink-0`}>Receiver Name:</label>
-                      <select
-                        value={receiverName}
-                        onChange={e => setReceiverName(e.target.value)}
-                        className={inp(false)}
-                      >
-                        <option value="">-- Select Receiver --</option>
-                        {employees.map(emp => <option key={emp.id} value={emp.empName}>{emp.empName}</option>)}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className={`${lbl} w-[110px] shrink-0`}>Cus. Name :</label>
-                      <input type="text" value={customerName} readOnly className={inp(true)} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className={`${lbl} w-[110px] shrink-0`}>Cus. Code :</label>
-                      <input type="text" value={customerCode} readOnly className={inp(true)} />
-                    </div>
-                  </div>
-
-                  {/* Part Image & Stock Info */}
-                  <div className="col-span-12 md:col-span-6 grid grid-cols-2 gap-3 bg-slate-50/50 p-3 rounded-xl border border-slate-200 shadow-sm text-[12px]">
-                    <div className="flex flex-col">
-                      <span className={lbl}>Part Image</span>
-                      <div className="w-full h-[120px] mt-1 border border-slate-250 bg-white rounded flex items-center justify-center overflow-hidden shadow-inner">
-                        {partImageSrc ? (
-                          <img src={partImageSrc} alt="Part" className="h-full w-full object-contain" />
-                        ) : (
-                          <Camera size={28} className="opacity-20 text-slate-400" />
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className={lbl}>Part Stock Details</span>
-                      <div className="space-y-1 mt-1 bg-white p-2 border border-slate-250 rounded font-semibold text-slate-600 text-[11px] w-full h-[120px] overflow-y-auto shadow-inner">
-                        <div>Avail Stock: <span className="text-blue-600 font-bold">{availableStock.toFixed(2)}</span></div>
-                        <div>Location: <span className="text-slate-500 font-normal">—</span></div>
-                        <div>Rq.Qty: <span className="text-slate-800">{selectedBomItem?.requiredQty || '—'}</span></div>
-                        <div>Iss.Qty: <span className="text-slate-800">{selectedBomItem?.issuedQty || '—'}</span></div>
-                        <div>Bal.Qty: <span className="text-slate-800">{selectedBomItem?.balanceQty || '—'}</span></div>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* BOM List details */}
-                <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-200 shadow-sm w-full transition-all duration-200">
-                  <div className="flex items-center justify-between cursor-pointer select-none border-b pb-1.5 mb-2" onClick={() => setShowBOM(!showBOM)}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-3 bg-[#0097A7] rounded-sm" />
-                      <span className="text-[11.5px] font-bold text-slate-600 uppercase tracking-wide">BOM List Details ({bomItems.length || 0})</span>
-                    </div>
-                    <span className="text-[10.5px] font-extrabold text-[#0097A7] uppercase hover:underline">
-                      {showBOM ? 'Collapse BOM' : 'Expand BOM'}
-                    </span>
-                  </div>
-                  {showBOM && (
-                    <div className="flex flex-col">
-                      <div className="h-[120px] border border-slate-200 bg-white rounded overflow-x-auto text-[11px] overflow-y-auto shadow-inner">
-                        <table className="w-full text-left border-collapse">
-                          <thead className="bg-slate-100 border-b border-slate-200 text-slate-500 font-bold uppercase sticky top-0">
-                            <tr>
-                              <th className="px-2 py-1.5 border-r border-slate-200 w-10 text-center">S.No</th>
-                              <th className="px-3 py-1.5 border-r border-slate-200">Part No</th>
-                              <th className="px-3 py-1.5 border-r border-slate-200">Part Name</th>
-                              <th className="px-3 py-1.5 border-r border-slate-200 text-right">Bal. Qty</th>
-                              <th className="px-3 py-1.5 text-center">UOM</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 text-slate-700">
-                            {bomItems.length === 0 ? (
-                              <tr className="text-slate-400 italic text-center">
-                                <td colSpan={5} className="py-8">No BOM records loaded. Select Job and Part No to fetch BOM.</td>
-                              </tr>
-                            ) : (
-                              bomItems.map((item, idx) => (
-                                <tr
-                                  key={item.id}
-                                  onClick={() => handleSelectBomItem(item)}
-                                  className={`cursor-pointer hover:bg-cyan-50/20 transition-all ${
-                                    selectedBomItem?.id === item.id ? 'bg-cyan-50 font-semibold text-[#0097A7]' : ''
-                                  }`}
-                                >
-                                  <td className="px-2 py-1.5 text-center font-bold text-slate-400">{idx + 1}</td>
-                                  <td className="px-3 py-1.5 font-mono font-bold text-blue-600">{item.partNo}</td>
-                                  <td className="px-3 py-1.5 truncate max-w-[200px]">{item.partName}</td>
-                                  <td className="px-3 py-1.5 text-right font-bold text-slate-900">{item.balanceQty.toFixed(2)}</td>
-                                  <td className="px-3 py-1.5 text-center">{item.uom}</td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Save, Delete, Clear Action Buttons */}
-                <div className="flex justify-end gap-3 bg-slate-50 border border-slate-200 p-2.5 rounded-xl shadow-sm">
-                  <button
-                    onClick={handleSubmitIssue}
-                    disabled={submitting}
-                    className="flex items-center gap-1.5 px-5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded shadow transition-all active:scale-95 disabled:opacity-60"
-                  >
-                    {submitting ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    Submit All
-                  </button>
-                  <button
-                    onClick={handleDeleteSelected}
-                    className="flex items-center gap-1.5 px-5 py-1.5 bg-red-500 hover:bg-red-650 text-white text-[12px] font-bold rounded shadow transition-all active:scale-95"
-                  >
-                    <Trash2 size={14} />
-                    Delete Selected
-                  </button>
-                  <button
-                    onClick={handleClearAll}
-                    className="flex items-center gap-1.5 px-5 py-1.5 bg-slate-600 hover:bg-slate-700 text-white text-[12px] font-bold rounded shadow transition-all active:scale-95"
-                  >
-                    <RotateCcw size={14} />
-                    Reset Form
-                  </button>
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* Row Input Area for Adding Items */}
-            <div className="bg-[#f0f9ff]/40 border border-sky-100 p-3.5 rounded-xl shadow-sm text-slate-700">
-              <div className="grid grid-cols-12 gap-x-4 gap-y-3 text-[12.5px]">
-
-                {/* Row 1 */}
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">S.Job No :</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>S.Job No</label>
                   <Combobox
                     options={serviceJobNoOptions}
                     placeholder="Select Job No"
@@ -785,8 +594,8 @@ export default function MaterialIssue() {
                   />
                 </div>
 
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">S.PartNo :</span>
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>S.Part No</label>
                   <Combobox
                     options={servicePartNoOptions}
                     placeholder="Select Part No"
@@ -795,12 +604,12 @@ export default function MaterialIssue() {
                   />
                 </div>
 
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Barcode :</span>
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Barcode</label>
                   <select
                     value={barcodeSearch}
                     onChange={e => handleBarcodeChange(e.target.value)}
-                    className="w-full px-2.5 py-1 text-[13px] h-[32px] border border-slate-350 rounded bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7]"
+                    className={inp(false)}
                   >
                     <option value="">-- Select Barcode --</option>
                     {barcodeList.map(b => (
@@ -811,240 +620,454 @@ export default function MaterialIssue() {
                   </select>
                 </div>
 
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Part No :</span>
-                  <input
-                    value={partNo}
-                    readOnly
-                    className={inp(true)}
-                  />
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Part No</label>
+                  <input value={partNo} readOnly placeholder="Auto-populated" className={inp(true)} />
                 </div>
 
-                {/* Row 2 */}
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Part Name :</span>
-                  <input value={partName} readOnly className={inp(true)} />
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Part Name</label>
+                  <input value={partName} readOnly placeholder="Auto-populated" className={inp(true)} />
                 </div>
 
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Description:</span>
-                  <input
-                    value={description}
-                    readOnly
-                    className={inp(true)}
-                  />
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>UOM</label>
+                  <input value={uom} readOnly placeholder="Auto-populated" className={inp(true)} />
                 </div>
 
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Spec :</span>
-                  <input
-                    value={spec}
-                    readOnly
-                    className={inp(true)}
-                  />
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Brand</label>
+                  <input value={brand} readOnly placeholder="Auto-populated" className={inp(true)} />
                 </div>
 
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Brand :</span>
-                  <input
-                    value={brand}
-                    readOnly
-                    className={inp(true)}
-                  />
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Description</label>
+                  <input value={description} readOnly placeholder="Auto-populated" className={inp(true)} />
                 </div>
 
-                {/* Row 3 */}
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Qty :</span>
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Spec</label>
+                  <input value={spec} readOnly placeholder="Auto-populated" className={inp(true)} />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Issue Qty</label>
                   <input
                     value={qty}
                     onChange={e => handleQtyChange(e.target.value)}
-                    placeholder="Qty"
+                    placeholder="Enter Qty"
                     className={inp(false)}
                   />
                 </div>
 
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">UOM :</span>
-                  <input
-                    value={uom}
-                    readOnly
-                    className={inp(true)}
-                  />
-                </div>
-
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Rate :</span>
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Rate</label>
                   <input
                     value={rate ? `₹${parseFloat(rate).toFixed(2)}` : ''}
                     readOnly
+                    placeholder="Auto-calculated"
                     className={inp(true)}
                   />
                 </div>
 
-                <div className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-1.5">
-                  <span className="w-[78px] text-[11.5px] font-semibold text-slate-600 text-left shrink-0">Amount :</span>
-                  <input value={amount ? `₹${parseFloat(amount).toFixed(2)}` : ''} readOnly className={inp(true)} />
+                <div className="flex flex-col gap-1.5">
+                  <label className={lbl}>Amount</label>
+                  <input
+                    value={amount ? `₹${parseFloat(amount).toFixed(2)}` : ''}
+                    readOnly
+                    placeholder="Auto-calculated"
+                    className={inp(true)}
+                  />
                 </div>
-
               </div>
             </div>
 
-            {/* Action & Search Bar */}
-            <div className="flex items-center justify-between bg-slate-100 border border-slate-200 p-2.5 rounded-lg shadow-sm">
-              <div className="flex items-center gap-2 w-72">
-                <Search size={16} className="text-slate-400" />
+            
+          </div>
+
+          {/* Card B: BOM Details & Stock Info (Right) */}
+          <div className="col-span-12 lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[360px] space-y-4">
+            
+            {/* Part Image & Stock Info at the top */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col">
+                <span className={lbl}>Part Image</span>
+                <div className="w-full h-[110px] mt-1.5 border border-slate-200 bg-slate-50 rounded-lg flex items-center justify-center overflow-hidden shadow-inner">
+                  {partImageSrc ? (
+                    <img src={partImageSrc} alt="Part" className="h-full w-full object-contain" />
+                  ) : (
+                    <Camera size={26} className="opacity-30 text-slate-400" />
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex flex-col">
+                <span className={lbl}>Part Stock Details</span>
+                <div className="space-y-1.5 mt-1.5 bg-slate-50 p-3 border border-slate-200 rounded-lg text-slate-600 text-[11px] h-[110px] overflow-y-auto shadow-inner">
+                  <div className="flex justify-between border-b border-slate-200/50 pb-1">
+                    <span>Avail Stock:</span>
+                    <span className="text-blue-600 font-bold">{availableStock.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Rq.Qty:</span>
+                    <span className="text-slate-800 font-semibold">{selectedBomItem?.requiredQty || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Iss.Qty:</span>
+                    <span className="text-slate-800 font-semibold">{selectedBomItem?.issuedQty || '—'}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-slate-200/50">
+                    <span>Bal.Qty:</span>
+                    <span>{selectedBomItem?.balanceQty || '—'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* BOM List Details at the bottom with a top border */}
+            <div className="flex-grow flex flex-col border-t border-slate-100 pt-4 mt-2">
+              <div className="flex items-center justify-between pb-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-3.5 bg-[#0097A7] rounded-sm" />
+                  <span className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">BOM List Details ({bomItems.length || 0})</span>
+                </div>
+              </div>
+              
+              <div className="flex-1 border border-slate-200 bg-white rounded-lg overflow-hidden flex flex-col shadow-inner">
+                <div className="overflow-y-auto max-h-[140px] w-full">
+                  <table className="w-full text-left border-collapse text-[11px]">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase sticky top-0 z-10">
+                      <tr>
+                        <th className="px-3 py-2 border-r border-slate-200 w-10 text-center">S.No</th>
+                        <th className="px-3 py-2 border-r border-slate-200">Part No</th>
+                        <th className="px-3 py-2 border-r border-slate-200 text-right">Bal. Qty</th>
+                        <th className="px-3 py-2 text-center">UOM</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {bomItems.length === 0 ? (
+                        <tr className="text-slate-400 italic text-center">
+                          <td colSpan={4} className="py-6">No BOM records. Select Job & Part No.</td>
+                        </tr>
+                      ) : (
+                        bomItems.map((item, idx) => (
+                          <tr
+                            key={item.id}
+                            onClick={() => handleSelectBomItem(item)}
+                            className={`cursor-pointer hover:bg-cyan-50/30 transition-all ${selectedBomItem?.id === item.id ? 'bg-[#0097A7]/5 font-semibold text-[#0097A7]' : ''
+                              }`}
+                          >
+                            <td className="px-3 py-2 text-center font-bold text-slate-400">{idx + 1}</td>
+                            <td className="px-3 py-2 font-mono font-semibold text-blue-600">{item.partNo}</td>
+                            <td className="px-3 py-2 text-right font-bold text-slate-800">{item.balanceQty.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-center">{item.uom}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Middle Section: Document Details & BOM / Stock details */}
+        <div className="grid grid-cols-12 gap-5">
+          
+          {/* Card A: Document Fields (Left) */}
+          <div className="col-span-12 lg:col-span-7 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+              <div className="w-1.5 h-3.5 bg-[#0097A7] rounded-sm" />
+              <h3 className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Document Details</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className={lbl}>Issue No</label>
+                <input 
+                  value={issueNo} 
+                  readOnly 
+                  className={inp(true, "bg-amber-50/40 text-slate-700 font-bold font-mono border-amber-200")} 
+                />
+              </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className={lbl}>Issue Date</label>
+                <input
+                  type="date"
+                  value={issueDate}
+                  onChange={e => setIssueDate(e.target.value)}
+                  className={inp(false)}
+                />
+              </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className={lbl}>Department</label>
+                <select
+                  value={department}
+                  onChange={e => setDepartment(e.target.value)}
+                  className={inp(false)}
+                >
+                  <option value="Production">Production</option>
+                  <option value="Service">Service</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Stores">Stores</option>
+                  {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className={lbl}>* Model</label>
+                <select
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  disabled={!!serviceJobNo}
+                  className={inp(!!serviceJobNo, model === '' ? 'border-red-400 focus:ring-red-200' : '')}
+                >
+                  <option value="">-- Select Model --</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5 lg:col-span-2">
+                <label className={lbl}>* Remarks / Description</label>
+                <input
+                  value={remarks}
+                  onChange={e => setRemarks(e.target.value)}
+                  placeholder="Enter remarks (required)"
+                  className={inp(false, remarks === '' ? 'border-red-400 focus:ring-red-200' : '')}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Card D: Receiver & Customer Details (Right - Compact 2x2 Grid) */}
+          <div className="col-span-12 lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+              <div className="w-1.5 h-3.5 bg-[#0097A7] rounded-sm" />
+              <h3 className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Receiver & Customer Details</h3>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {/* Row 1, Col 1: Incharge Name */}
+              <div className="flex flex-col gap-1.5">
+                <label className={lbl}>Incharge Name</label>
+                <select
+                  value={inchargeName}
+                  onChange={e => setInchargeName(e.target.value)}
+                  className={inp(false)}
+                >
+                  <option value="">-- Select Incharge --</option>
+                  {employees.map(emp => <option key={emp.id} value={emp.empName}>{emp.empName}</option>)}
+                </select>
+              </div>
+
+              {/* Row 1, Col 2: Receiver Name */}
+              <div className="flex flex-col gap-1.5">
+                <label className={lbl}>Receiver Name</label>
+                <select
+                  value={receiverName}
+                  onChange={e => setReceiverName(e.target.value)}
+                  className={inp(false)}
+                >
+                  <option value="">-- Select Receiver --</option>
+                  {employees.map(emp => <option key={emp.id} value={emp.empName}>{emp.empName}</option>)}
+                </select>
+              </div>
+
+              {/* Row 2, Col 1: Customer Code */}
+              <div className="flex flex-col gap-1.5">
+                <label className={lbl}>Customer Code</label>
+                <input 
+                  type="text" 
+                  value={customerCode} 
+                  readOnly 
+                  placeholder="Auto-populated"
+                  className={inp(true)} 
+                />
+              </div>
+
+              {/* Row 2, Col 2: Customer Name */}
+              <div className="flex flex-col gap-1.5">
+                <label className={lbl}>Customer Name</label>
+                <input 
+                  type="text" 
+                  value={customerName} 
+                  readOnly 
+                  placeholder="Auto-populated"
+                  className={inp(true)} 
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Issued Items Grid Table (Full Width) */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-3.5 bg-[#0097A7] rounded-sm" />
+              <h3 className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Issued Items List</h3>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 w-64 relative">
+                <Search size={14} className="text-slate-400 absolute left-2.5" />
                 <input
                   type="text"
                   value={searchText}
                   onChange={e => setSearchText(e.target.value)}
-                  placeholder="Search in Grid (Part No, Name, Barcode)..."
-                  className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 h-[32px] text-[12.5px] focus:outline-none focus:border-[#0097A7]"
+                  placeholder="Search in grid..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded pl-8 pr-2.5 py-1 h-[30px] text-[12px] focus:outline-none focus:bg-white focus:border-[#0097A7]"
                 />
               </div>
               <button
-                onClick={handleSaveItem}
-                className="flex items-center gap-1.5 px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold rounded shadow transition-all active:scale-95"
+                onClick={handleDeleteSelected}
+                className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded text-[11px] transition-colors"
               >
-                <Save size={14} /> Add Item to Grid
+                <Trash2 size={13} /> Delete Selected
               </button>
             </div>
+          </div>
 
-            {/* Issue Grid Table */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden overflow-x-auto shadow-inner bg-slate-50 flex-1">
-              <table className="w-full text-left border-collapse min-w-[1200px]">
-                <thead className="bg-[#cbd5e1]/30 text-[11px] uppercase text-slate-600 font-bold border-b border-slate-300">
-                  <tr>
-                    <th className="px-3 py-2.5 border-r border-slate-300 w-12 text-center">
-                      <input
-                        type="checkbox"
-                        checked={filteredIssuedItems.length > 0 && selectedGridRows.length === filteredIssuedItems.length}
-                        onChange={() => {
-                          if (selectedGridRows.length === filteredIssuedItems.length) {
-                            setSelectedGridRows([])
-                          } else {
-                            setSelectedGridRows(filteredIssuedItems.map((_, i) => i))
-                          }
-                        }}
-                        className="w-4 h-4 accent-[#0097A7]"
-                      />
-                    </th>
-                    <th className="px-3 py-2.5 border-r border-slate-300 w-16 text-center">S.No</th>
-                    <th className="px-3 py-2.5 border-r border-slate-300">Customer Code</th>
-                    <th className="px-3 py-2.5 border-r border-slate-300">Barcode</th>
-                    <th className="px-3 py-2.5 border-r border-slate-300">Part No</th>
-                    <th className="px-3 py-2.5 border-r border-slate-300">Part Name</th>
-                    <th className="px-3 py-2.5 border-r border-slate-300">Spec</th>
-                    <th className="px-3 py-2.5 border-r border-slate-300 text-center w-24">Qty</th>
-                    <th className="px-3 py-2.5 border-r border-slate-300 text-center w-24">UOM</th>
-                    <th className="px-3 py-2.5 border-r border-slate-300 text-right w-32">Price</th>
-                    <th className="px-3 py-2.5 text-right w-32">Amount</th>
+          <div className="border border-slate-200 rounded-lg overflow-hidden shadow-inner bg-slate-50">
+            <table className="w-full text-left border-collapse min-w-[1000px] text-[12px]">
+              <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                <tr>
+                  <th className="px-3 py-2 w-12 text-center border-r border-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={filteredIssuedItems.length > 0 && selectedGridRows.length === filteredIssuedItems.length}
+                      onChange={() => {
+                        if (selectedGridRows.length === filteredIssuedItems.length) {
+                          setSelectedGridRows([])
+                        } else {
+                          setSelectedGridRows(filteredIssuedItems.map((_, i) => i))
+                        }
+                      }}
+                      className="w-4 h-4 accent-[#0097A7] rounded"
+                    />
+                  </th>
+                  <th className="px-3 py-2 w-16 text-center border-r border-slate-200">S.No</th>
+                  <th className="px-3 py-2 border-r border-slate-200">Customer Code</th>
+                  <th className="px-3 py-2 border-r border-slate-200">Barcode</th>
+                  <th className="px-3 py-2 border-r border-slate-200">Part No</th>
+                  <th className="px-3 py-2 border-r border-slate-200">Part Name</th>
+                  <th className="px-3 py-2 border-r border-slate-200">Spec</th>
+                  <th className="px-3 py-2 text-center w-24 border-r border-slate-200">Qty</th>
+                  <th className="px-3 py-2 text-center w-24 border-r border-slate-200">UOM</th>
+                  <th className="px-3 py-2 text-right w-28 border-r border-slate-200">Price</th>
+                  <th className="px-3 py-2 text-right w-28">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {filteredIssuedItems.length === 0 ? (
+                  <tr className="h-28 text-center text-slate-400 italic">
+                    <td colSpan={11}>No items added yet. Complete the form and click 'Add Item to Grid'.</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-[12.5px] bg-white">
-                  {filteredIssuedItems.length === 0 ? (
-                    <tr className="h-32 text-center text-slate-400 italic">
-                      <td colSpan={11}>No items added to the issue list. Enter details above and click 'Add Item to Grid'.</td>
+                ) : (
+                  filteredIssuedItems.map((row, idx) => (
+                    <tr
+                      key={row.id}
+                      className={`h-9 hover:bg-[#f0f9fa]/40 transition-colors ${selectedGridRows.includes(idx) ? 'bg-[#00BCD4]/5' : ''
+                        }`}
+                    >
+                      <td className="px-3 py-1.5 border-r border-slate-100 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedGridRows.includes(idx)}
+                          onChange={() => handleSelectRow(idx)}
+                          className="w-4 h-4 accent-[#0097A7] rounded"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 text-center font-bold text-slate-400">
+                        {idx + 1}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 font-semibold text-slate-600">
+                        {row.customerCode || '—'}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 text-slate-600">
+                        {row.barcode || '—'}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 font-bold text-[#0097A7] font-mono">
+                        {row.partNo}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 font-semibold text-slate-700">
+                        {row.partName}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 text-slate-500">
+                        {row.spec || '—'}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 text-center font-bold text-slate-800">
+                        {row.qty.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 text-center text-slate-600 font-semibold">
+                        {row.uom || '—'}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 text-right font-medium text-slate-700">
+                        ₹{row.price.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-black text-emerald-600">
+                        ₹{row.amount.toFixed(2)}
+                      </td>
                     </tr>
-                  ) : (
-                    filteredIssuedItems.map((row, idx) => (
-                      <tr
-                        key={row.id}
-                        className={`h-10 hover:bg-[#f0f9fa]/50 transition-colors ${selectedGridRows.includes(idx) ? 'bg-[#00BCD4]/5' : ''
-                          }`}
-                      >
-                        <td className="px-3 py-2 border-r border-slate-100 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedGridRows.includes(idx)}
-                            onChange={() => handleSelectRow(idx)}
-                            className="w-4 h-4 accent-[#0097A7] rounded"
-                          />
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 text-center font-bold text-slate-500 italic">
-                          {idx + 1}
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 font-semibold text-slate-600">
-                          {row.customerCode || '—'}
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 text-slate-600">
-                          {row.barcode || '—'}
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 font-bold text-[#0097A7]">
-                          {row.partNo}
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 font-semibold text-slate-700">
-                          {row.partName}
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 text-slate-500">
-                          {row.spec || '—'}
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 text-center font-bold text-slate-800">
-                          {row.qty.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 text-center text-slate-600 font-semibold">
-                          {row.uom || '—'}
-                        </td>
-                        <td className="px-3 py-2 border-r border-slate-100 text-right font-medium text-slate-700">
-                          ₹{row.price.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-right font-black text-emerald-600">
-                          ₹{row.amount.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                  {/* Empty rows filler */}
-                  {filteredIssuedItems.length < 8 && [...Array(8 - filteredIssuedItems.length)].map((_, i) => (
-                    <tr key={i} className="h-10 bg-slate-50/20">
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td className="border-r border-slate-100"></td>
-                      <td></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+                {/* Empty rows filler */}
+                {filteredIssuedItems.length < 5 && [...Array(5 - filteredIssuedItems.length)].map((_, i) => (
+                  <tr key={i} className="h-9 bg-slate-50/10">
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-            {/* Bottom Controls / Cancel & Submit / Totals */}
-            <div className="flex items-center justify-between border-t border-slate-200 pt-3 mt-2">
-              <div className="flex gap-3">
-                <button
-                  onClick={handleClearAll}
-                  className="px-6 py-2 bg-orange-500 hover:bg-orange-650 text-white font-bold rounded text-[13px] shadow transition-colors active:scale-95"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitIssue}
-                  disabled={submitting}
-                  className="flex items-center justify-center gap-1.5 px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-[13px] shadow disabled:opacity-60 transition-colors active:scale-95"
-                >
-                  {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
-                  Submit
-                </button>
-              </div>
-              <div className="flex gap-8 text-[14px] font-bold text-slate-800 uppercase bg-slate-50 px-6 py-2 rounded-lg border border-slate-200 shadow-sm">
-                <div>
-                  Total Qty : <span className="text-blue-600 ml-1 font-black tabular-nums">{totalQty.toFixed(2)}</span>
-                </div>
-                <div className="border-l border-slate-350 pl-8">
-                  Total Price : <span className="text-emerald-600 ml-1 font-black tabular-nums">₹{totalPrice.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
+      </div>
 
+      {/* 3. Fixed Bottom Action Bar */}
+      <div className="bg-white border-t border-slate-200 px-6 py-3.5 flex items-center justify-between shrink-0 shadow-[0_-3px_12px_rgba(0,0,0,0.04)] z-10">
+        <div className="flex gap-3">
+          <button
+            onClick={handleClearAll}
+            className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded text-[13px] transition-colors active:scale-95"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmitIssue}
+            disabled={submitting}
+            className="flex items-center justify-center gap-1.5 px-6 py-2 bg-[#0097A7] hover:bg-[#007a87] text-white font-bold rounded text-[13px] shadow disabled:opacity-60 transition-colors active:scale-95"
+          >
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+            Submit
+          </button>
+        </div>
+        
+        <div className="flex gap-8 text-[13.5px] font-bold text-slate-700 uppercase bg-slate-50 px-6 py-2 rounded-lg border border-slate-200">
+          <div className="flex items-center gap-2">
+            <span>Total Qty:</span>
+            <span className="text-blue-600 font-black text-[15px] tabular-nums">{totalQty.toFixed(2)}</span>
+          </div>
+          <div className="border-l border-slate-200 pl-8 flex items-center gap-2">
+            <span>Total Price:</span>
+            <span className="text-emerald-600 font-black text-[15px] tabular-nums">₹{totalPrice.toFixed(2)}</span>
           </div>
         </div>
       </div>
+
     </div>
   )
 }

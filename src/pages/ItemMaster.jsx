@@ -49,12 +49,12 @@ const Input = ({ placeholder, value, onChange, type = 'text', disabled, readOnly
   />
 )
 
-const Select = ({ options = [], placeholder, value, onChange, loading, hasError }) => (
+const Select = ({ options = [], placeholder, value, onChange, loading, hasError, disabled }) => (
   <div className="relative">
     <select
       value={value}
       onChange={onChange}
-      disabled={loading}
+      disabled={loading || disabled}
       className={`w-full px-2.5 py-1.5 pr-8 text-[13px] border rounded bg-white text-slate-700 appearance-none focus:outline-none transition-all duration-200 hover:border-slate-300 cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 ${
         hasError
           ? 'border-red-500 focus:ring-2 focus:ring-red-500/20 focus:border-red-500'
@@ -361,6 +361,7 @@ const emptyForm = {
   materialGradeId: '', materialTypeId: '', rawMaterial: '', rawMaterialId: '',
   rmLength: '', rawMaterialWt: '', fgMaterialWt: '',
   reorderLevel: '', minStock: '',
+  hasBarcodeYesNo: ''
 }
 
 const REQUIRED = [
@@ -376,37 +377,6 @@ const MOCK_MODE = false
 
 
 // ── Mock uploads (per item id, mirrors ImagePdf details screen) ────
-const MOCK_UPLOADS = {
-  2205: [
-    { id: 1, sNo: 1, hasImage: true, pdfName: null, updatedBy: '', updatedAt: '11/07/2025 10:00:29' },
-    { id: 2, sNo: 2, hasImage: true, pdfName: null, updatedBy: '', updatedAt: '11/07/2025 10:05:41' },
-    { id: 3, sNo: 3, hasImage: true, pdfName: null, updatedBy: 'RAVI KUMAR', updatedAt: '11/07/2025 10:10:02' },
-    { id: 4, sNo: 4, hasImage: true, pdfName: null, updatedBy: 'RAVI KUMAR', updatedAt: '11/07/2025 10:10:20' },
-    { id: 5, sNo: 5, hasImage: true, pdfName: null, updatedBy: 'SATHISH', updatedAt: '11/07/2025 12:09:32' },
-    { id: 6, sNo: 6, hasImage: true, pdfName: null, updatedBy: 'SATHISH', updatedAt: '11/07/2025 12:11:02' },
-    { id: 7, sNo: 7, hasImage: true, pdfName: null, updatedBy: 'SATHISH', updatedAt: '11/07/2025 12:12:01' },
-    { id: 8, sNo: 8, hasImage: true, pdfName: null, updatedBy: 'SATHISH', updatedAt: '11/07/2025 14:05:10' },
-  ],
-  2203: [
-    { id: 1, sNo: 1, hasImage: true, pdfName: null, updatedBy: 'ADMIN', updatedAt: '09/11/2020 11:31:48' },
-    { id: 2, sNo: 2, hasImage: true, pdfName: null, updatedBy: 'SATHISH', updatedAt: '11/07/2025 09:00:00' },
-  ],
-  2206: [
-    { id: 1, sNo: 1, hasImage: true, pdfName: 'MM383-11.pdf', updatedBy: 'RAVI KUMAR', updatedAt: '11/07/2025 10:00:00' },
-  ],
-  2207: [
-    { id: 1, sNo: 1, hasImage: true, pdfName: 'MM383-10.pdf', updatedBy: 'RAVI KUMAR', updatedAt: '11/07/2025 10:05:00' },
-  ],
-  2208: [
-    { id: 1, sNo: 1, hasImage: true, pdfName: 'MM383-9.pdf', updatedBy: 'RAVI KUMAR', updatedAt: '11/07/2025 10:10:00' },
-  ],
-  2210: [
-    { id: 1, sNo: 1, hasImage: true, pdfName: 'CM05.pdf', updatedBy: 'SATHISH', updatedAt: '11/07/2025 11:00:00' },
-  ],
-  2231: [
-    { id: 1, sNo: 1, hasImage: true, pdfName: 'MM383-1.pdf', updatedBy: 'SATHISH', updatedAt: '11/07/2025 14:05:10' },
-  ],
-}
 
 // ── Index (table) view ────────────────────────────────────────────
 function IndexView({ onCreate, onEdit, onView, dropdowns }) {
@@ -438,7 +408,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
       if (debSearch) params.set('search', debSearch)
       const json = await api.get(`/api/item-master?${params}`)
       if (!json.success) throw new Error(json.message)
-      setItems(json.data || [])
+      setItems((json.data || []).map(item => ({ ...item, hasBarcodeYesNo: item.barcodeType ? 'Yes' : 'No' })))
       setTotal(json.total || 0)
     } catch (err) {
       toast.error(err.message || 'Failed to load items')
@@ -490,7 +460,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
     try {
       const json = await api.get('/api/item-master?limit=99999')
       if (!json.success) throw new Error(json.message)
-      const all = json.data || []
+      const all = (json.data || []).map(item => ({ ...item, hasBarcodeYesNo: item.barcodeType ? 'Yes' : 'No' }))
       const predicates = {
         hasUploads: r => r.hasImage || r.hasPdf,
         noImage: r => !r.hasImage,
@@ -867,6 +837,7 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
         const v = editItem[k]
         f[k] = (v !== null && v !== undefined) ? String(v) : ''
       })
+      f.hasBarcodeYesNo = editItem.barcodeType ? 'Yes' : 'No'
       setForm(f)
       setPartNoAutoGen(false)
       if (editItem.hasImage) {
@@ -975,6 +946,10 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
 
   const handleSubmit = async () => {
     const missing = REQUIRED.filter(r => !form[r.key]).map(r => r.label)
+
+    if (!form.hasBarcodeYesNo) missing.push('Have Barcode? (Yes/No)')
+    if (form.hasBarcodeYesNo === 'Yes' && !form.barcodeType) missing.push('Barcode Type')
+
     if (missing.length) {
       toast.warning('Please fill required fields: ' + missing.join(', '))
       return
@@ -1014,6 +989,9 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
       const method = editItem ? 'put' : 'post'
 
       const updateData = { ...form }
+      if (updateData.hasBarcodeYesNo !== 'Yes') {
+        updateData.barcodeType = ''
+      }
       if (editItem) {
         if (deleteImage) {
           updateData.imageData = null
@@ -1262,8 +1240,25 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
                   <AutocompleteSelect options={opts.qcTypes} placeholder="---Select QC Type---" value={form.qcTypeId} onChange={setVal('qcTypeId')} loading={dropdownsLoading} dropdownAlign="top" />
                 </div>
               </Row>
+              <Row>
+              <div className="mb-4 flex flex-col gap-2 mt-1">
+                <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider flex items-center">
+                  <span className="text-red-500 mr-0.5">*</span>
+                  Do you need a barcode?
+                </div>
+                  <div className="flex items-center gap-5 pl-6">
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-700 cursor-pointer">
+                      <input type="radio" name="hasBarcodeYesNo" value="Yes" checked={form.hasBarcodeYesNo === 'Yes'} onChange={u('hasBarcodeYesNo')} className="accent-[#0097A7] w-3.5 h-3.5" />
+                      Yes
+                    </label>
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-700 cursor-pointer">
+                      <input type="radio" name="hasBarcodeYesNo" value="No" checked={form.hasBarcodeYesNo === 'No'} onChange={u('hasBarcodeYesNo')} className="accent-[#0097A7] w-3.5 h-3.5" />
+                      No
+                    </label>
+                  </div>
+                </div>
               {/* Barcode Type — full width */}
-              <div>
+              <div className='pt-[3px]'>
                 <Label>Barcode Type</Label>
                 <Select
                   options={[
@@ -1273,8 +1268,10 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
                   placeholder="---Select Barcode Type---"
                   value={form.barcodeType}
                   onChange={u('barcodeType')}
+                  disabled={form.hasBarcodeYesNo !== 'Yes'}
                 />
               </div>
+              </Row>
               <div className="col-span-2">
                 <Label>Remark</Label>
                 <Input placeholder="Remark" value={form.remark} onChange={u('remark')} />
@@ -1501,6 +1498,7 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
     { label: 'Location', value: item.location || '—' },
     { label: 'Item Type', value: item.itemTypeName || resolve(dropdowns.itemTypes, item.itemTypeId) },
     { label: 'QC Type', value: item.qcTypeName || resolve(dropdowns.qcTypes, item.qcTypeId) },
+    { label: 'Need Barcode?', value: item.hasBarcodeYesNo || '—' },
     { label: 'Barcode Type', value: item.barcodeType || '—' },
     { label: 'Remarks', value: item.remark || '—' },
     { label: 'Material Grade', value: item.materialGradeName || resolve(dropdowns.materialGrades, item.materialGradeId) },
