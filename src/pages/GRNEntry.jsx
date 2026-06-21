@@ -702,8 +702,8 @@ export default function GRNEntry() {
             </div>
           </div>
               <div className="flex gap-2 justify-end">
-                <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><Plus className="w-3.5 h-3.5"/> Add Row</button>
-                <button onClick={()=>{if(items.length>1)setItems(r=>r.slice(0,-1))}} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap"><Trash2 className="w-3.5 h-3.5"/> Delete Selected Item</button>
+                {/* <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><Plus className="w-3.5 h-3.5"/> Add Row</button> */}
+                {/* <button onClick={()=>{if(items.length>1)setItems(r=>r.slice(0,-1))}} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap"><Trash2 className="w-3.5 h-3.5"/> Delete Selected Item</button> */}
               </div>
 
           {/* Items */}

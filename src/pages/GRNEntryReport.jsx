@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import api from '../services/api'
 import { ChevronRight, Search, Edit, Trash2, Printer, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
@@ -24,6 +24,27 @@ const fmtAmt = (v) => {
   return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const getBarcodesGroupedByItem = (details) => {
+  const groups = {}
+  details.forEach(d => {
+    if (!groups[d.itemCode]) {
+      groups[d.itemCode] = []
+    }
+    groups[d.itemCode].push(d)
+  })
+  return groups
+}
+
+const getGroupBarcodeString = (groupDetails) => {
+  if (!groupDetails || groupDetails.length === 0) return '-'
+  if (groupDetails.length === 1) return groupDetails[0].barcode || '-'
+  const start = groupDetails[0].barcode || '-'
+  const end = groupDetails[groupDetails.length - 1].barcode || '-'
+  return `${start} - ${end}`
+}
+
+
+
 export default function GRNEntryReport() {
   const toast = useToast()
   const [fromDate, setFromDate] = useState(ago30)
@@ -36,6 +57,7 @@ export default function GRNEntryReport() {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState(null)
   const [printingId, setPrintingId] = useState(null)
+  const [expandedRows, setExpandedRows] = useState({})
 
   const applyFilter = (rows, from, to, search) => {
     let r = rows
@@ -106,6 +128,7 @@ export default function GRNEntryReport() {
     const itemRows = details.map((d, i) => `
       <tr class="${i%2?'alt':''}">
         <td>${i+1}</td><td>${d.itemCode||''}</td><td style="text-align:left">${d.itemName||''}</td>
+        <td style="word-break:break-all">${d.barcode||'-'}</td>
         <td>${d.hsnCode||''}</td><td>${d.unit||''}</td><td>${fmtN(d.qty)}</td>
         <td>${fmtN(d.unitPrice)}</td><td>${fmtN(d.discPer)}</td>
         <td>${fmtN(d.finalPrice)}</td><td>${fmtN(d.taxPer)}</td><td>${fmtN(d.netAmt)}</td>
@@ -140,8 +163,8 @@ export default function GRNEntryReport() {
       <div class="info-row"><span class="info-lbl">Status:</span>${grn.status||'-'}</div>
     </div>
     <table>
-      <thead><tr><th>#</th><th>Item Code</th><th>Item Name</th><th>HSN</th><th>Unit</th><th>Qty</th><th>Unit Price</th><th>Disc %</th><th>Final Price</th><th>Tax %</th><th>Net Amt</th></tr></thead>
-      <tbody>${itemRows||'<tr><td colspan="11">No items</td></tr>'}</tbody>
+      <thead><tr><th>#</th><th>Item Code</th><th>Item Name</th><th>Barcode</th><th>HSN</th><th>Unit</th><th>Qty</th><th>Unit Price</th><th>Disc %</th><th>Final Price</th><th>Tax %</th><th>Net Amt</th></tr></thead>
+      <tbody>${itemRows||'<tr><td colspan="12">No items</td></tr>'}</tbody>
     </table>
     <div class="totals">
       Sub Total: <span>${fmtN(grn.subTotal)}</span> &nbsp;&nbsp;
@@ -204,35 +227,94 @@ export default function GRNEntryReport() {
               {paged.length===0 ? (
                 <tr><td colSpan={19} className="text-center py-12 text-slate-400 text-[13px]">No GRN entries found.</td></tr>
               ) : paged.map((row,idx)=>(
-                <tr key={row.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${idx%2===1?'bg-slate-50/50':''}`}>
-                  <td className="px-3 py-2 text-center font-medium text-[#0097A7]">{row.grnNo}</td>
-                  <td className="px-3 py-2 text-center font-semibold text-slate-700">{row.grnbarcode||'-'}</td>
-                  <td className="px-3 py-2 text-center">{fmtDate(row.grnDate)}</td>
-                  <td className="px-3 py-2 text-center">{row.gateEntryNo||'-'}</td>
-                  <td className="px-3 py-2 text-center font-medium">{row.supplierName||'-'}</td>
-                  <td className="px-3 py-2 text-center">{row.poNo||'—'}</td>
-                  <td className="px-3 py-2 text-center">{row.invoiceNo||'-'}</td>
-                  <td className="px-3 py-2 text-center">{fmtDate(row.invoiceDate)}</td>
-                  <td className="px-3 py-2 text-center">{row.grnType||'-'}</td>
-                  <td className="px-3 py-2 text-center font-semibold text-slate-700">{fmtAmt(taxableAmt(row))}</td>
-                  <td className="px-3 py-2 text-center font-semibold text-slate-700">{fmtAmt(taxAmt(row))}</td>
-                  <td className="px-3 py-2 text-center">-</td>
-                  <td className="px-3 py-2 text-center">-</td>
-                  <td className="px-3 py-2 text-center">-</td>
-                  <td className="px-3 py-2 text-center font-semibold text-slate-700">{fmtAmt(row.totalAmount)}</td>
-                  <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusColor(row.status)}`}>{row.status}</span></td>
-                  <td className="px-3 py-2 text-center"><button onClick={()=>handleEdit(row)} className="px-2 py-1 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] rounded transition-colors"><Edit className="w-3.5 h-3.5"/></button></td>
-                  <td className="px-3 py-2 text-center">
-                    <button
-                      onClick={()=>handleDelete(row.id)}
-                      disabled={deletingId===row.id}
-                      className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] rounded transition-colors disabled:opacity-60"
-                    >
-                      {deletingId===row.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Trash2 className="w-3.5 h-3.5"/>}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2 text-center"><button onClick={()=>handlePrint(row)} disabled={printingId===row.id} className="px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white text-[11px] rounded transition-colors disabled:opacity-60">{printingId===row.id?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Printer className="w-3.5 h-3.5"/>}</button></td>
-                </tr>
+                <React.Fragment key={row.id || idx}>
+                  <tr
+                    onClick={() => {
+                      setExpandedRows(prev => ({
+                        ...prev,
+                        [row.id]: !prev[row.id]
+                      }))
+                    }}
+                    className={`cursor-pointer border-b border-slate-100 hover:bg-slate-50 transition-colors ${idx%2===1?'bg-slate-50/50':''}`}
+                  >
+                    <td className="px-3 py-2 text-center font-medium text-[#0097A7]">
+                      <span className="mr-1 text-[8px] text-[#0097A7] inline-block select-none">
+                        {expandedRows[row.id] ? '▼' : '▶'}
+                      </span>
+                      {row.grnNo}
+                    </td>
+                    <td className="px-3 py-2 text-center font-semibold text-slate-700 max-w-[200px] break-words">
+                      {(() => {
+                        const groups = getBarcodesGroupedByItem(row.details || [])
+                        const ranges = Object.values(groups).map(g => getGroupBarcodeString(g))
+                        return ranges.length > 0 ? ranges.join(', ') : '-'
+                      })()}
+                    </td>
+                    <td className="px-3 py-2 text-center">{fmtDate(row.grnDate)}</td>
+                    <td className="px-3 py-2 text-center">{row.gateEntryNo||'-'}</td>
+                    <td className="px-3 py-2 text-center font-medium">{row.supplierName||'-'}</td>
+                    <td className="px-3 py-2 text-center">{row.poNo||'—'}</td>
+                    <td className="px-3 py-2 text-center">{row.invoiceNo||'-'}</td>
+                    <td className="px-3 py-2 text-center">{fmtDate(row.invoiceDate)}</td>
+                    <td className="px-3 py-2 text-center">{row.grnType||'-'}</td>
+                    <td className="px-3 py-2 text-center font-semibold text-slate-700">{fmtAmt(taxableAmt(row))}</td>
+                    <td className="px-3 py-2 text-center font-semibold text-slate-700">{fmtAmt(taxAmt(row))}</td>
+                    <td className="px-3 py-2 text-center">-</td>
+                    <td className="px-3 py-2 text-center">-</td>
+                    <td className="px-3 py-2 text-center">-</td>
+                    <td className="px-3 py-2 text-center font-semibold text-slate-700">{fmtAmt(row.totalAmount)}</td>
+                    <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusColor(row.status)}`}>{row.status}</span></td>
+                    <td className="px-3 py-2 text-center"><button onClick={(e)=>{e.stopPropagation(); handleEdit(row)}} className="px-2 py-1 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] rounded transition-colors"><Edit className="w-3.5 h-3.5"/></button></td>
+                    <td className="px-3 py-2 text-center">
+                      <button
+                        onClick={(e)=>{e.stopPropagation(); handleDelete(row.id)}}
+                        disabled={deletingId===row.id}
+                        className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] rounded transition-colors disabled:opacity-60"
+                      >
+                        {deletingId===row.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Trash2 className="w-3.5 h-3.5"/>}
+                      </button>
+                    </td>
+                    <td className="px-3 py-2 text-center"><button onClick={(e)=>{e.stopPropagation(); handlePrint(row)}} disabled={printingId===row.id} className="px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white text-[11px] rounded transition-colors disabled:opacity-60">{printingId===row.id?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Printer className="w-3.5 h-3.5"/>}</button></td>
+                  </tr>
+                  {expandedRows[row.id] && (
+                    <tr className="bg-slate-50/50">
+                      <td colSpan={19} className="px-6 py-3 border-l-4 border-l-[#0097A7] bg-slate-50/30">
+                        <div className="rounded border border-slate-200 overflow-hidden shadow-sm max-w-5xl mx-auto my-1 bg-white">
+                          <table className="w-full text-left text-[11.5px] border-collapse">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                              <tr>
+                                <th className="px-3 py-2 text-center w-12">S.No</th>
+                                <th className="px-3 py-2 text-center w-28">Barcode</th>
+                                <th className="px-3 py-2 text-center w-32">Stock Created Date</th>
+                                <th className="px-3 py-2 text-center w-32">Part No</th>
+                                <th className="px-3 py-2 text-center">Part Name</th>
+                                <th className="px-3 py-2 text-center w-20">Qty</th>
+                                <th className="px-3 py-2 text-center w-16">UOM</th>
+                                <th className="px-3 py-2 text-center w-24">Price</th>
+                                <th className="px-3 py-2 text-center w-28">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
+                              {(row.details || []).map((nested, nIdx) => (
+                                <tr key={nested.id || nIdx} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-3 py-1.5 text-center text-slate-400 font-bold italic">{nIdx + 1}</td>
+                                  <td className="px-3 py-1.5 text-center font-mono text-[#0097A7] font-bold">{nested.barcode || '-'}</td>
+                                  <td className="px-3 py-1.5 text-center text-slate-500">{fmtDate(row.grnDate)}</td>
+                                  <td className="px-3 py-1.5 text-center font-bold text-slate-700">{nested.itemCode || '—'}</td>
+                                  <td className="px-3 py-1.5 text-center text-slate-700">{nested.itemName || '—'}</td>
+                                  <td className="px-3 py-1.5 text-center font-black text-slate-900">{parseFloat(nested.qty || 0).toFixed(2)}</td>
+                                  <td className="px-3 py-1.5 text-center font-bold uppercase text-slate-500">{nested.unit || '—'}</td>
+                                  <td className="px-3 py-1.5 text-center text-slate-500">₹{fmtAmt(nested.unitPrice)}</td>
+                                  <td className="px-3 py-1.5 text-center font-black text-slate-800">₹{fmtAmt(nested.netAmt)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

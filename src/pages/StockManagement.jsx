@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import {
   ChevronRight, X, Search, FileSpreadsheet, FileText, Filter, Settings,
   Plus, RotateCcw, AlertTriangle, ArrowUpRight, ArrowDownRight,
-  Warehouse, Info, Save, Edit, Eye, ShieldAlert, CheckCircle, PackageOpen, Barcode
+  Warehouse, Info, Save, Edit, Eye, ShieldAlert, CheckCircle, PackageOpen, Barcode, Trash2
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useToast } from '../components/Toast'
@@ -46,8 +46,7 @@ class ErrorBoundary extends React.Component {
 
 // UI Helper Styling primitives
 const inp = (err = '', fullWidth = true) =>
-  `${fullWidth ? 'w-full' : ''} border rounded px-2.5 py-1.5 text-[12.5px] focus:outline-none focus:ring-1 transition-colors bg-white ${
-    err ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
+  `${fullWidth ? 'w-full' : ''} border rounded px-2.5 py-1.5 text-[12.5px] focus:outline-none focus:ring-1 transition-colors bg-white ${err ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
   } text-slate-800`
 
 const lbl = 'text-[11px] font-bold text-slate-500 uppercase tracking-wider'
@@ -59,11 +58,24 @@ function StockManagementContent() {
   const getBarcodeLabel = (row) => {
     if (!row) return ''
     const isMultiple = row.barcodeType === 'Multiple'
-   
+
     if (!isMultiple) {
-      const itemIndex = stockLedger.findIndex(it => it.partNo === row.partNo)
-      const suffix = String(itemIndex !== -1 ? itemIndex + 1 : row.id || 1).padStart(5, '0')
-      return `MS-${suffix}`
+      const itemKey = String(row.partNo || '').trim().toLowerCase()
+      const existingSingle = adjustments.find(adj =>
+        String(adj.partNo || '').trim().toLowerCase() === itemKey &&
+        adj.barcodeType === 'Single' &&
+        adj.barcode
+      )
+      if (existingSingle) return existingSingle.barcode
+
+      const singleAdjs = adjustments.filter(adj => adj.barcodeType === 'Single' && adj.barcode)
+      let maxNum = 0
+      singleAdjs.forEach(adj => {
+        const match = adj.barcode.match(/MS-(\d+)/)
+        if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10))
+      })
+      const nextIdx = maxNum > 0 ? maxNum + 1 : 1
+      return `MS-${String(nextIdx).padStart(5, '0')}`
     } else {
       const qty = Math.floor(row.currentStock)
       const startIdx = row.multipleStartIdx || 1
@@ -81,13 +93,11 @@ function StockManagementContent() {
   const getGeneratedBarcodes = (item) => {
     if (!item) return []
     const isMultiple = item.barcodeType === 'Multiple'
-   
+
     if (!isMultiple) {
-      const itemIndex = stockLedger.findIndex(it => it.partNo === item.partNo)
-      const suffix = String(itemIndex !== -1 ? itemIndex + 1 : item.id || 1).padStart(5, '0')
       return [
         {
-          barcode: `MS-${suffix}`,
+          barcode: getBarcodeLabel(item),
           qty: item.currentStock
         }
       ]
@@ -95,7 +105,7 @@ function StockManagementContent() {
       const barcodes = []
       const qty = Math.floor(item.currentStock)
       const startIdx = item.multipleStartIdx || 1
-     
+
       for (let i = 0; i < qty; i++) {
         const currentIdx = startIdx + i
         barcodes.push({
@@ -143,10 +153,10 @@ function StockManagementContent() {
       const matched = stockLedger.find(it => it.partNo === val)
       if (matched) {
         setPartNameFilter(matched.partName || '')
-        setQtyFilter(String(matched.currentStock || 0))
+        setQtyFilter('')
         setUomFilter(matched.uom || '')
         setPriceFilter(String(matched.purchaseRate || matched.rate || 0))
-        setAmountFilter(String(matched.stockValue || 0))
+        setAmountFilter('')
         setBarcodeFilter(matched.barcodeType || 'Single')
       }
     } else {
@@ -170,19 +180,20 @@ function StockManagementContent() {
     }
 
     const currentQty = matchedItem.currentStock || 0
-    const targetQty = parseFloat(qtyFilter)
+    const enteredQty = parseFloat(qtyFilter)
 
-    if (isNaN(targetQty) || targetQty < 0) {
-      toast.error('Please enter a valid non-negative quantity')
+    if (isNaN(enteredQty) || enteredQty === 0) {
+      toast.error('Please enter a valid non-zero quantity')
       return
     }
 
-    if (targetQty === currentQty) {
-      toast.info(`Stock quantity is already ${targetQty}`)
+    const targetQty = currentQty + enteredQty
+    if (targetQty < 0) {
+      toast.error('Adjusted stock quantity cannot be negative')
       return
     }
 
-    const diff = targetQty - currentQty
+    const diff = enteredQty
     const type = diff > 0 ? 'INWARD' : 'OUTWARD'
     const absQty = Math.abs(diff)
     const rateVal = matchedItem.purchaseRate || matchedItem.rate || 0
@@ -191,13 +202,28 @@ function StockManagementContent() {
 
     // Generate the array of adjustments to save
     const adjsToSave = []
-    const startIdx = matchedItem.multipleStartIdx || 1
 
     if (matchedItem.barcodeType === 'Multiple') {
       if (type === 'INWARD') {
+        // Find the highest barcode number globally for Multiple
+        const multipleAdjs = adjustments.filter(adj =>
+          adj.barcodeType === 'Multiple' && adj.barcode
+        )
+        let maxNum = 0
+        multipleAdjs.forEach(adj => {
+          const match = adj.barcode.match(/MM-(\d+)/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (num > maxNum) {
+              maxNum = num
+            }
+          }
+        })
+        let startIdx = maxNum > 0 ? maxNum + 1 : 1
+
         const intQty = Math.floor(absQty)
         for (let i = 0; i < intQty; i++) {
-          const currentIdx = startIdx + Math.floor(currentQty) + i
+          const currentIdx = startIdx + i
           adjsToSave.push({
             partNo: partNoFilter,
             partName: matchedItem.partName || '',
@@ -213,7 +239,7 @@ function StockManagementContent() {
           })
         }
         if (absQty > intQty) {
-          const currentIdx = startIdx + Math.floor(currentQty) + intQty
+          const currentIdx = startIdx + intQty
           const remQty = Number((absQty - intQty).toFixed(2))
           adjsToSave.push({
             partNo: partNoFilter,
@@ -230,10 +256,27 @@ function StockManagementContent() {
           })
         }
       } else {
-        // OUTWARD - deduct the last ones
+        // OUTWARD - deduct existing available barcodes for this item
+        const itemBarcodeMap = {}
+        adjustments.forEach(adj => {
+          if (adj.partNo === partNoFilter && adj.barcodeType === 'Multiple' && adj.barcode) {
+            const delta = adj.type === 'INWARD' ? adj.qty : -adj.qty
+            itemBarcodeMap[adj.barcode] = (itemBarcodeMap[adj.barcode] || 0) + delta
+          }
+        })
+        const availableBarcodes = []
+        for (const [bc, q] of Object.entries(itemBarcodeMap)) {
+          if (q >= 1) {
+            for (let j = 0; j < Math.floor(q); j++) availableBarcodes.push(bc)
+          } else if (q > 0) {
+            availableBarcodes.push(bc)
+          }
+        }
+        availableBarcodes.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
         const intQty = Math.floor(absQty)
         for (let i = 0; i < intQty; i++) {
-          const currentIdx = startIdx + Math.floor(currentQty) - 1 - i
+          const outBc = availableBarcodes.length > 0 ? availableBarcodes.pop() : 'MM-00000'
           adjsToSave.push({
             partNo: partNoFilter,
             partName: matchedItem.partName || '',
@@ -241,7 +284,7 @@ function StockManagementContent() {
             uom: uomVal,
             price: rateVal,
             amount: rateVal,
-            barcode: `MM-${String(currentIdx).padStart(5, '0')}`,
+            barcode: outBc,
             barcodeType: 'Multiple',
             type: 'OUTWARD',
             remarks: 'Manual stock correction (quick edit from filters)',
@@ -249,7 +292,7 @@ function StockManagementContent() {
           })
         }
         if (absQty > intQty) {
-          const currentIdx = startIdx + Math.floor(currentQty) - 1 - intQty
+          const outBc = availableBarcodes.length > 0 ? availableBarcodes.pop() : 'MM-00000'
           const remQty = Number((absQty - intQty).toFixed(2))
           adjsToSave.push({
             partNo: partNoFilter,
@@ -258,7 +301,7 @@ function StockManagementContent() {
             uom: uomVal,
             price: rateVal,
             amount: Number((remQty * rateVal).toFixed(2)),
-            barcode: `MM-${String(currentIdx).padStart(5, '0')}`,
+            barcode: outBc,
             barcodeType: 'Multiple',
             type: 'OUTWARD',
             remarks: 'Manual stock correction (quick edit from filters)',
@@ -268,9 +311,29 @@ function StockManagementContent() {
       }
     } else {
       // Single barcode
-      const itemIndex = stockLedger.findIndex(it => it.partNo === matchedItem.partNo)
-      const suffix = String(itemIndex !== -1 ? itemIndex + 1 : matchedItem.id || 1).padStart(5, '0')
-      const barcodeLabel = `MS-${suffix}`
+      let barcodeLabel = ''
+      const existingSingle = adjustments.find(adj => adj.partNo === partNoFilter && adj.barcodeType === 'Single' && adj.barcode)
+     
+      if (existingSingle) {
+        barcodeLabel = existingSingle.barcode
+      } else {
+        // Global sequential for new Single item
+        const singleAdjs = adjustments.filter(adj =>
+          adj.barcodeType === 'Single' && adj.barcode
+        )
+        let maxNum = 0
+        singleAdjs.forEach(adj => {
+          const match = adj.barcode.match(/MS-(\d+)/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (num > maxNum) {
+              maxNum = num
+            }
+          }
+        })
+        let nextIdx = maxNum > 0 ? maxNum + 1 : 1
+        barcodeLabel = `MS-${String(nextIdx).padStart(5, '0')}`
+      }
 
       adjsToSave.push({
         partNo: partNoFilter,
@@ -293,7 +356,14 @@ function StockManagementContent() {
       })
       toast.success(`Stock for ${partNoFilter} updated successfully to ${targetQty}!`)
       await fetchAllData()
-      setAmountFilter(String(targetQty * rateVal))
+      setPartNoFilter('')
+      setPartNameFilter('')
+      setQtyFilter('')
+      setUomFilter('')
+      setPriceFilter('')
+      setAmountFilter('')
+      setGroupFilter('')
+      setBarcodeFilter('')
     } catch (err) {
       console.error(err)
       toast.error('Failed to save stock entries to database')
@@ -303,6 +373,41 @@ function StockManagementContent() {
   // Drawer / Detail View State
   const [selectedItem, setSelectedItem] = useState(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+
+  // Handle Delete Stock Entry
+  const handleDeleteStockEntry = async (row, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this stock entry? This action cannot be undone.')) return;
+
+    const idsToDelete = row.detailsList ? row.detailsList.map(item => item.id) : [row.id];
+
+    try {
+      await api.post('/api/stock-adjustment/delete', { ids: idsToDelete }, {
+        loadingMessage: 'Deleting stock entry...'
+      });
+      toast.success('Stock entry deleted successfully!');
+      fetchAllData();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete stock entry');
+    }
+  };
+
+  const handleDeleteSingleBarcode = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this barcode? This action cannot be undone.')) return;
+
+    try {
+      await api.post('/api/stock-adjustment/delete', { ids: [id] }, {
+        loadingMessage: 'Deleting barcode...'
+      });
+      toast.success('Barcode deleted successfully!');
+      fetchAllData();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete barcode');
+    }
+  };
 
 
 
@@ -401,8 +506,33 @@ function StockManagementContent() {
 
       let multipleStartIdx = 0
       if (barcodeType === 'Multiple') {
-        multipleStartIdx = multipleBarcodeCount + 1
-        multipleBarcodeCount += Math.max(0, Math.ceil(currentStock))
+        const itemAdjs = adjustments.filter(adj =>
+          String(adj.partNo || '').trim().toLowerCase() === codeKey &&
+          adj.barcodeType === 'Multiple' &&
+          adj.barcode
+        )
+        if (itemAdjs.length > 0) {
+          let minNum = Infinity
+          itemAdjs.forEach(adj => {
+            const match = adj.barcode.match(/MM-(\d+)/)
+            if (match) {
+              const num = parseInt(match[1], 10)
+              if (num < minNum) {
+                minNum = num
+              }
+            }
+          })
+          multipleStartIdx = minNum === Infinity ? 1 : minNum
+        } else {
+          // If no item barcodes, find global max to predict next barcode correctly
+          const multipleAdjs = adjustments.filter(adj => adj.barcodeType === 'Multiple' && adj.barcode)
+          let maxNum = 0
+          multipleAdjs.forEach(adj => {
+            const match = adj.barcode.match(/MM-(\d+)/)
+            if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10))
+          })
+          multipleStartIdx = maxNum > 0 ? maxNum + 1 : 1
+        }
       }
 
       return {
@@ -426,11 +556,11 @@ function StockManagementContent() {
       // Individual Filter Matches
       const matchesPartNo = !partNoFilter || item.partNo === partNoFilter
       const matchesPartName = !partNameFilter || String(item.partName || '').toLowerCase().includes(partNameFilter.toLowerCase())
-      // Only filter by Qty if partNoFilter is NOT selected (i.e. performing a general query)
+      // Only filter by Qty, Price, or Amount if partNoFilter is NOT selected (i.e. performing a general query)
       const matchesQty = !partNoFilter ? (!qtyFilter || String(item.currentStock || 0) === qtyFilter) : true
       const matchesUom = !uomFilter || String(item.uom || '').toLowerCase() === uomFilter.toLowerCase()
-      const matchesPrice = !priceFilter || String(item.purchaseRate || item.rate || 0) === priceFilter
-      const matchesAmount = !amountFilter || String(item.stockValue || 0) === amountFilter
+      const matchesPrice = !partNoFilter ? (!priceFilter || String(item.purchaseRate || item.rate || 0) === priceFilter) : true
+      const matchesAmount = !partNoFilter ? (!amountFilter || String(item.stockValue || 0) === amountFilter) : true
 
       // Group Match
       const matchesGroup = !groupFilter || item.groupName === groupFilter
@@ -449,8 +579,8 @@ function StockManagementContent() {
       let displayQty = item.currentStock
       if (partNoFilter && qtyFilter) {
         const parsed = parseFloat(qtyFilter)
-        if (!isNaN(parsed) && parsed >= 0) {
-          displayQty = parsed
+        if (!isNaN(parsed)) {
+          displayQty = Math.max(0, item.currentStock + parsed)
         }
       }
 
@@ -617,7 +747,7 @@ function StockManagementContent() {
     const singles = filtered.filter(adj => adj.barcodeType !== 'Multiple')
     const multiples = filtered.filter(adj => adj.barcodeType === 'Multiple')
 
-    // 3. Group singles by partNo, type, and price
+    // 3. Group singles by partNo
     const groupedSingles = []
     const sortedSingles = [...singles].sort((a, b) => {
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -625,12 +755,15 @@ function StockManagementContent() {
 
     sortedSingles.forEach(item => {
       const match = groupedSingles.find(g => {
-        return g.partNo === item.partNo && g.type === item.type && g.price === item.price
+        return g.partNo === item.partNo
       })
 
+      const netQty = item.type === 'OUTWARD' ? -item.qty : item.qty
+      const netAmount = item.type === 'OUTWARD' ? -item.amount : item.amount
+
       if (match) {
-        match.qty += item.qty
-        match.amount += item.amount
+        match.qty += netQty
+        match.amount += netAmount
         match.detailsList.push(item)
       } else {
         groupedSingles.push({
@@ -638,11 +771,11 @@ function StockManagementContent() {
           partNo: item.partNo,
           partName: item.partName,
           barcodeType: item.barcodeType || 'Single',
-          type: item.type,
+          type: 'INWARD',
           uom: item.uom,
           price: item.price,
-          qty: item.qty,
-          amount: item.amount,
+          qty: netQty,
+          amount: netAmount,
           createdAt: item.createdAt,
           barcode: item.barcode || '—',
           detailsList: [item]
@@ -650,7 +783,7 @@ function StockManagementContent() {
       }
     })
 
-    // 4. Group multiples by partNo, type, price, and closeness of createdAt (within 5 seconds)
+    // 4. Group multiples by partNo
     const groupedMultiples = []
 
     // Sort multiples by createdAt so we group sequentially/chronologically
@@ -659,19 +792,20 @@ function StockManagementContent() {
     })
 
     sortedMultiples.forEach(item => {
-      // Find an existing group
+      // Find an existing group by partNo
       const match = groupedMultiples.find(g => {
-        if (g.partNo !== item.partNo) return false
-        if (g.type !== item.type) return false
-        if (g.price !== item.price) return false
-        const timeDiff = Math.abs(new Date(g.createdAt).getTime() - new Date(item.createdAt).getTime())
-        return timeDiff <= 5000 // 5 seconds
+        return g.partNo === item.partNo
       })
 
+      const netQty = item.type === 'OUTWARD' ? -item.qty : item.qty
+      const netAmount = item.type === 'OUTWARD' ? -item.amount : item.amount
+
       if (match) {
-        match.qty += item.qty
-        match.amount += item.amount
-        match.barcodesList.push(item.barcode)
+        match.qty += netQty
+        match.amount += netAmount
+        if (item.barcode && !match.barcodesList.includes(item.barcode)) {
+          match.barcodesList.push(item.barcode)
+        }
         match.detailsList.push(item)
       } else {
         groupedMultiples.push({
@@ -679,13 +813,13 @@ function StockManagementContent() {
           partNo: item.partNo,
           partName: item.partName,
           barcodeType: 'Multiple',
-          type: item.type,
+          type: 'INWARD',
           uom: item.uom,
           price: item.price,
-          qty: item.qty,
-          amount: item.amount,
+          qty: netQty,
+          amount: netAmount,
           createdAt: item.createdAt,
-          barcodesList: [item.barcode],
+          barcodesList: item.barcode ? [item.barcode] : [],
           detailsList: [item]
         })
       }
@@ -693,7 +827,7 @@ function StockManagementContent() {
 
     // Format the barcode range for each group
     groupedMultiples.forEach(g => {
-      g.barcodesList.sort()
+      g.barcodesList.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }))
       g.detailsList.sort((a, b) => String(a.barcode || '').localeCompare(String(b.barcode || ''), undefined, { numeric: true, sensitivity: 'base' }))
       if (g.barcodesList.length > 1) {
         g.barcode = `${g.barcodesList[0]} - ${g.barcodesList[g.barcodesList.length - 1]}`
@@ -702,7 +836,7 @@ function StockManagementContent() {
       }
     })
 
-    // Combine grouped singles and grouped multiples, sort by createdAt (descending)
+    // Combine grouped singles and grouped multiples, sort by createdAt (ascending)
     const combined = [
       ...groupedSingles.map(s => ({
         ...s,
@@ -715,7 +849,7 @@ function StockManagementContent() {
     ]
 
     return combined.sort((a, b) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
   }, [adjustments, stockSearch])
 
@@ -729,6 +863,7 @@ function StockManagementContent() {
       'S.No': idx + 1,
       'Barcode Type': row.barcodeType || 'Single',
       'Barcode': row.barcode || '—',
+      'Stock Created Date': row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-GB').split('/').join('-') : '—',
       'Part No': row.partNo || '—',
       'Part Name': row.partName || '—',
       'Qty': row.type === 'OUTWARD' ? -row.qty : row.qty,
@@ -746,8 +881,8 @@ function StockManagementContent() {
 
   return (
     <div className="bg-[#f4f6f8] min-h-screen text-slate-800 relative overflow-x-hidden">
-      <div className="px-6 py-6 max-w-7xl mx-auto space-y-6">
-       
+      <div className="px-6 py-6 w-full space-y-6">
+
         {/* Title Block & Navigation */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -770,21 +905,19 @@ function StockManagementContent() {
             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
               <button
                 onClick={() => setActiveTab('stock-entry')}
-                className={`px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                  activeTab === 'stock-entry'
+                className={`px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all ${activeTab === 'stock-entry'
                     ? 'bg-[#0097A7] text-white shadow'
                     : 'text-slate-500 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 Stock Ledger
               </button>
               <button
                 onClick={() => setActiveTab('stock-report')}
-                className={`px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                  activeTab === 'stock-report'
+                className={`px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all ${activeTab === 'stock-report'
                     ? 'bg-[#0097A7] text-white shadow'
                     : 'text-slate-500 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 Stock Entry Report
               </button>
@@ -822,17 +955,12 @@ function StockManagementContent() {
                 </span>
                 <div className="flex items-center gap-3">
                   {partNoFilter && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold bg-white/20 px-2 py-0.5 rounded uppercase tracking-wider">
-                        Total Barcodes: {flattenedLedger.length}
-                      </span>
-                      <button
-                        onClick={handleSaveQuickQty}
-                        className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded shadow active:scale-95 transition-all"
-                      >
-                        <Save size={12} /> Save Barcodes & Qty
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleSaveQuickQty}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-[#0097A7] text-[11px] font-black rounded shadow active:scale-95 transition-all"
+                    >
+                      <Save size={12} /> Save Barcodes & Qty
+                    </button>
                   )}
                   <button
                     onClick={() => {
@@ -845,7 +973,7 @@ function StockManagementContent() {
                       setGroupFilter('')
                       setBarcodeFilter('')
                     }}
-                    className="text-[11px] font-bold text-white hover:text-red-200 transition-colors bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-bold rounded shadow transition-all active:scale-95"
                   >
                     Reset All Filters
                   </button>
@@ -854,7 +982,7 @@ function StockManagementContent() {
               <div className="p-5">
                 {/* Grid of separate filter fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-4">
-                 
+
                   {/* 1. Part No */}
                   <div className="flex items-center gap-2.5">
                     <label className="text-[12.5px] font-bold text-slate-700 w-28 text-right shrink-0">Part No :</label>
@@ -879,9 +1007,8 @@ function StockManagementContent() {
                       value={partNameFilter}
                       onChange={e => setPartNameFilter(e.target.value)}
                       disabled={!!partNoFilter}
-                      className={`w-full px-3 py-1.5 border border-slate-300 rounded text-[13px] transition-all ${
-                        partNoFilter ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 focus:bg-white focus:outline-none focus:border-[#0097A7]'
-                      }`}
+                      className={`w-full px-3 py-1.5 border border-slate-300 rounded text-[13px] transition-all ${partNoFilter ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 focus:bg-white focus:outline-none focus:border-[#0097A7]'
+                        }`}
                     />
                   </div>
 
@@ -892,7 +1019,19 @@ function StockManagementContent() {
                       type="text"
                       placeholder="Filter Qty..."
                       value={qtyFilter}
-                      onChange={e => setQtyFilter(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value
+                        setQtyFilter(val)
+                        if (partNoFilter) {
+                          const num = parseFloat(val)
+                          const price = parseFloat(priceFilter) || 0
+                          if (!isNaN(num)) {
+                            setAmountFilter(String(Number((num * price).toFixed(2))))
+                          } else {
+                            setAmountFilter('')
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-[13px] bg-slate-50 focus:bg-white focus:outline-none focus:border-[#0097A7] transition-all font-bold"
                     />
                   </div>
@@ -922,9 +1061,8 @@ function StockManagementContent() {
                       value={priceFilter}
                       onChange={e => setPriceFilter(e.target.value)}
                       disabled={!!partNoFilter}
-                      className={`w-full px-3 py-1.5 border border-slate-300 rounded text-[13px] transition-all ${
-                        partNoFilter ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 focus:bg-white focus:outline-none focus:border-[#0097A7]'
-                      }`}
+                      className={`w-full px-3 py-1.5 border border-slate-300 rounded text-[13px] transition-all ${partNoFilter ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 focus:bg-white focus:outline-none focus:border-[#0097A7]'
+                        }`}
                     />
                   </div>
 
@@ -937,9 +1075,8 @@ function StockManagementContent() {
                       value={amountFilter}
                       onChange={e => setAmountFilter(e.target.value)}
                       disabled={!!partNoFilter}
-                      className={`w-full px-3 py-1.5 border border-slate-300 rounded text-[13px] transition-all ${
-                        partNoFilter ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 focus:bg-white focus:outline-none focus:border-[#0097A7]'
-                      }`}
+                      className={`w-full px-3 py-1.5 border border-slate-300 rounded text-[13px] transition-all ${partNoFilter ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 focus:bg-white focus:outline-none focus:border-[#0097A7]'
+                        }`}
                     />
                   </div>
 
@@ -958,14 +1095,27 @@ function StockManagementContent() {
                     </select>
                   </div>
 
+                  {/* Stock Created Date */}
+                  <div className="flex items-center gap-2.5">
+                    <label className="text-[12.5px] font-bold text-slate-700 w-28 text-right shrink-0">Stock Created Date :</label>
+                    <input
+                      type="text"
+                      value={new Date().toLocaleDateString('en-GB').split('/').join('-')}
+                      disabled={true}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-[13px] bg-slate-100 text-slate-400 cursor-not-allowed font-bold"
+                    />
+                  </div>
+
                 </div>
               </div>
             </div>
 
             {/* Central Data Table */}
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
-              <div className="bg-[#34495e] text-white px-4 py-2 flex items-center justify-between text-[12.5px] font-bold uppercase tracking-wider">
-                <span>Stock Ledger Items</span>
+              <div className="bg-[#34495e] text-white px-4 py-2.5 flex items-center justify-between">
+                <span className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                  Stock Ledger Items
+                </span>
               </div>
               {loading ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400 space-y-3">
@@ -1015,11 +1165,10 @@ function StockManagementContent() {
                           >
                             <td className="px-4 py-3 text-center text-slate-400 font-bold italic">{idx + 1}</td>
                             <td className="px-4 py-3 text-center">
-                              <span className={`px-2 py-0.5 border text-[10px] rounded font-bold uppercase tracking-wider ${
-                                row.barcodeType === 'Multiple'
+                              <span className={`px-2 py-0.5 border text-[10px] rounded font-bold uppercase tracking-wider ${row.barcodeType === 'Multiple'
                                   ? 'bg-purple-50 border-purple-200 text-purple-600'
                                   : 'bg-blue-50 border-blue-200 text-blue-600'
-                              }`}>
+                                }`}>
                                 {row.barcodeType || 'Single'}
                               </span>
                             </td>
@@ -1065,7 +1214,7 @@ function StockManagementContent() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleExportStockReportExcel}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded shadow active:scale-95 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-[#0097A7] text-[11px] font-black rounded shadow active:scale-95 transition-all"
                   >
                     <FileSpreadsheet size={12} /> Export Excel
                   </button>
@@ -1074,7 +1223,7 @@ function StockManagementContent() {
                       setStockSearch('')
                       fetchAllData()
                     }}
-                    className="flex items-center justify-center p-1 bg-white/10 hover:bg-white/20 text-white rounded transition-all"
+                    className="flex items-center justify-center p-1 bg-slate-700 hover:bg-slate-800 text-white rounded transition-all"
                     title="Refresh Data"
                   >
                     <RotateCcw size={12} />
@@ -1100,8 +1249,10 @@ function StockManagementContent() {
 
             {/* Central Data Table for Stock Entry Report */}
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
-              <div className="bg-[#34495e] text-white px-4 py-2 flex items-center justify-between text-[12.5px] font-bold uppercase tracking-wider">
-                <span>Stock Entry Report Records</span>
+              <div className="bg-[#34495e] text-white px-4 py-2.5 flex items-center justify-between">
+                <span className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                  Stock Entry Report Records
+                </span>
               </div>
               {loading ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400 space-y-3">
@@ -1116,18 +1267,20 @@ function StockManagementContent() {
                         <th className="px-4 py-3.5 text-center w-14">S.No</th>
                         <th className="px-4 py-3.5 text-center w-28">Barcode Type</th>
                         <th className="px-4 py-3.5 text-center w-28">Barcode</th>
+                        <th className="px-4 py-3.5 text-center w-36">Stock Created Date</th>
                         <th className="px-4 py-3.5 text-center w-36">Part No</th>
                         <th className="px-4 py-3.5 text-center">Part Name</th>
                         <th className="px-4 py-3.5 text-center w-28">Qty</th>
                         <th className="px-4 py-3.5 text-center w-24">UOM</th>
                         <th className="px-4 py-3.5 text-center w-28">Price</th>
                         <th className="px-4 py-3.5 text-center w-32">Amount</th>
+                        {/* <th className="px-4 py-3.5 text-center w-20">Action</th> */}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-[12.5px] font-medium text-slate-700">
                       {filteredStockReport.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="py-16 text-center text-slate-400 font-semibold">
+                          <td colSpan={11} className="py-16 text-center text-slate-400 font-semibold">
                             <Warehouse size={36} className="mx-auto text-slate-300 mb-2" />
                             No stock entry details match the search query.
                           </td>
@@ -1145,9 +1298,8 @@ function StockManagementContent() {
                                     }))
                                   }
                                 }}
-                                className={`px-4 py-3 text-center text-slate-400 font-bold italic select-none ${
-                                  row.barcodeType === 'Multiple' ? 'cursor-pointer hover:bg-slate-100 hover:text-[#0097A7] transition-all' : ''
-                                }`}
+                                className={`px-4 py-3 text-center text-slate-400 font-bold italic select-none ${row.barcodeType === 'Multiple' ? 'cursor-pointer hover:bg-slate-100 hover:text-[#0097A7] transition-all' : ''
+                                  }`}
                               >
                                 <div className="flex items-center justify-center gap-1.5">
                                   {row.barcodeType === 'Multiple' && (
@@ -1159,11 +1311,10 @@ function StockManagementContent() {
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-center">
-                                <span className={`px-2 py-0.5 border text-[10px] rounded font-bold uppercase tracking-wider ${
-                                  row.barcodeType === 'Multiple'
+                                <span className={`px-2 py-0.5 border text-[10px] rounded font-bold uppercase tracking-wider ${row.barcodeType === 'Multiple'
                                     ? 'bg-purple-50 border-purple-200 text-purple-600'
                                     : 'bg-blue-50 border-blue-200 text-blue-600'
-                                }`}>
+                                  }`}>
                                   {row.barcodeType || 'Single'}
                                 </span>
                               </td>
@@ -1171,6 +1322,9 @@ function StockManagementContent() {
                                 <span className="font-mono text-[10.5px] font-bold text-slate-500">
                                   {row.barcode || '—'}
                                 </span>
+                              </td>
+                              <td className="px-4 py-3 text-center font-bold text-slate-600">
+                                {row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-GB').split('/').join('-') : '—'}
                               </td>
                               <td className="px-4 py-3 text-center font-bold text-blue-600">
                                 {row.partNo || '—'}
@@ -1186,22 +1340,33 @@ function StockManagementContent() {
                               <td className="px-4 py-3 text-center font-black text-slate-800">
                                 ₹{(row.type === 'OUTWARD' ? -row.amount : row.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </td>
+                              {/* <td className="px-4 py-3 text-center">
+                                <button
+                                  onClick={(e) => handleDeleteStockEntry(row, e)}
+                                  className="p-1.5 bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white rounded transition-colors"
+                                  title="Delete Entry"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td> */}
                             </tr>
                             {expandedRows[row.id] && row.barcodeType === 'Multiple' && (
                               <tr className="bg-slate-50/50">
-                                <td colSpan={9} className="px-6 py-3 border-l-4 border-l-[#0097A7] bg-slate-50/30">
+                                <td colSpan={11} className="px-6 py-3 border-l-4 border-l-[#0097A7] bg-slate-50/30">
                                   <div className="rounded-lg border border-slate-200 overflow-hidden shadow-sm max-w-4xl mx-auto my-1 bg-white">
                                     <table className="w-full text-left text-[11.5px]">
                                       <thead className="bg-slate-50 border-b border-slate-200 text-[9px] font-black uppercase text-slate-400 tracking-wider">
                                         <tr>
                                           <th className="px-3 py-2 text-center w-12">S.No</th>
                                           <th className="px-3 py-2 text-center w-28">Barcode</th>
+                                          <th className="px-3 py-2 text-center w-32">Stock Created Date</th>
                                           <th className="px-3 py-2 text-center w-32">Part No</th>
                                           <th className="px-3 py-2 text-center">Part Name</th>
                                           <th className="px-3 py-2 text-center w-20">Qty</th>
                                           <th className="px-3 py-2 text-center w-16">UOM</th>
                                           <th className="px-3 py-2 text-center w-24">Price</th>
                                           <th className="px-3 py-2 text-center w-28">Amount</th>
+                                          {/* <th className="px-3 py-2 text-center w-16">Action</th> */}
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
@@ -1209,6 +1374,9 @@ function StockManagementContent() {
                                           <tr key={item.id || dIdx} className="hover:bg-slate-50 transition-colors">
                                             <td className="px-3 py-1.5 text-center text-slate-400 font-bold italic">{dIdx + 1}</td>
                                             <td className="px-3 py-1.5 text-center font-mono text-[#0097A7] font-bold">{item.barcode}</td>
+                                            <td className="px-3 py-1.5 text-center text-slate-500">
+                                              {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB').split('/').join('-') : '—'}
+                                            </td>
                                             <td className="px-3 py-1.5 text-center font-bold text-slate-700">{item.partNo}</td>
                                             <td className="px-3 py-1.5 text-center text-slate-700">{item.partName || '—'}</td>
                                             <td className="px-3 py-1.5 text-center font-black text-slate-900">
@@ -1219,6 +1387,15 @@ function StockManagementContent() {
                                             <td className="px-3 py-1.5 text-center font-black text-slate-800">
                                               ₹{(item.type === 'OUTWARD' ? -item.amount : item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                             </td>
+                                            {/* <td className="px-3 py-1.5 text-center">
+                                              <button
+                                                onClick={(e) => handleDeleteSingleBarcode(item.id, e)}
+                                                className="p-1 text-rose-400 hover:text-rose-600 transition-colors"
+                                                title="Delete Barcode"
+                                              >
+                                                <Trash2 size={12} />
+                                              </button>
+                                            </td> */}
                                           </tr>
                                         ))}
                                       </tbody>
@@ -1241,9 +1418,8 @@ function StockManagementContent() {
 
       {/* Slide-out Transaction Details Drawer */}
       <div
-        className={`fixed inset-y-0 right-0 z-40 w-full sm:w-[480px] bg-white shadow-2xl border-l border-slate-200 transform transition-transform duration-300 ease-in-out ${
-          isDrawerOpen && selectedItem ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        className={`fixed inset-y-0 right-0 z-40 w-full sm:w-[480px] bg-white shadow-2xl border-l border-slate-200 transform transition-transform duration-300 ease-in-out ${isDrawerOpen && selectedItem ? 'translate-x-0' : 'translate-x-full'
+          }`}
       >
         {selectedItem && (
           <div className="h-full flex flex-col justify-between text-slate-700">
@@ -1265,7 +1441,7 @@ function StockManagementContent() {
 
             {/* Drawer Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6">
-             
+
               {/* Item Master Specs */}
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3.5">
                 <div className="flex justify-between border-b border-slate-200/60 pb-2">
