@@ -1,13 +1,18 @@
 
 import { Edit, Trash2, Shield } from 'lucide-react';
 
-export default function UserActions({ onEdit, onDelete, onManageAccess, canDelete, isDeleting }) {
+export default function UserActions({ onEdit, onDelete, onManageAccess, canDelete, isDeleting, canManageAccess = true }) {
   return (
     <div className="flex justify-center gap-2">
       <button
         onClick={onManageAccess}
-        className="px-3 py-1.5 bg-[#475569] hover:bg-slate-700 text-white text-[12px] rounded transition-colors"
-        title="Rights Assignment"
+        disabled={!canManageAccess}
+        className={`px-3 py-1.5 text-white text-[12px] rounded transition-colors
+          ${!canManageAccess 
+            ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-200' 
+            : 'bg-[#475569] hover:bg-slate-700'
+          }`}
+        title={canManageAccess ? "Rights Assignment" : "Admins have full access by default"}
       >
         <Shield className="w-4 h-4" />
       </button>

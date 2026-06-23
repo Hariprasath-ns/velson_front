@@ -122,6 +122,7 @@ export default function UserTable({
                         onManageAccess={() => onManageAccess(row)}
                         canDelete={canDelete}
                         isDeleting={isDeletingId === row.id}
+                        canManageAccess={row.role?.toUpperCase() !== 'ADMIN'}
                       />
                     </td>
                   </tr>

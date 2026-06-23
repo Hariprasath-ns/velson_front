@@ -75,31 +75,33 @@ export function useModulePermission(moduleCode) {
   }
 
   // Fallback: Hybrid Access Policy (evaluate role restrictions)
-  if (roleUpper === 'USER' && HIDDEN_FOR_USER.includes(moduleCode)) {
+  if (roleUpper === 'USER') {
+    const isAllowed = !HIDDEN_FOR_USER.includes(moduleCode);
     return {
-      canDisplay: false,
-      canSave: false,
-      canEdit: false,
-      canDelete: false,
-      canPrint: false,
+      canDisplay: isAllowed,
+      canSave: isAllowed,
+      canEdit: isAllowed,
+      canDelete: isAllowed,
+      canPrint: isAllowed,
     };
   }
-  if (roleUpper === 'STAFF' && HIDDEN_FOR_STAFF.includes(moduleCode)) {
+  if (roleUpper === 'STAFF') {
+    const isAllowed = !HIDDEN_FOR_STAFF.includes(moduleCode);
     return {
-      canDisplay: false,
-      canSave: false,
-      canEdit: false,
-      canDelete: false,
-      canPrint: false,
+      canDisplay: isAllowed,
+      canSave: isAllowed,
+      canEdit: isAllowed,
+      canDelete: isAllowed,
+      canPrint: isAllowed,
     };
   }
 
-  // By default, staff has read/write permissions on non-hidden modules
+  // For any other role, if no database permissions are configured, they are unauthorized by default
   return {
-    canDisplay: true,
-    canSave: true,
-    canEdit: true,
-    canDelete: true,
-    canPrint: true,
+    canDisplay: false,
+    canSave: false,
+    canEdit: false,
+    canDelete: false,
+    canPrint: false,
   };
 }

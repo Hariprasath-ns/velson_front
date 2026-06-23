@@ -145,6 +145,9 @@ import JobQCEntry from './pages/JobQCEntry'
 
 import Users from './pages/Users/Users'
 import CCMSEntryDetails from './pages/CCMSEntryDetails'
+import NotificationHistory from './pages/Notifications/NotificationHistory'
+import UserNotificationPreferences from './pages/Notifications/UserNotificationPreferences'
+import NotificationRights from './pages/Notifications/NotificationRights'
 
 // page key → component (used to build <Route> elements)
 const PAGE_COMPONENTS = {
@@ -281,6 +284,9 @@ const PAGE_COMPONENTS = {
   ProcessCardClose:            ProcessCardClose,
   JobQCEntry:                  JobQCEntry,
   Users:                       Users,
+  NotificationHistory:         NotificationHistory,
+  UserNotificationPreferences: UserNotificationPreferences,
+  NotificationRights:          NotificationRights,
 }
 
 // Bridges legacy velson:navigate custom events to React Router navigation.
@@ -322,6 +328,9 @@ const PAGE_TO_MODULE = (() => {
 })()
 
 function ProtectedRoute({ pageKey, children }) {
+  if (pageKey === "NotificationHistory" || pageKey === "UserNotificationPreferences" || pageKey === "NotificationRights") {
+    return children
+  }
   const moduleCode = PAGE_TO_MODULE[pageKey]
   const { canDisplay } = useModulePermission(moduleCode || '')
 

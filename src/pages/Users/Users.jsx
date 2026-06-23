@@ -59,10 +59,12 @@ export default function Users() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Fetch users on mount
+  // Fetch users on mount (only for admin users to prevent unnecessary 403 network requests before redirecting)
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (currentUser && (currentUser.role || '').toLowerCase() === 'admin') {
+      fetchUsers();
+    }
+  }, [currentUser, fetchUsers]);
 
   // Reset to first page when search query or page size changes
   useEffect(() => {

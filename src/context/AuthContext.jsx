@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import api from '../services/api'
+import { initSocket, disconnectSocket } from '../services/socket'
 
 const AuthContext = createContext(null)
 
@@ -17,12 +18,35 @@ function loadFromStorage() {
 export function AuthProvider({ children }) {
   const [auth, setAuth] = useState(() => loadFromStorage())
 
+  const syncPermissions = useCallback(async () => {
+    try {
+      const res = await api.get('/api/auth/permissions', { skipGlobalLoader: true })
+      if (res.data && res.data.permissions) {
+        setAuth(prev => {
+          if (!prev) return prev;
+          const updated = {
+            ...prev,
+            user: {
+              ...prev.user,
+              permissions: res.data.permissions
+            }
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+          return updated
+        })
+      }
+    } catch (err) {
+      console.warn('Failed to sync permissions:', err)
+    }
+  }, [])
+
   useEffect(() => {
     const handleRefreshed = (e) => {
       setAuth(e.detail)
     }
     const handleLogoutEvent = () => {
       setAuth(null)
+      disconnectSocket()
     }
     window.addEventListener('velson:auth_refreshed', handleRefreshed)
     window.addEventListener('velson:logout', handleLogoutEvent)
@@ -31,6 +55,46 @@ export function AuthProvider({ children }) {
       window.removeEventListener('velson:logout', handleLogoutEvent)
     }
   }, [])
+
+  // Setup WebSocket sync
+  useEffect(() => {
+    if (auth && auth.token && auth.token !== 'bypass') {
+      // Sync on initial mount/token load
+      syncPermissions()
+
+      // Setup Socket.IO listener
+      const socket = initSocket()
+
+      // Ensure socket token is up-to-date and socket is connected
+      if (socket.auth?.token !== auth.token) {
+        socket.auth = { token: auth.token }
+        if (socket.connected) {
+          socket.disconnect().connect()
+        } else {
+          socket.connect()
+        }
+      } else if (!socket.connected) {
+        socket.connect()
+      }
+
+      const handlePermissionUpdate = (data) => {
+        if (!data) return;
+        const matchesRole = data.role && auth.user?.role?.toUpperCase() === data.role.toUpperCase()
+        const matchesUser = data.userId && auth.user?.id === data.userId
+
+        if (matchesRole || matchesUser) {
+          console.log('[Socket] Detected permission update. Syncing with database...')
+          syncPermissions()
+        }
+      }
+
+      socket.on('permission.updated', handlePermissionUpdate)
+
+      return () => {
+        socket.off('permission.updated', handlePermissionUpdate)
+      }
+    }
+  }, [auth?.token, auth?.user?.id, auth?.user?.role, syncPermissions])
 
   const login = useCallback((data) => {
     // data: { token, refreshToken, user }
@@ -53,6 +117,7 @@ export function AuthProvider({ children }) {
     }
     localStorage.removeItem(STORAGE_KEY)
     setAuth(null)
+    disconnectSocket()
   }, [])
 
   return (

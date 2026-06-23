@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   ChevronRight, ChevronDown, User, LogOut,
 } from 'lucide-react'
+import NotificationBell from './NotificationBell'
 
 const PATH_TO_GROUP = {}
 for (const item of NAV) {
@@ -83,14 +84,19 @@ export default function Layout({ children }) {
       return perm ? !!perm.canDisplay : false;
     }
     
-    if (userRoleUpper === "USER" && HIDDEN_FOR_USER.includes(moduleCode)) return false;
-    if (userRoleUpper === "STAFF" && HIDDEN_FOR_STAFF.includes(moduleCode)) return false;
+    if (userRoleUpper === "USER") {
+      return !HIDDEN_FOR_USER.includes(moduleCode);
+    }
+    if (userRoleUpper === "STAFF") {
+      return !HIDDEN_FOR_STAFF.includes(moduleCode);
+    }
     
-    return true;
+    return false;
   };
 
   // Filter nav items based on custom permissions and hiddenRoles
   const visibleNav = NAV.map(item => {
+    if (item.hidden) return null;
     const itemCode = item.id.replace(/-top$/, "");
     const isHiddenRole = item.hiddenRoles?.some(r => r.toUpperCase() === userRoleUpper);
     if (isHiddenRole) return null;
@@ -197,6 +203,7 @@ export default function Layout({ children }) {
             <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#0097A7]/40 text-[#7dd3fc] tracking-wide">
               {userRole}
             </span>
+            <NotificationBell />
             <div className="w-8 h-8 bg-[#0097A7] rounded-full flex items-center justify-center">
               <User size={15} className="text-white" />
             </div>
@@ -211,7 +218,7 @@ export default function Layout({ children }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f4f6f8]">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f4f6f8] relative z-20">
           {children}
         </main>
       </div>
