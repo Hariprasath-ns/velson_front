@@ -3,10 +3,10 @@ name: Frontend CI - Build & Push to Docker Hub
 on:
   push:
     branches:
-      - sujeeth_docker_v2          # triggers on every push/merge to main
+      - sujeeth_docker_v4          # triggers on every push/merge to main
   pull_request:
     branches:
-      - sujeeth_docker_v2       # builds only (no push) on PRs to catch errors early
+      - sujeeth_docker_v4       # builds only (no push) on PRs to catch errors early
 
 permissions:
   contents: read      # least privilege — only read the repo
