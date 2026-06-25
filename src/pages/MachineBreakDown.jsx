@@ -10,8 +10,8 @@ import * as XLSX from 'xlsx'
 
 // ── Shared UI primitives ──
 const Label = ({ children, required, className = "" }) => (
-  <label className={`block text-[11px] font-bold text-slate-500 mb-0 uppercase tracking-wider ${className}`}>
-    {required && <span className="text-red-500 mr-1">*</span>}
+  <label className={`block text-[11px] font-semibold text-slate-600 mb-1 uppercase tracking-wider ${className}`}>
+    {required && <span className="text-red-500 mr-0.5">*</span>}
     {children}
   </label>
 )
@@ -23,24 +23,24 @@ const Input = ({ placeholder, value, onChange, type = 'text', readOnly = false, 
     value={value}
     onChange={onChange}
     readOnly={readOnly}
-    className={`w-full px-2 py-1 text-[12px] border border-slate-300 rounded bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] transition-all duration-200 ${readOnly ? 'bg-slate-50 cursor-not-allowed' : 'hover:border-slate-300'} shadow-sm ${className}`}
+    className={`w-full px-3 py-[7px] text-sm border border-slate-200 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all duration-200 ${readOnly ? 'bg-slate-50 cursor-not-allowed' : 'hover:border-slate-300'} ${className}`}
     {...props}
   />
 )
 
 const Select = ({ options, placeholder, value, onChange, className = "" }) => (
-  <div className={`relative group ${className}`}>
+  <div className={`relative ${className}`}>
     <select
       value={value}
       onChange={onChange}
-      className="w-full px-2 py-1 pr-6 text-[12px] border border-slate-300 rounded bg-white text-slate-700 appearance-none focus:outline-none focus:ring-1 focus:ring-[#0097A7] transition-all duration-200 hover:border-slate-300 cursor-pointer shadow-sm font-bold"
+      className="w-full px-3 py-[7px] pr-8 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all duration-200 hover:border-slate-300 cursor-pointer"
     >
       <option value="">{placeholder}</option>
       {options.map(o => <option key={o} value={o}>{o}</option>)}
     </select>
-    <div className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center group-hover:text-[#0097A7] transition-colors">
-      <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+      <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
       </svg>
     </div>
   </div>
@@ -52,7 +52,7 @@ const TextArea = ({ placeholder, value, onChange, className = "", rows = 2 }) =>
     value={value}
     onChange={onChange}
     rows={rows}
-    className={`w-full px-2 py-1 text-[12px] border border-slate-300 rounded bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] transition-all duration-200 hover:border-slate-300 resize-none shadow-sm ${className}`}
+    className={`w-full px-3 py-[7px] text-sm border border-slate-200 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all duration-200 hover:border-slate-300 resize-none ${className}`}
   />
 )
 
@@ -502,26 +502,26 @@ export default function MachineBreakDown() {
                 <div className="col-span-4 text-right"><Label>Date :</Label></div>
                 <div className="col-span-8 flex items-center gap-4">
                   {/* Unified Date Input Box */}
-                  <div className="w-48 shrink-0 flex items-center border border-slate-300 rounded bg-white shadow-sm focus-within:ring-1 focus-within:ring-[#0097A7] focus-within:border-[#0097A7] hover:border-slate-300 transition-all duration-200">
+                  <div className="w-48 shrink-0 flex items-center border border-slate-200 rounded-lg bg-white focus-within:ring-2 focus-within:ring-[#0097A7]/25 focus-within:border-[#0097A7] hover:border-slate-300 transition-all duration-200">
                     <input
                       type="text"
                       value={form.date}
                       onChange={u('date')}
-                      className="w-full min-w-0 pl-2 pr-1 py-1 text-[11px] bg-transparent text-slate-700 font-bold focus:outline-none"
+                      className="w-full min-w-0 pl-3 pr-1 py-[7px] text-sm bg-transparent text-slate-800 font-bold focus:outline-none"
                     />
-                    <div className="pr-1.5 pl-0.5 flex items-center justify-center shrink-0">
-                      <Calendar size={11} className="text-slate-400" />
+                    <div className="pr-3 pl-0.5 flex items-center justify-center shrink-0">
+                      <Calendar size={14} className="text-slate-400" />
                     </div>
                   </div>
 
-                  <Label className="text-[11px] shrink-0">MWR NO :</Label>
+                  <Label className="!mb-0 text-[11px] shrink-0">MWR NO :</Label>
                   {/* Unified MWR No Input Box */}
-                  <div className="w-12 shrink-0 flex items-center border border-slate-300 rounded bg-white shadow-sm focus-within:ring-1 focus-within:ring-[#0097A7] focus-within:border-[#0097A7] hover:border-slate-300 transition-all duration-200">
+                  <div className="w-16 shrink-0 flex items-center border border-slate-200 rounded-lg bg-white focus-within:ring-2 focus-within:ring-[#0097A7]/25 focus-within:border-[#0097A7] hover:border-slate-300 transition-all duration-200">
                     <input
                       type="text"
                       value={form.mwrNo}
                       onChange={u('mwrNo')}
-                      className="w-full text-center py-1 text-[11px] bg-transparent text-[#0097A7] font-bold focus:outline-none"
+                      className="w-full text-center py-[7px] text-sm bg-transparent text-[#0097A7] font-bold focus:outline-none"
                     />
                   </div>
                 </div>

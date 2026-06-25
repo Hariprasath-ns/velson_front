@@ -4,6 +4,7 @@ import {
   Settings, Landmark, LayoutGrid, ShieldAlert, ClipboardList, Truck,
   Bell,
 } from 'lucide-react'
+import { lazy } from 'react'
 
 // hiddenRoles: roles that CANNOT see this item
 // admin sees everything (no restriction)
@@ -11,15 +12,23 @@ import {
 // user sees only dashboard, service, production, nc, maintenance
 
 export const NAV = [
-  { id: 'dashboard-top', label: 'Dashboard', icon: LayoutDashboard, page: 'Dashboard' },
+  {
+    id: 'dashboard-top', label: 'Dashboard', icon: LayoutDashboard, page: 'MainDashboard',
+    children: [
+      {id: 'main-dashboard', label: 'Main Dashboard', page: 'MainDashboard'},
+      { id: 'job-process-dashboard', label: 'Job Process Analysis', page: 'Dashboard' },
+      { id: 'sales-dashboard', label: 'Sales Analysis', page: 'SalesDashboard' },
+      { id: 'stock-dashboard', label: 'Stock Analysis', page: 'StockDashboard' },
+    ]
+  },
 
   // Admin-only: user management
   {
-    id: 'users', label: 'Users', icon: Users, hiddenRoles: ['staff', 'user'],
+    id: 'users', label: 'Users', icon: Users,
     children: [
       { id: 'user-list', label: 'Users List', page: 'Users' },
       { id: 'notification-history', label: 'Notification History', page: 'NotificationHistory' },
-      { id: 'notification-rights', label: 'Notification Rights', page: 'NotificationRights', hiddenRoles: ['staff', 'user'] },
+      { id: 'notification-rights', label: 'Notification Rights', page: 'NotificationRights' },
       { id: 'notification-preferences', label: 'Notification Preferences', page: 'UserNotificationPreferences', hidden: true },
 
     ]
@@ -28,7 +37,7 @@ export const NAV = [
   // Notification pages (visible in sidebar)
 
   {
-    id: 'masters', label: 'Masters', icon: Database, hiddenRoles: ['user'],
+    id: 'masters', label: 'Masters', icon: Database,
     children: [
       { id: 'company-master', label: 'Company Master', page: 'CompanyMaster' },
       { id: 'employee-master', label: 'Employee Master', page: 'EmployeeMaster' },
@@ -37,20 +46,20 @@ export const NAV = [
       // { id: 'vehicle-service-master',label: 'Vehicle Service Master',        page: 'VehicleServiceMaster' },
       { id: 'contractor-master', label: 'Contractor Master', page: 'ContractorMaster' },
       { id: 'process-master', label: 'Process Master', page: 'ProcessMaster' },
-      { id: 'reference-master', label: 'Reference Master', page: 'ReferenceMaster', hiddenRoles: ['staff', 'user'] },
+      { id: 'reference-master', label: 'Reference Master', page: 'ReferenceMaster' },
       { id: 'part-usage-list', label: 'Part Usage List Display', page: 'PartUsageList' },
       // { id: 'qc-check-method', label: 'QC Check Method Master', page: 'QCCheckMethod' },
       { id: 'qc-inspection-char', label: 'QC Inspection Character Master', page: 'QCInspectionChar' },
       // { id: 'qc-standard-master', label: 'QC Standard Master', page: 'QCStandardMaster' },
       { id: 'auto-po', label: 'Auto PO', page: 'AutoPO' },
       // Admin-only system settings
-      { id: 'system-info-master', label: 'System Info Master', page: 'SystemInfoMaster', hiddenRoles: ['staff', 'user'] },
+      { id: 'system-info-master', label: 'System Info Master', page: 'SystemInfoMaster' },
       // { id: 'db-copy', label: 'DB Copy', page: 'DBCopy', hiddenRoles: ['staff', 'user'] },
       // { id: 'restore-db', label: 'Restore DB', page: 'RestoreDB', hiddenRoles: ['staff', 'user'] },
     ],
   },
   {
-    id: 'item-masters', label: 'Item Masters', icon: Package, hiddenRoles: ['user'],
+    id: 'item-masters', label: 'Item Masters', icon: Package,
     children: [
       { id: 'part-number-base', label: 'Part Number Base Master', page: 'PartNumberBase' },
       { id: 'tax-ledger', label: 'Tax Ledger A/C Master', page: 'TaxLedger' },
@@ -60,7 +69,7 @@ export const NAV = [
     ],
   },
   {
-    id: 'person-masters', label: 'Person Masters', icon: UserCircle, hiddenRoles: ['user'],
+    id: 'person-masters', label: 'Person Masters', icon: UserCircle,
     children: [
       { id: 'supplier-master', label: 'Supplier Master', page: 'SupplierMaster' },
       { id: 'customer-master', label: 'Customer Master', page: 'CustomerMaster' },
@@ -69,7 +78,7 @@ export const NAV = [
   {
     id: 'service', label: 'Service', icon: Wrench,
     children: [
-      { id: 'vehicle-master', label: 'Vehicle Master', page: 'VehicleMaster', hiddenRoles: ['user'] },
+      { id: 'vehicle-master', label: 'Vehicle Master', page: 'VehicleMaster' },
       { id: 'booking-entry-new', label: 'Booking Entry', page: 'BookingEntryNew' },
       // { id: 'service-quotation',           label: 'Service Quotation',        page: 'ServiceQuotation',        hiddenRoles: ['user'] },
       // { id: 'service-quotation-details',   label: 'Service Quotation Details',page: 'ServiceQuotationDetails', hiddenRoles: ['user'] },
@@ -80,7 +89,7 @@ export const NAV = [
     ],
   },
   {
-    id: 'quotation', label: 'Quotation', icon: FileText, hiddenRoles: ['user'],
+    id: 'quotation', label: 'Quotation', icon: FileText,
     children: [
       { id: 'quotation-entry', label: 'Quotation Entry', page: 'QuotationEntry' },
       { id: 'quotation-details', label: 'Quotation Details', page: 'QuotationDetails' },
@@ -91,7 +100,7 @@ export const NAV = [
     ],
   },
   {
-    id: 'purchase', label: 'Purchase', icon: ShoppingCart, hiddenRoles: ['user'],
+    id: 'purchase', label: 'Purchase', icon: ShoppingCart,
     children: [
       { id: 'purchase-order', label: 'Purchase Order', page: 'PurchaseOrderEntry' },
       { id: 'purchase-order-details', label: 'Purchase Order Details', page: 'PurchaseOrderDetails' },
@@ -101,7 +110,7 @@ export const NAV = [
     ],
   },
   {
-    id: 'stores', label: 'Stores', icon: Warehouse, hiddenRoles: ['user'],
+    id: 'stores', label: 'Stores', icon: Warehouse,
     children: [
       { id: 'material-request', label: 'Material Request', page: 'MaterialRequestEntry' },
       { id: 'print-material-request', label: 'Print Material Request', page: 'PrintMaterialRequest' },
@@ -115,7 +124,7 @@ export const NAV = [
   },
   {
     // Financial module — admin only
-    id: 'account', label: 'Account', icon: Landmark, hiddenRoles: ['staff', 'user'],
+    id: 'account', label: 'Account', icon: Landmark,
     children: [
       { id: 'receipt-entry', label: 'Receipt Entry', page: 'ReceiptEntry' },
       { id: 'receipt-details', label: 'Receipt Details', page: 'ReceiptDetails' },
@@ -131,7 +140,7 @@ export const NAV = [
     ],
   },
   {
-    id: 'bom', label: 'BOM', icon: FileText, hiddenRoles: ['user'],
+    id: 'bom', label: 'BOM', icon: FileText,
     children: [
       { id: 'bom-creation', label: 'BOM Creation', page: 'BOMCreation' },
       { id: 'customerwise-bom-report', label: 'Customerwise BOM Report', page: 'CustomerwiseBOMReport' },
@@ -144,14 +153,14 @@ export const NAV = [
     ],
   },
   {
-    id: 'ccms', label: 'CCMS', icon: ClipboardList, hiddenRoles: ['user'],
+    id: 'ccms', label: 'CCMS', icon: ClipboardList,
     children: [
       { id: 'customer-complaint-entry', label: 'Customer Complaint Entry', page: 'CustomerComplaintEntry' },
       { id: 'ccms-entry-details', label: 'CCMS Entry Details', page: 'CCMSEntryDetails' },
     ],
   },
   {
-    id: 'dc', label: 'DC', icon: Truck, hiddenRoles: ['user'],
+    id: 'dc', label: 'DC', icon: Truck,
     children: [
       { id: 'dc-entry', label: 'DC Entry', page: 'DCEntry' },
       { id: 'dc-details-report', label: 'DC Details', page: 'DCDetailsReport' },
@@ -163,28 +172,28 @@ export const NAV = [
       { id: 'machine-breakdown', label: 'BreakDown Entry', page: 'MachineBreakDown' },
       { id: 'breakdown-clearence', label: 'Waiting for Clearence', page: 'BreakDownClearence' },
       { id: 'breakdown-acceptance', label: 'Waiting for Acceptance', page: 'BreakDownAcceptance' },
-      { id: 'breakdown-approval-list', label: 'Acceptance Breakdown', page: 'BreakDownApprovalList', hiddenRoles: ['user'] },
+      { id: 'breakdown-approval-list', label: 'Acceptance Breakdown', page: 'BreakDownApprovalList' },
     ],
   },
   {
     id: 'nc', label: 'NC', icon: ShieldAlert,
     children: [
       { id: 'qc-rejection-details', label: 'NC Details', page: 'QCRejectionDetails' },
-      { id: 'nc-approval', label: 'NC Approval', page: 'NCApproval', hiddenRoles: ['user'] },
-      { id: 'nc-job-created', label: 'NC Job Created', page: 'NCJobCreated', hiddenRoles: ['user'] },
-      { id: 'nc-dc-entry', label: 'DC NC Entry', page: 'NCDCEntry', hiddenRoles: ['user'] },
-      { id: 'nc-dc-details', label: 'NC DC Details', page: 'NCDCDetails', hiddenRoles: ['user'] },
+      { id: 'nc-approval', label: 'NC Approval', page: 'NCApproval ' },
+      { id: 'nc-job-created', label: 'NC Job Created', page: 'NCJobCreated' },
+      { id: 'nc-dc-entry', label: 'DC NC Entry', page: 'NCDCEntry ' },
+      { id: 'nc-dc-details', label: 'NC DC Details', page: 'NCDCDetails' },
     ],
   },
   {
     id: 'production', label: 'Production', icon: LayoutGrid,
     children: [
       { id: 'job-list', label: 'Job List', page: 'JobList' },
-      { id: 'barcode-details', label: 'Print Barcode', page: 'BarcodeDetails', hiddenRoles: ['user'] },
-      { id: 'auto-job-entry', label: 'Service Auto Job Entry', page: 'AutoJobEntry', hiddenRoles: ['user'] },
-      { id: 'service-job-entry-details', label: 'Service Entry Details', page: 'ServiceJobEntryDetails', hiddenRoles: ['user'] },
-      { id: 'conformation-list', label: 'Conformation Final', page: 'ConformationList', hiddenRoles: ['user'] },
-      { id: 'conformation-entry-details', label: 'Conformation List Details', page: 'ConformationEntryDetails', hiddenRoles: ['user'] },
+      { id: 'barcode-details', label: 'Print Barcode', page: 'BarcodeDetails' },
+      { id: 'auto-job-entry', label: 'Service Auto Job Entry', page: 'AutoJobEntry' },
+      { id: 'service-job-entry-details', label: 'Service Entry Details', page: 'ServiceJobEntryDetails' },
+      { id: 'conformation-list', label: 'Conformation Final', page: 'ConformationList' },
+      { id: 'conformation-entry-details', label: 'Conformation List Details', page: 'ConformationEntryDetails' },
       { id: 'process-card', label: 'Process Card Entry new', page: 'ProcessCard' },
       { id: 'raw-material-issue', label: 'Rawmaterial Issue Job', page: 'RawMaterialIssue' },
       { id: 'raw-material-issued-details', label: 'Rawmaterial Issue Details', page: 'RawMaterialIssuedDetails' },
@@ -192,7 +201,7 @@ export const NAV = [
     ],
   },
   {
-    id: 'approval', label: 'Approval', icon: UserCircle, hiddenRoles: ['user'],
+    id: 'approval', label: 'Approval', icon: UserCircle,
     children: [
       { id: 'mr-approval', label: 'MR Approval', page: 'MRApproval' },
       { id: 'ipr-approval', label: 'PR Approval', page: 'IPRApproval' },
@@ -200,7 +209,7 @@ export const NAV = [
     ],
   },
   {
-    id: 'technical', label: 'Technical', icon: Settings, hiddenRoles: ['user'],
+    id: 'technical', label: 'Technical', icon: Settings,
     children: [
       // { id: 'drawing-upload',       label: 'Drawing Upload',       page: 'DrawingUpload' },
       { id: 'job-card-entry', label: 'Job Card Entry', page: 'JobCardEntry' },
@@ -224,14 +233,14 @@ export const NAV = [
     ],
   },
   {
-    id: 'sales', label: 'Sales', icon: LayoutGrid, hiddenRoles: ['user'],
+    id: 'sales', label: 'Sales', icon: LayoutGrid,
     children: [
       { id: 'credit-sales', label: 'Sales', page: 'CreditSales' },
       { id: 'sales-details', label: 'Sales Details', page: 'SalesDetails' },
       { id: 'quotation-sales', label: 'Quotation Sales', page: 'QuotationSales' },
       { id: 'quotation-details', label: 'Quotation Details', page: 'QuotationDetails' },
-      { id: 'dc-sales', label: 'DC Sales', page: 'DCSales' },
-      { id: 'dc-details', label: 'DC Sales Details', page: 'DCDetails' },
+      { id: 'outsource-parts-register', label: 'Outsource Parts Register', page: 'OutsourcePartsRegister' },
+      { id: 'outsource-parts-register-details', label: 'Outsource Parts Register Details', page: 'OutsourcePartsRegisterDetails' },
       { id: 'service-bill-entry', label: 'Service Bill Entry', page: 'ServiceBillEntry' },
       { id: 'service-bill-details', label: 'Service Bill Details', page: 'ServiceBillDetails' },
       { id: 'service-labour-bill-details', label: 'Service Labour Details', page: 'ServiceLabourBillDetails' },
@@ -239,7 +248,7 @@ export const NAV = [
     ],
   },
   {
-    id: 'report', label: 'Report', icon: FileText, hiddenRoles: ['user'],
+    id: 'report', label: 'Report', icon: FileText,
     children: [
       { id: 'mat-req-rej-list', label: 'Raw Material Rejected', page: 'MaterialRequestRejectionList' },
       { id: 'inward-reports', label: 'Inward Details', page: 'InwardReports' },

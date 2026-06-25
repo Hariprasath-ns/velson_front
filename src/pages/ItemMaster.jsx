@@ -354,7 +354,7 @@ const rawMaterialOpts = RAW_MATERIALS.map(m => ({ value: m, label: m }))
 const emptyForm = {
   groupId: '', partNo: '', outsourcePartNo: '', partName: '',
   modelId: '', brand: '', description: '', size: '', weight: '',
-  unitId: '', hsnCode: '', purchaseRate: '', marginPercent: '', rate: '',
+  unitId: '', hsnCode: '', purchaseRate: '', marginPercent: '', rate: '', labourCharge: '',
   currencyId: '', taxId: '', subGroupId: '', storeId: '',
   rackNo: '', location: '', remark: '', itemTypeId: '', qcTypeId: '',
   barcodeType: '',
@@ -425,14 +425,14 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
       const json = await api.get('/api/item-master?limit=99999')
       if (!json.success) throw new Error(json.message)
       const rows = json.data || []
-      const headers = ['ID', 'Part No', 'O.S. Part No', 'Part Name', 'Model', 'Brand', 'Size', 'Weight', 'UOM', 'HSN Code', 'Purchase Rate', 'Margin %', 'Rate', 'Currency', 'GST %', 'Sub Group', 'Store', 'Rack No', 'Location', 'Item Type', 'QC Type', 'Reorder Level', 'Min Stock', 'Current Stock', 'Route Card No', 'Has Image', 'Has PDF', 'Created By', 'Created At', 'Updated By', 'Updated At']
+      const headers = ['ID', 'Part No', 'O.S. Part No', 'Part Name', 'Model', 'Brand', 'Size', 'Weight', 'UOM', 'HSN Code', 'Purchase Rate', 'Margin %', 'Rate', 'Labour Charge', 'Currency', 'GST %', 'Sub Group', 'Store', 'Rack No', 'Location', 'Item Type', 'QC Type', 'Reorder Level', 'Min Stock', 'Current Stock', 'Route Card No', 'Has Image', 'Has PDF', 'Created By', 'Created At', 'Updated By', 'Updated At']
       const esc = v => { const s = String(v ?? ''); return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
       const csv = [
         headers.join(','),
         ...rows.map(r => [
           r.id, r.partNo, r.outsourcePartNo, r.partName, r.modelName, r.brand,
           r.size, r.weight, r.uomName, r.hsnCode, r.purchaseRate, r.marginPercent,
-          r.rate, r.currencyName, r.taxPercent, r.subGroupName, r.storeName,
+          r.rate, r.labourCharge ?? 0, r.currencyName, r.taxPercent, r.subGroupName, r.storeName,
           r.rackNo, r.location, r.itemTypeName, r.qcTypeName,
           r.reorderLevel, r.minStock, r.currentStock ?? 0, r.routeCardNo,
           r.hasImage ? 'Yes' : 'No', r.hasPdf ? 'Yes' : 'No',
@@ -959,6 +959,7 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
       { key: 'purchaseRate', label: 'Purchase Rate' },
       { key: 'marginPercent', label: 'Margin (%)' },
       { key: 'rate', label: 'Rate' },
+      { key: 'labourCharge', label: 'Labour Charge' },
       { key: 'weight', label: 'Weight' },
       { key: 'rawMaterialWt', label: 'RM. Weight' },
       { key: 'fgMaterialWt', label: 'FG. Weight' },
@@ -1187,6 +1188,18 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
               <div>
                 <Label>Currency</Label>
                 <AutocompleteSelect options={opts.currencies} placeholder="---Select---" value={form.currencyId} onChange={setVal('currencyId')} loading={dropdownsLoading} dropdownAlign="top" />
+              </div>
+            </Row>
+            <Row>
+              <div>
+                <Label>Labour Charge</Label>
+                <Input placeholder="Labour Charge" value={form.labourCharge} onChange={u('labourCharge')} type="number" hasError={hasNegError(form.labourCharge)} />
+                {hasNegError(form.labourCharge) && (
+                  <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                )}
+              </div>
+              <div>
+                {/* empty block to align with grid column layout */}
               </div>
             </Row>
           </SectionCard>
@@ -1490,6 +1503,7 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
     { label: 'Purchase Rate', value: item.purchaseRate != null ? item.purchaseRate : '—' },
     { label: 'Margin (%)', value: item.marginPercent != null ? item.marginPercent : '—' },
     { label: 'Rate', value: item.rate != null ? item.rate : '—' },
+    { label: 'Labour Charge', value: item.labourCharge != null ? item.labourCharge : '—' },
     { label: 'Currency', value: item.currencyName || resolve(dropdowns.currencies, item.currencyId) },
     { label: 'GST Per', value: item.taxPercent != null ? `${item.taxPercent}.00` : (resolve(dropdowns.taxes, item.taxId, 'taxPercent', null) != null ? `${resolve(dropdowns.taxes, item.taxId, 'taxPercent')}%` : '—') },
     { label: 'Sub Group', value: item.subGroupName || resolve(dropdowns.subGroups, item.subGroupId) },

@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react'
+  import React, { useState, useEffect, useMemo } from 'react'
 import {
-  ChevronRight, X, Search, FileSpreadsheet, FileText, Filter, Settings,
-  Plus, RotateCcw, AlertTriangle, ArrowUpRight, ArrowDownRight,
-  Warehouse, Info, Save, Edit, Eye, ShieldAlert, CheckCircle, PackageOpen, Barcode, Trash2
-} from 'lucide-react'
+  ChevronRight, X, Search, FileSpreadsheet, Filter,
+  RotateCcw, AlertTriangle, ArrowUpRight, ArrowDownRight,
+  Warehouse, Save,ShieldAlert, CheckCircle, PackageOpen, Barcode} from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
@@ -54,74 +53,136 @@ const lbl = 'text-[11px] font-bold text-slate-500 uppercase tracking-wider'
 function StockManagementContent() {
   const toast = useToast()
 
+  // Get the highest barcode number from the adjustments array & localStorage
+  const getHighestBarcode = (barcodeType) => {
+    let maxNum = 0
+    const prefix = barcodeType === 'Multiple' ? 'MM' : 'SM'
+    const regex = new RegExp(`${prefix}-(\\d+)`)
+
+    adjustments.forEach(adj => {
+      if (adj.barcode) {
+        // Find all matches for MM-XXXXX or SM-XXXXX (or older MS-XXXXX) in the barcode string
+        const prefixes = prefix === 'SM' ? ['SM', 'MS'] : [prefix]
+        prefixes.forEach(pref => {
+          const matches = adj.barcode.match(new RegExp(`${pref}-\\d+`, 'g'))
+          if (matches) {
+            matches.forEach(m => {
+              const numMatch = m.match(new RegExp(`${pref}-(\\d+)`))
+              if (numMatch) {
+                const num = parseInt(numMatch[1], 10)
+                if (num > maxNum) maxNum = num
+              }
+            })
+          }
+        })
+      }
+    })
+
+    const localKey = `highest_barcode_${prefix}`
+    const localMax = parseInt(localStorage.getItem(localKey), 10)
+    if (!isNaN(localMax) && localMax > maxNum) {
+      maxNum = localMax
+    }
+
+    return maxNum
+  }
+
   // Barcode Generation Helpers
   const getBarcodeLabel = (row) => {
     if (!row) return ''
     const isMultiple = row.barcodeType === 'Multiple'
+    const itemKey = String(row.partNo || '').trim().toLowerCase()
 
     if (!isMultiple) {
-      const itemKey = String(row.partNo || '').trim().toLowerCase()
-      const existingSingle = adjustments.find(adj =>
+      // Find adjustments for this item to get its latest barcode
+      const itemAdjs = adjustments.filter(adj =>
         String(adj.partNo || '').trim().toLowerCase() === itemKey &&
         adj.barcodeType === 'Single' &&
         adj.barcode
       )
-      if (existingSingle) return existingSingle.barcode
+      if (itemAdjs.length > 0) {
+        const sorted = [...itemAdjs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        return sorted[0].barcode
+      }
 
-      const singleAdjs = adjustments.filter(adj => adj.barcodeType === 'Single' && adj.barcode)
-      let maxNum = 0
-      singleAdjs.forEach(adj => {
-        const match = adj.barcode.match(/MS-(\d+)/)
-        if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10))
-      })
-      const nextIdx = maxNum > 0 ? maxNum + 1 : 1
-      return `MS-${String(nextIdx).padStart(5, '0')}`
+      const maxNum = getHighestBarcode('Single')
+      const nextIdx = maxNum + 1
+      return `SM-${String(nextIdx).padStart(5, '0')}`
     } else {
-      const qty = Math.floor(row.currentStock)
-      const startIdx = row.multipleStartIdx || 1
-      if (qty <= 0) {
-        return `MM-${String(startIdx).padStart(5, '0')}`
+      // Find active barcodes for this item
+      const barcodeQtys = {}
+      adjustments.forEach(adj => {
+        if (String(adj.partNo || '').trim().toLowerCase() === itemKey && adj.barcodeType === 'Multiple' && adj.barcode) {
+          const delta = adj.type === 'INWARD' ? adj.qty : -adj.qty
+          barcodeQtys[adj.barcode] = (barcodeQtys[adj.barcode] || 0) + delta
+        }
+      })
+
+      const activeBarcodes = Object.entries(barcodeQtys)
+        .filter(([_, qty]) => qty > 0)
+        .map(([barcode]) => barcode)
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+      if (activeBarcodes.length === 0) {
+        const maxNum = getHighestBarcode('Multiple')
+        const nextIdx = maxNum + 1
+        return `MM-${String(nextIdx).padStart(5, '0')}`
       }
-      if (qty === 1) {
-        return `MM-${String(startIdx).padStart(5, '0')}`
+
+      if (activeBarcodes.length === 1) {
+        return activeBarcodes[0]
       }
-      const endIdx = startIdx + qty - 1
-      return `MM-${String(startIdx).padStart(5, '0')} ~ MM-${String(endIdx).padStart(5, '0')}`
+
+      return `${activeBarcodes[0]} ~ ${activeBarcodes[activeBarcodes.length - 1]}`
     }
   }
 
   const getGeneratedBarcodes = (item) => {
     if (!item) return []
     const isMultiple = item.barcodeType === 'Multiple'
+    const itemKey = String(item.partNo || '').trim().toLowerCase()
 
-    if (!isMultiple) {
-      return [
-        {
+    const barcodeQtys = {}
+    adjustments.forEach(adj => {
+      if (String(adj.partNo || '').trim().toLowerCase() === itemKey && adj.barcodeType === (isMultiple ? 'Multiple' : 'Single') && adj.barcode) {
+        const delta = adj.type === 'INWARD' ? adj.qty : -adj.qty
+        barcodeQtys[adj.barcode] = (barcodeQtys[adj.barcode] || 0) + delta
+      }
+    })
+
+    const list = []
+    Object.entries(barcodeQtys).forEach(([barcode, qty]) => {
+      if (qty > 0) {
+        list.push({ barcode, qty })
+      }
+    })
+
+    list.sort((a, b) => a.barcode.localeCompare(b.barcode, undefined, { numeric: true }))
+
+    if (list.length === 0 && item.currentStock > 0) {
+      if (!isMultiple) {
+        list.push({
           barcode: getBarcodeLabel(item),
           qty: item.currentStock
+        })
+      } else {
+        const qty = Math.floor(item.currentStock)
+        const startIdx = item.multipleStartIdx || 1
+        for (let i = 0; i < qty; i++) {
+          list.push({
+            barcode: `MM-${String(startIdx + i).padStart(5, '0')}`,
+            qty: 1
+          })
         }
-      ]
-    } else {
-      const barcodes = []
-      const qty = Math.floor(item.currentStock)
-      const startIdx = item.multipleStartIdx || 1
-
-      for (let i = 0; i < qty; i++) {
-        const currentIdx = startIdx + i
-        barcodes.push({
-          barcode: `MM-${String(currentIdx).padStart(5, '0')}`,
-          qty: 1
-        })
+        if (item.currentStock > qty) {
+          list.push({
+            barcode: `MM-${String(startIdx + qty).padStart(5, '0')}`,
+            qty: Number((item.currentStock - qty).toFixed(2))
+          })
+        }
       }
-      if (item.currentStock > qty) {
-        const currentIdx = startIdx + qty
-        barcodes.push({
-          barcode: `MM-${String(currentIdx).padStart(5, '0')}`,
-          qty: Number((item.currentStock - qty).toFixed(2))
-        })
-      }
-      return barcodes
     }
+    return list
   }
 
   // Master Data States
@@ -205,21 +266,8 @@ function StockManagementContent() {
 
     if (matchedItem.barcodeType === 'Multiple') {
       if (type === 'INWARD') {
-        // Find the highest barcode number globally for Multiple
-        const multipleAdjs = adjustments.filter(adj =>
-          adj.barcodeType === 'Multiple' && adj.barcode
-        )
-        let maxNum = 0
-        multipleAdjs.forEach(adj => {
-          const match = adj.barcode.match(/MM-(\d+)/)
-          if (match) {
-            const num = parseInt(match[1], 10)
-            if (num > maxNum) {
-              maxNum = num
-            }
-          }
-        })
-        let startIdx = maxNum > 0 ? maxNum + 1 : 1
+        const maxNum = getHighestBarcode('Multiple')
+        let startIdx = maxNum + 1
 
         const intQty = Math.floor(absQty)
         for (let i = 0; i < intQty; i++) {
@@ -255,6 +303,10 @@ function StockManagementContent() {
             createdAt: batchTime
           })
         }
+
+        const totalGeneratedCount = Math.ceil(absQty)
+        const lastGeneratedIdx = startIdx + totalGeneratedCount - 1
+        localStorage.setItem('highest_barcode_MM', String(lastGeneratedIdx))
       } else {
         // OUTWARD - deduct existing available barcodes for this item
         const itemBarcodeMap = {}
@@ -312,27 +364,15 @@ function StockManagementContent() {
     } else {
       // Single barcode
       let barcodeLabel = ''
-      const existingSingle = adjustments.find(adj => adj.partNo === partNoFilter && adj.barcodeType === 'Single' && adj.barcode)
-     
-      if (existingSingle) {
-        barcodeLabel = existingSingle.barcode
+      if (type === 'INWARD') {
+        const maxNum = getHighestBarcode('Single')
+        const nextIdx = maxNum + 1
+        barcodeLabel = `SM-${String(nextIdx).padStart(5, '0')}`
+        localStorage.setItem('highest_barcode_SM', String(nextIdx))
       } else {
-        // Global sequential for new Single item
-        const singleAdjs = adjustments.filter(adj =>
-          adj.barcodeType === 'Single' && adj.barcode
-        )
-        let maxNum = 0
-        singleAdjs.forEach(adj => {
-          const match = adj.barcode.match(/MS-(\d+)/)
-          if (match) {
-            const num = parseInt(match[1], 10)
-            if (num > maxNum) {
-              maxNum = num
-            }
-          }
-        })
-        let nextIdx = maxNum > 0 ? maxNum + 1 : 1
-        barcodeLabel = `MS-${String(nextIdx).padStart(5, '0')}`
+        // OUTWARD: find the existing single barcode for this item to deduct from it
+        const existingSingle = adjustments.find(adj => adj.partNo === partNoFilter && adj.barcodeType === 'Single' && adj.barcode)
+        barcodeLabel = existingSingle ? existingSingle.barcode : 'SM-00000'
       }
 
       adjsToSave.push({
@@ -415,17 +455,19 @@ function StockManagementContent() {
   const fetchAllData = async () => {
     setLoading(true)
     try {
-      const [itemsRes, groupsRes, adjustmentsRes] = await Promise.all([
+      const [itemsRes, groupsRes, adjustmentsRes, grnsRes, materialIssuesRes] = await Promise.all([
         api.get('/api/item-master?limit=100000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/item-group-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/stock-adjustment', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
+        api.get('/api/stock-adjustment', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/grn-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/material-issue', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
       ])
 
-      setItems(itemsRes)
+      setItems(itemsRes.filter(item => item.barcodeType))
       setItemGroups(groupsRes)
-      setGrns([])
+      setGrns(grnsRes)
       setAdjustments(adjustmentsRes)
-      setMaterialIssues([]) // No backend endpoint exists for material-issue
+      setMaterialIssues(materialIssuesRes)
     } catch (err) {
       console.error(err)
       toast.error('Failed to load stock data')
@@ -525,12 +567,7 @@ function StockManagementContent() {
           multipleStartIdx = minNum === Infinity ? 1 : minNum
         } else {
           // If no item barcodes, find global max to predict next barcode correctly
-          const multipleAdjs = adjustments.filter(adj => adj.barcodeType === 'Multiple' && adj.barcode)
-          let maxNum = 0
-          multipleAdjs.forEach(adj => {
-            const match = adj.barcode.match(/MM-(\d+)/)
-            if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10))
-          })
+          const maxNum = getHighestBarcode('Multiple')
           multipleStartIdx = maxNum > 0 ? maxNum + 1 : 1
         }
       }
@@ -588,6 +625,7 @@ function StockManagementContent() {
       list.push({
         ...item,
         rowKey: `${item.id}-row`,
+        hasBarcodeYesNo: item.barcodeType ? 'Yes' : 'No',
         displayBarcode: barcodeLabel,
         displayQty: displayQty,
         displayStockValue: displayQty * (item.purchaseRate || item.rate || 0)
@@ -747,43 +785,30 @@ function StockManagementContent() {
     const singles = filtered.filter(adj => adj.barcodeType !== 'Multiple')
     const multiples = filtered.filter(adj => adj.barcodeType === 'Multiple')
 
-    // 3. Group singles by partNo
+    // 3. Keep singles as individual rows (so each manual adjustment with its unique barcode is visible)
     const groupedSingles = []
     const sortedSingles = [...singles].sort((a, b) => {
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     })
 
     sortedSingles.forEach(item => {
-      const match = groupedSingles.find(g => {
-        return g.partNo === item.partNo
+      groupedSingles.push({
+        id: item.id || Math.random().toString(),
+        partNo: item.partNo,
+        partName: item.partName,
+        barcodeType: item.barcodeType || 'Single',
+        type: item.type,
+        uom: item.uom,
+        price: item.price,
+        qty: item.qty,
+        amount: item.amount,
+        createdAt: item.createdAt,
+        barcode: item.barcode || '—',
+        detailsList: [item]
       })
-
-      const netQty = item.type === 'OUTWARD' ? -item.qty : item.qty
-      const netAmount = item.type === 'OUTWARD' ? -item.amount : item.amount
-
-      if (match) {
-        match.qty += netQty
-        match.amount += netAmount
-        match.detailsList.push(item)
-      } else {
-        groupedSingles.push({
-          id: item.id || Math.random().toString(),
-          partNo: item.partNo,
-          partName: item.partName,
-          barcodeType: item.barcodeType || 'Single',
-          type: 'INWARD',
-          uom: item.uom,
-          price: item.price,
-          qty: netQty,
-          amount: netAmount,
-          createdAt: item.createdAt,
-          barcode: item.barcode || '—',
-          detailsList: [item]
-        })
-      }
     })
 
-    // 4. Group multiples by partNo
+    // 4. Group multiples by partNo AND createdAt date (so different-day entries are separate rows)
     const groupedMultiples = []
 
     // Sort multiples by createdAt so we group sequentially/chronologically
@@ -792,9 +817,11 @@ function StockManagementContent() {
     })
 
     sortedMultiples.forEach(item => {
-      // Find an existing group by partNo
+      // Find an existing group by partNo AND same date
+      const itemDate = new Date(item.createdAt).toLocaleDateString('en-GB')
       const match = groupedMultiples.find(g => {
-        return g.partNo === item.partNo
+        const gDate = new Date(g.createdAt).toLocaleDateString('en-GB')
+        return g.partNo === item.partNo && gDate === itemDate
       })
 
       const netQty = item.type === 'OUTWARD' ? -item.qty : item.qty
@@ -859,18 +886,41 @@ function StockManagementContent() {
       return
     }
 
-    const data = filteredStockReport.map((row, idx) => ({
-      'S.No': idx + 1,
-      'Barcode Type': row.barcodeType || 'Single',
-      'Barcode': row.barcode || '—',
-      'Stock Created Date': row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-GB').split('/').join('-') : '—',
-      'Part No': row.partNo || '—',
-      'Part Name': row.partName || '—',
-      'Qty': row.type === 'OUTWARD' ? -row.qty : row.qty,
-      'UOM': row.uom || '—',
-      'Price': row.price || 0,
-      'Amount': row.type === 'OUTWARD' ? -row.amount : row.amount
-    }))
+    const data = []
+    let sNo = 1
+
+    filteredStockReport.forEach((row) => {
+      // If it's multiple and has detailsList, expand each entry into its own row
+      if (row.barcodeType === 'Multiple' && row.detailsList && row.detailsList.length > 0) {
+        row.detailsList.forEach(detail => {
+          data.push({
+            'S.No': sNo++,
+            'Barcode Type': detail.barcodeType || 'Multiple',
+            'Barcode': detail.barcode || '—',
+            'Stock Created Date': detail.createdAt ? new Date(detail.createdAt).toLocaleDateString('en-GB').split('/').join('-') : '—',
+            'Part No': detail.partNo || '—',
+            'Part Name': detail.partName || '—',
+            'Qty': detail.type === 'OUTWARD' ? -detail.qty : detail.qty,
+            'UOM': detail.uom || '—',
+            'Price': detail.price || 0,
+            'Amount': detail.type === 'OUTWARD' ? -detail.amount : detail.amount
+          })
+        })
+      } else {
+        data.push({
+          'S.No': sNo++,
+          'Barcode Type': row.barcodeType || 'Single',
+          'Barcode': row.barcode || '—',
+          'Stock Created Date': row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-GB').split('/').join('-') : '—',
+          'Part No': row.partNo || '—',
+          'Part Name': row.partName || '—',
+          'Qty': row.type === 'OUTWARD' ? -row.qty : row.qty,
+          'UOM': row.uom || '—',
+          'Price': row.price || 0,
+          'Amount': row.type === 'OUTWARD' ? -row.amount : row.amount
+        })
+      }
+    })
 
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
@@ -906,8 +956,8 @@ function StockManagementContent() {
               <button
                 onClick={() => setActiveTab('stock-entry')}
                 className={`px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all ${activeTab === 'stock-entry'
-                    ? 'bg-[#0097A7] text-white shadow'
-                    : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-[#0097A7] text-white shadow'
+                  : 'text-slate-500 hover:text-slate-800'
                   }`}
               >
                 Stock Ledger
@@ -915,8 +965,8 @@ function StockManagementContent() {
               <button
                 onClick={() => setActiveTab('stock-report')}
                 className={`px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all ${activeTab === 'stock-report'
-                    ? 'bg-[#0097A7] text-white shadow'
-                    : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-[#0097A7] text-white shadow'
+                  : 'text-slate-500 hover:text-slate-800'
                   }`}
               >
                 Stock Entry Report
@@ -926,12 +976,14 @@ function StockManagementContent() {
             {/* Quick Actions (only show when stock-entry or stock-report is active) */}
             {(activeTab === 'stock-entry' || activeTab === 'stock-report') && (
               <div className="flex items-center gap-2.5">
-                <button
-                  onClick={activeTab === 'stock-entry' ? handleExportExcel : handleExportStockReportExcel}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 text-[12px] font-bold rounded-lg shadow-sm transition-all"
-                >
-                  <FileSpreadsheet size={14} /> Export Excel
-                </button>
+                {activeTab === 'stock-report' && (
+                  <button
+                    onClick={handleExportStockReportExcel}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 text-[12px] font-bold rounded-lg shadow-sm transition-all"
+                  >
+                    <FileSpreadsheet size={14} /> Export Excel
+                  </button>
+                )}
                 <button
                   onClick={fetchAllData}
                   className="flex items-center justify-center p-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg shadow-sm transition-all"
@@ -1165,17 +1217,25 @@ function StockManagementContent() {
                           >
                             <td className="px-4 py-3 text-center text-slate-400 font-bold italic">{idx + 1}</td>
                             <td className="px-4 py-3 text-center">
-                              <span className={`px-2 py-0.5 border text-[10px] rounded font-bold uppercase tracking-wider ${row.barcodeType === 'Multiple'
+                              {row.hasBarcodeYesNo === 'Yes' ? (
+                                <span className={`px-2 py-0.5 border text-[10px] rounded font-bold uppercase tracking-wider ${row.barcodeType === 'Multiple'
                                   ? 'bg-purple-50 border-purple-200 text-purple-600'
                                   : 'bg-blue-50 border-blue-200 text-blue-600'
-                                }`}>
-                                {row.barcodeType || 'Single'}
-                              </span>
+                                  }`}>
+                                  {row.barcodeType || 'Single'}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-bold">—</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <span className="font-mono text-[10.5px] font-bold text-slate-500">
-                                {row.displayBarcode}
-                              </span>
+                              {row.hasBarcodeYesNo === 'Yes' ? (
+                                <span className="font-mono text-[10.5px] font-bold text-slate-500">
+                                  {row.displayBarcode}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-bold">—</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-center text-blue-600 font-bold group-hover:underline">
                               {row.partNo}
@@ -1209,15 +1269,9 @@ function StockManagementContent() {
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-6">
               <div className="bg-[#0097A7] text-white px-4 py-2.5 flex items-center justify-between">
                 <span className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                  <Search className="w-4 h-4" /> Search & Export Options
+                  <Search className="w-4 h-4" /> Search Options
                 </span>
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleExportStockReportExcel}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-[#0097A7] text-[11px] font-black rounded shadow active:scale-95 transition-all"
-                  >
-                    <FileSpreadsheet size={12} /> Export Excel
-                  </button>
                   <button
                     onClick={() => {
                       setStockSearch('')
@@ -1312,8 +1366,8 @@ function StockManagementContent() {
                               </td>
                               <td className="px-4 py-3 text-center">
                                 <span className={`px-2 py-0.5 border text-[10px] rounded font-bold uppercase tracking-wider ${row.barcodeType === 'Multiple'
-                                    ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                    : 'bg-blue-50 border-blue-200 text-blue-600'
+                                  ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                  : 'bg-blue-50 border-blue-200 text-blue-600'
                                   }`}>
                                   {row.barcodeType || 'Single'}
                                 </span>

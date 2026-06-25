@@ -3,6 +3,7 @@ import {
   ChevronRight, X, Search, Save, Trash2, Loader2, FileSpreadsheet, RotateCcw, Camera
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import { useLoading } from '../context/LoadingContext'
 import api from '../services/api'
 
 // Helper Styling primitives
@@ -92,6 +93,7 @@ const Combobox = ({ options, placeholder, value, onChange, readOnly = false, cla
 
 export default function MaterialIssue() {
   const toast = useToast()
+  const { show: showLoader, hide: hideLoader } = useLoading()
 
   // References Data
   const [departments, setDepartments] = useState([])
@@ -102,7 +104,6 @@ export default function MaterialIssue() {
   const [jobsList, setJobsList] = useState([])
 
   // States
-  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [issueNo, setIssueNo] = useState('')
   const [issueDate, setIssueDate] = useState('')
@@ -152,7 +153,7 @@ export default function MaterialIssue() {
 
   // Load Initial Master Data
   const loadInitialData = async () => {
-    setLoading(true)
+    showLoader('Loading initial master data...')
     try {
       const todayStr = new Date().toISOString().split('T')[0]
       setIssueDate(todayStr)
@@ -179,7 +180,7 @@ export default function MaterialIssue() {
       console.error(err)
       toast.error('Failed to load initial master data')
     } finally {
-      setLoading(false)
+      hideLoader()
     }
   }
 
@@ -221,7 +222,7 @@ export default function MaterialIssue() {
     }
 
     try {
-      const sparesRes = await api.get('/api/service-spare')
+      const sparesRes = await api.get('/api/service-spare', { loadingMessage: 'Loading job spares...' })
       const allSpares = sparesRes.data?.data || []
       const filteredSpares = allSpares.filter(s => s.serviceJobNo && s.serviceJobNo.toLowerCase() === val.toLowerCase())
       setServiceSpares(filteredSpares)
@@ -243,7 +244,7 @@ export default function MaterialIssue() {
     }
 
     try {
-      const bomRes = await api.get(`/api/material-issue/bom-items?servicePartNo=${encodeURIComponent(val)}&serviceJobNo=${encodeURIComponent(serviceJobNo)}`)
+      const bomRes = await api.get(`/api/material-issue/bom-items?servicePartNo=${encodeURIComponent(val)}&serviceJobNo=${encodeURIComponent(serviceJobNo)}`, { loadingMessage: 'Loading BOM items...' })
       const items = bomRes.data?.data || []
       setRawBomItems(items)
     } catch (err) {
@@ -279,7 +280,7 @@ export default function MaterialIssue() {
     setAvailableStock(0.0)
 
     try {
-      const bcRes = await api.get(`/api/material-issue/barcodes?partNo=${encodeURIComponent(item.partNo)}`)
+      const bcRes = await api.get(`/api/material-issue/barcodes?partNo=${encodeURIComponent(item.partNo)}`, { loadingMessage: 'Loading stock details...' })
       const list = bcRes.data?.data || []
       const updatedList = list.map(bc => {
         const localDeducted = issuedItems
@@ -465,7 +466,7 @@ export default function MaterialIssue() {
     }
 
     try {
-      await api.post('/api/material-issue', payload)
+      await api.post('/api/material-issue', payload, { loadingMessage: 'Saving material issue entry...' })
       toast.success(`Material Issue ${issueNo} submitted successfully!`)
       handleClearAll()
     } catch (err) {
@@ -519,14 +520,6 @@ export default function MaterialIssue() {
     } else {
       setSelectedGridRows(rows => [...rows, idx])
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-[#0097A7]" />
-      </div>
-    )
   }
 
   return (

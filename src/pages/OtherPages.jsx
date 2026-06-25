@@ -192,7 +192,7 @@ function JobCompletionTrendChart({ trendData, timeframe, loading }) {
   return (
     <div className="relative w-full h-[200px] select-none">
       {loading ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1e242e]/60 backdrop-blur-sm rounded-xl border border-slate-800 z-10">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0E1320]/60 backdrop-blur-sm rounded-xl border border-slate-800 z-10">
           <Loader2 className="w-8 h-8 text-[#0097A7] animate-spin" />
           <span className="text-xs text-slate-400 mt-2 font-medium">Loading live metrics...</span>
         </div>
@@ -673,20 +673,21 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="min-h-full bg-[#20242d] text-slate-100 p-4 flex flex-col gap-4 select-none animate-dashboard">
+    <>
+      <div className="min-h-full bg-[#090D16] text-slate-100 p-4 flex flex-col gap-4 select-none animate-dashboard">
 
       {/* ── HEADER & TOOLBAR ────────────────────────────────────────────────── */}
-      <div className="flex justify-between items-center bg-[#1e242e] p-3 rounded-xl border border-slate-800 shadow-md">
+      <div className="flex justify-between items-center bg-[#0E1320] p-3 rounded-xl border border-slate-800 shadow-md">
         <div>
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             <h1 className="text-[17px] font-black tracking-tight text-white uppercase flex items-center gap-2">
-              Technical Control Room <span className="text-xs text-slate-400 font-mono normal-case font-bold">Live database synced</span>
+              Technical Control Room
             </h1>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
+          {/* <p className="text-xs text-slate-400 mt-0.5">
             Core Insight: Dynamic metrics extracted directly from Job Cards and machine masters.
-          </p>
+          </p> */}
         </div>
 
         {/* Timeframe Brush buttons */}
@@ -712,7 +713,7 @@ export function DashboardPage() {
         {/* KPI 1: Hero Metric (Avg Completion) */}
         <div
           onClick={() => handleCardClick('All')}
-          className="bg-[#1e242e] rounded-xl p-4 border border-slate-800 hover:border-[#0097A7] hover:bg-[#1e242e]/90 cursor-pointer shadow-lg transition-all duration-300 group relative overflow-hidden animate-fade-in-up"
+          className="bg-[#0E1320] rounded-xl p-4 border border-slate-800 hover:border-[#0097A7] hover:bg-[#0E1320]/90 cursor-pointer shadow-lg transition-all duration-300 group relative overflow-hidden animate-fade-in-up"
           style={{ animationDelay: '100ms' }}
         >
           <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-16 h-16 bg-[#0097A7]/10 rounded-full blur-xl group-hover:bg-[#0097A7]/20 transition-all duration-300" />
@@ -737,7 +738,7 @@ export function DashboardPage() {
         {/* KPI 2: Active Job Cards */}
         <div
           onClick={() => handleCardClick('In Process')}
-          className="bg-[#1e242e] rounded-xl p-4 border border-slate-800 hover:border-[#0097A7] hover:bg-[#1e242e]/90 cursor-pointer shadow-lg transition-all duration-300 group relative overflow-hidden animate-fade-in-up"
+          className="bg-[#0E1320] rounded-xl p-4 border border-slate-800 hover:border-[#0097A7] hover:bg-[#0E1320]/90 cursor-pointer shadow-lg transition-all duration-300 group relative overflow-hidden animate-fade-in-up"
           style={{ animationDelay: '200ms' }}
         >
           <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-16 h-16 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all duration-300" />
@@ -759,7 +760,7 @@ export function DashboardPage() {
 
         {/* KPI 3: Planned Qty */}
         <div
-          className="bg-[#1e242e] rounded-xl p-4 border border-slate-800 shadow-lg relative overflow-hidden animate-fade-in-up"
+          className="bg-[#0E1320] rounded-xl p-4 border border-slate-800 shadow-lg relative overflow-hidden animate-fade-in-up"
           style={{ animationDelay: '300ms' }}
         >
           <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-16 h-16 bg-[#0097A7]/10 rounded-full blur-xl" />
@@ -782,7 +783,7 @@ export function DashboardPage() {
         {/* KPI 4: Active Breakdowns (Warning/Alert) */}
         <div
           onClick={() => navigate('/maintainance/machine-breakdown')}
-          className="bg-[#1e242e] rounded-xl p-4 border border-slate-800 hover:border-rose-500 hover:bg-[#1e242e]/90 cursor-pointer shadow-lg transition-all duration-300 group relative overflow-hidden animate-fade-in-up"
+          className="bg-[#0E1320] rounded-xl p-4 border border-slate-800 hover:border-rose-500 hover:bg-[#0E1320]/90 cursor-pointer shadow-lg transition-all duration-300 group relative overflow-hidden animate-fade-in-up"
           style={{ animationDelay: '400ms' }}
         >
           <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-16 h-16 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-all duration-300" />
@@ -809,7 +810,7 @@ export function DashboardPage() {
 
         {/* Section: Job Completion Rate Trend (Area Chart) */}
         <div 
-          className="col-span-8 bg-[#1e242e] rounded-xl p-4 border border-slate-800 flex flex-col gap-3 shadow-md animate-fade-in-up"
+          className="col-span-8 bg-[#0E1320] rounded-xl p-4 border border-slate-800 flex flex-col gap-3 shadow-md animate-fade-in-up"
           style={{ animationDelay: '300ms' }}
         >
           <div className="flex justify-between items-center">
@@ -826,7 +827,7 @@ export function DashboardPage() {
 
         {/* Section: Stage Distribution (PieChart component wrapper) */}
         <div 
-          className="col-span-4 bg-[#1e242e] rounded-xl p-4 border border-slate-800 flex flex-col gap-3 shadow-md animate-fade-in-up"
+          className="col-span-4 bg-[#0E1320] rounded-xl p-4 border border-slate-800 flex flex-col gap-3 shadow-md animate-fade-in-up"
           style={{ animationDelay: '400ms' }}
         >
           <div>
@@ -855,7 +856,7 @@ export function DashboardPage() {
         {/* Left 8 columns: Active Job Planning Queue */}
         <div 
           id="job-queue-section" 
-          className="col-span-8 bg-[#1e242e] rounded-xl border border-slate-800 shadow-md flex flex-col overflow-hidden animate-fade-in-up"
+          className="col-span-8 bg-[#0E1320] rounded-xl border border-slate-800 shadow-md flex flex-col overflow-hidden animate-fade-in-up"
           style={{ animationDelay: '450ms' }}
         >
           {/* Toolbar */}
@@ -923,15 +924,15 @@ export function DashboardPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-900/30">
-                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Job Card ID</th>
-                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Model / Vehicle</th>
+                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">Job Card ID</th>
+                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">Model / Vehicle</th>
                   <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Parts Details</th>
-                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Priority</th>
-                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Total Qty</th>
-                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Stage</th>
-                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Completion Rate</th>
-                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Start Date</th>
-                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 text-center">Action</th>
+                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">Priority</th>
+                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">Total Qty</th>
+                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">Stage</th>
+                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">Completion Rate</th>
+                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">Start Date</th>
+                  <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400 text-center whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -942,17 +943,17 @@ export function DashboardPage() {
                       onClick={() => { setSelectedJob(job); setSelectedPartIndex(0); }}
                       className="hover:bg-slate-800/30 cursor-pointer group transition-colors"
                     >
-                      <td className="px-3 py-2 text-xs font-black text-white tracking-wide font-mono">
+                      <td className="px-3 py-2 text-xs font-black text-white tracking-wide font-mono whitespace-nowrap">
                         {job.jobNo}
                       </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-slate-200">
+                      <td className="px-3 py-2 text-xs font-semibold text-slate-200 whitespace-nowrap">
                         {job.vehicleType || '—'}
                       </td>
                       <td className="px-3 py-2 text-xs text-slate-350 truncate max-w-[200px]" title={job.productName}>
                         {job.productName || '—'}
                       </td>
-                      <td className="px-3 py-2 text-xs font-bold">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                      <td className="px-3 py-2 text-xs font-bold whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider whitespace-nowrap ${
                           job.priority === 'High'
                             ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                             : job.priority === 'Medium'
@@ -962,11 +963,11 @@ export function DashboardPage() {
                           {job.priority}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-xs font-bold font-mono text-slate-200">
+                      <td className="px-3 py-2 text-xs font-bold font-mono text-slate-200 whitespace-nowrap">
                         {job.qty}
                       </td>
-                      <td className="px-3 py-2 text-xs">
-                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider ${
+                      <td className="px-3 py-2 text-xs whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider whitespace-nowrap ${
                           job.stage === 'Completed'
                             ? 'bg-[#10B981]/10 text-emerald-400 border border-emerald-500/20'
                             : job.stage === 'In Process'
@@ -978,7 +979,7 @@ export function DashboardPage() {
                           {job.stage}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-xs">
+                      <td className="px-3 py-2 text-xs whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
                             <div
@@ -986,13 +987,13 @@ export function DashboardPage() {
                               style={{ width: `${job.completedPct}%` }}
                             />
                           </div>
-                          <span className="font-mono font-bold text-[10.5px] text-slate-350">{job.completedPct.toFixed(0)}%</span>
+                          <span className="font-mono font-bold text-[10.5px] text-slate-350 whitespace-nowrap">{job.completedPct.toFixed(0)}%</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-xs font-mono text-slate-400">
+                      <td className="px-3 py-2 text-xs font-mono text-slate-400 whitespace-nowrap">
                         {job.planDate ? formatDate(job.planDate) : '—'}
                       </td>
-                      <td className="px-3 py-2 text-xs text-center">
+                      <td className="px-3 py-2 text-xs text-center whitespace-nowrap">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -1021,7 +1022,7 @@ export function DashboardPage() {
 
         {/* Right 4 columns: Machine Workloads */}
         <div 
-          className="col-span-4 bg-[#1e242e] rounded-xl p-4 border border-slate-800 flex flex-col gap-3 shadow-md animate-fade-in-up"
+          className="col-span-4 bg-[#0E1320] rounded-xl p-4 border border-slate-800 flex flex-col gap-3 shadow-md animate-fade-in-up"
           style={{ animationDelay: '550ms' }}
         >
           <div>
@@ -1053,7 +1054,7 @@ export function DashboardPage() {
 
       {/* ── QUICK ACCESS MODULE LINKS ─────────────────────────────────────── */}
       <div 
-        className="bg-[#1e242e] rounded-xl border border-slate-800 p-4 shadow-md animate-fade-in-up"
+        className="bg-[#0E1320] rounded-xl border border-slate-800 p-4 shadow-md animate-fade-in-up"
         style={{ animationDelay: '600ms' }}
       >
         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Quick Access Modules</h3>
@@ -1085,117 +1086,124 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── ROUTING TIMELINE SLIDE-IN DRAWER ─────────────────────────────────── */}
-      {selectedJob && (
-        <>
-          {/* Backdrop blur overlay */}
-          <div
-            onClick={() => setSelectedJob(null)}
-            className="fixed inset-0 bg-black/55 backdrop-blur-sm z-40 transition-opacity duration-300 select-none animate-in fade-in"
-          />
+    </div>
 
-          {/* Drawer container */}
-          <div className="fixed inset-y-0 right-0 w-[420px] bg-[#1e242e] border-l border-slate-800 shadow-2xl z-50 transform transition-transform duration-300 ease-out translate-x-0 flex flex-col justify-between select-none animate-in slide-in-from-right">
+    {/* ── ROUTING TIMELINE SLIDE-IN DRAWER ─────────────────────────────────── */}
+    {selectedJob && (
+      <>
+        {/* Backdrop blur overlay */}
+        <div
+          onClick={() => setSelectedJob(null)}
+          className="fixed inset-0 bg-black/55 backdrop-blur-sm z-40 transition-opacity duration-300 select-none animate-in fade-in"
+        />
 
-            {/* Header */}
-            <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
-                    Routing details
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-400 font-mono">
-                    {selectedJob.planDate ? formatDate(selectedJob.planDate) : '—'}
-                  </span>
-                </div>
-                <h3 className="text-sm font-black text-white mt-1.5 font-mono tracking-wide">
-                  {selectedJob.jobNo}
-                </h3>
+        {/* Drawer container */}
+        <div className="fixed inset-y-0 right-0 w-[420px] bg-[#0E1320] border-l border-slate-800 shadow-2xl z-50 transform transition-transform duration-300 ease-out translate-x-0 flex flex-col justify-between select-none animate-in slide-in-from-right">
+
+          {/* Header */}
+          <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
+                  Routing details
+                </span>
+                <span className="text-[11px] font-bold text-slate-400 font-mono">
+                  {selectedJob.planDate ? formatDate(selectedJob.planDate) : '—'}
+                </span>
               </div>
-              <button
-                onClick={() => setSelectedJob(null)}
-                className="p-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400 hover:text-white"
-              >
-                <X size={15} />
-              </button>
+              <h3 className="text-sm font-black text-white mt-1.5 font-mono tracking-wide">
+                {selectedJob.jobNo}
+              </h3>
+            </div>
+            <button
+              onClick={() => setSelectedJob(null)}
+              className="p-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400 hover:text-white"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Content Body */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+            {/* Job Details Card */}
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-[10px] text-slate-500 uppercase font-black">Model / Vehicle</span>
+                <span className="text-xs font-bold text-slate-200 text-right">{selectedJob.vehicleType || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[10px] text-slate-500 uppercase font-black">Total Quantity</span>
+                <span className="text-xs font-black font-mono text-white">{selectedJob.qty} units</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[10px] text-slate-500 uppercase font-black">Priority</span>
+                <span className={`text-[10px] font-black uppercase tracking-wider ${selectedJob.priority === 'High' ? 'text-rose-400' : selectedJob.priority === 'Medium' ? 'text-amber-400' : 'text-emerald-400'
+                  }`}>
+                  {selectedJob.priority}
+                </span>
+              </div>
             </div>
 
-            {/* Content Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5">
-
-              {/* Job Details Card */}
-              <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-[10px] text-slate-500 uppercase font-black">Model / Vehicle</span>
-                  <span className="text-xs font-bold text-slate-200 text-right">{selectedJob.vehicleType || '—'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[10px] text-slate-500 uppercase font-black">Total Quantity</span>
-                  <span className="text-xs font-black font-mono text-white">{selectedJob.qty} units</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[10px] text-slate-500 uppercase font-black">Priority</span>
-                  <span className={`text-[10px] font-black uppercase tracking-wider ${selectedJob.priority === 'High' ? 'text-rose-400' : selectedJob.priority === 'Medium' ? 'text-amber-400' : 'text-emerald-400'
-                    }`}>
-                    {selectedJob.priority}
-                  </span>
-                </div>
+            {/* Progress visual */}
+            <div className="space-y-1 bg-slate-900/30 p-3.5 border border-slate-800/50 rounded-xl">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-300">Total Completion Rate</span>
+                <span className="text-[#0097A7] font-mono font-black">{selectedJob.completedPct.toFixed(0)}%</span>
               </div>
-
-              {/* Progress visual */}
-              <div className="space-y-1 bg-slate-900/30 p-3.5 border border-slate-800/50 rounded-xl">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-300">Total Completion Rate</span>
-                  <span className="text-[#0097A7] font-mono font-black">{selectedJob.completedPct.toFixed(0)}%</span>
-                </div>
-                <div className="relative w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                  <div
-                    className="h-full rounded-full bg-[#0097A7] transition-all duration-500"
-                    style={{ width: `${selectedJob.completedPct}%` }}
-                  />
-                </div>
+              <div className="relative w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                <div
+                  className="h-full rounded-full bg-[#0097A7] transition-all duration-500"
+                  style={{ width: `${selectedJob.completedPct}%` }}
+                />
               </div>
+            </div>
 
-              {/* Part list Selector and Vertical Timeline routing */}
-              {selectedJob.partsList && selectedJob.partsList.length > 0 && (
-                <div className="space-y-4">
-                  {selectedJob.partsList.length > 1 && (
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-500 uppercase font-black">Select Part</label>
-                      <div className="flex gap-2 overflow-x-auto pb-1">
-                        {selectedJob.partsList.map((part, pIdx) => (
-                          <button
-                            key={pIdx}
-                            onClick={() => setSelectedPartIndex(pIdx)}
-                            className={`px-3 py-1 rounded text-[11px] font-bold shrink-0 transition-colors ${selectedPartIndex === pIdx
-                                ? 'bg-[#0097A7] text-white'
-                                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
-                              }`}
-                          >
-                            {part.productName}
-                          </button>
-                        ))}
-                      </div>
+            {/* Part list Selector and Vertical Timeline routing */}
+            {selectedJob.partsList && selectedJob.partsList.length > 0 && (
+              <div className="space-y-4">
+                {selectedJob.partsList.length > 1 && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 uppercase font-black">Select Part</label>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {selectedJob.partsList.map((part, pIdx) => (
+                        <button
+                          key={pIdx}
+                          onClick={() => setSelectedPartIndex(pIdx)}
+                          className={`px-3 py-1 rounded text-[11px] font-bold shrink-0 transition-colors ${selectedPartIndex === pIdx
+                              ? 'bg-[#0097A7] text-white'
+                              : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                        >
+                          {part.productName}
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Vertical Routing Timeline for selected part */}
-                  {selectedJob.partsList[selectedPartIndex] && (
-                    <div className="space-y-4">
-                      <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                        Routing Sequence: {selectedJob.partsList[selectedPartIndex].productName}
-                      </h4>
-                      <div className="relative pl-6 space-y-4 border-l border-slate-800 ml-2.5">
-                        {(() => {
-                          const activePart = selectedJob.partsList[selectedPartIndex]
-                          const lineItems = activePart.lineItems || []
-                          const processes = activePart.processMenus || []
+                {/* Vertical Routing Timeline for selected part */}
+                {selectedJob.partsList[selectedPartIndex] && (
+                  <div className="space-y-4">
+                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                      Routing Sequence: {selectedJob.partsList[selectedPartIndex].productName}
+                    </h4>
+                    {(() => {
+                      const activePart = selectedJob.partsList[selectedPartIndex]
+                      const lineItems = activePart.lineItems || []
+                      const processes = activePart.processMenus || []
 
-                          if (processes.length === 0) {
-                            return <p className="text-xs text-slate-500 italic">No routing sequence defined for this part.</p>
-                          }
+                      if (processes.length === 0) {
+                        return (
+                          <p className="text-xs text-slate-500 italic pl-1">
+                            No routing sequence defined for this part.
+                          </p>
+                        )
+                      }
 
-                          return processes.map((pm, idx) => {
+                      return (
+                        <div className="relative pl-6 space-y-4 border-l border-slate-800 ml-2.5">
+                          {processes.map((pm, idx) => {
                             const savedLi = lineItems.find(li => li.processName === pm.PM_Process_Name)
                             let status = 'pending'
                             if (savedLi?.notApplicable || savedLi?.state === 'OUT') {
@@ -1213,7 +1221,7 @@ export function DashboardPage() {
                             return (
                               <div key={idx} className="relative animate-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms` }}>
                                 <div
-                                  className="absolute -left-[31px] top-0.5 w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 border bg-[#1e242e]"
+                                  className="absolute -left-[31px] top-0.5 w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 border bg-[#0E1320]"
                                   style={{
                                     borderColor: isCompleted ? '#10B981' : isInProcess ? '#6366F1' : isQc ? '#F59E0B' : 'rgba(255,255,255,0.08)'
                                   }}
@@ -1231,7 +1239,7 @@ export function DashboardPage() {
 
                                 <div className="flex flex-col gap-0.5">
                                   <div className="flex justify-between items-center">
-                                    <span className={`text-[12px] font-black ${isCompleted ? 'text-slate-200' : isInProcess ? 'text-indigo-400 font-bold' : 'text-slate-500'}`}>
+                                    <span className={`text-[12px] font-black ${isCompleted ? 'text-slate-200' : isInProcess ? 'text-indigo-400 font-bold' : 'text-slate-550'}`}>
                                       {pm.PM_Process_Name}
                                     </span>
                                     <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isCompleted
@@ -1258,42 +1266,42 @@ export function DashboardPage() {
                                 </div>
                               </div>
                             )
-                          })
-                        })()}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-            </div>
-
-            {/* Footer actions */}
-            <div className="p-4 border-t border-slate-800 bg-slate-900/40 flex gap-2">
-              <button
-                onClick={() => {
-                  setSelectedJob(null)
-                  navigate('/technical/view-job-status')
-                }}
-                className="flex-1 py-2 rounded-lg bg-[#0097A7] hover:bg-[#007a87] text-white text-xs font-bold transition-all text-center"
-              >
-                Go to View Job Status
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedJob(null)
-                  navigate('/production/process-card')
-                }}
-                className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all text-center"
-              >
-                Open Process Entry
-              </button>
-            </div>
+                          })}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
-        </>
-      )}
 
-    </div>
-  )
+          {/* Footer actions */}
+          <div className="p-4 border-t border-slate-800 bg-slate-900/40 flex gap-2">
+            <button
+              onClick={() => {
+                setSelectedJob(null)
+                navigate('/technical/view-job-status')
+              }}
+              className="flex-1 py-2 rounded-lg bg-[#0097A7] hover:bg-[#007a87] text-white text-xs font-bold transition-all text-center"
+            >
+              Go to View Job Status
+            </button>
+            <button
+              onClick={() => {
+                setSelectedJob(null)
+                navigate('/production/process-card')
+              }}
+              className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all text-center"
+            >
+              Open Process Entry
+            </button>
+          </div>
+
+        </div>
+      </>
+    )}
+  </>
+)
 }

@@ -49,6 +49,12 @@ export default function ContractorMaster() {
   const validate = () => {
     const e = {}
     if (!form.Contract_Name.trim()) e.Contract_Name = 'Required'
+    if (form.Phone.trim() && !/^\d{10}$/.test(form.Phone.trim())) {
+      e.Phone = 'Invalid phone number (must be 10 digits)'
+    }
+    if (form.Email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.Email.trim())) {
+      e.Email = 'Invalid email address'
+    }
     setErrors(e)
     return !Object.keys(e).length
   }
@@ -208,8 +214,9 @@ export default function ContractorMaster() {
                 value={form.Phone}
                 onChange={e => sf('Phone', e.target.value)}
                 placeholder="e.g. 9876543210"
-                className={inputCls(false)}
+                className={inputCls(errors.Phone)}
               />
+              {errors.Phone && <p className="text-[11px] text-red-500">{errors.Phone}</p>}
             </div>
 
             {/* Email */}
@@ -220,8 +227,9 @@ export default function ContractorMaster() {
                 value={form.Email}
                 onChange={e => sf('Email', e.target.value)}
                 placeholder="e.g. name@example.com"
-                className={inputCls(false)}
+                className={inputCls(errors.Email)}
               />
+              {errors.Email && <p className="text-[11px] text-red-500">{errors.Email}</p>}
             </div>
 
             {/* Address */}
