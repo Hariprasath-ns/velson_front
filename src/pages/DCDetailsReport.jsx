@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ChevronRight, X, Search, FileBarChart, Play, Edit2, Trash2, Printer, 
   FileSpreadsheet, FileText, Filter, Settings, Download, Camera, FileDown
 } from 'lucide-react'
+import api from '../services/api'
 
 // ── Shared UI primitives ──
 const Label = ({ children }) => (
@@ -50,11 +51,192 @@ const FilterButton = ({ children, onClick, className = "", icon = null }) => (
   </button>
 )
 
-export default function DCDetailsReport() {
-  const [fromDate, setFromDate] = useState('15-Apr-2026')
-  const [toDate, setToDate] = useState('15-Apr-2026')
+const formatDate = (dateString) => {
+  if (!dateString) return '—';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return '—';
+  const day = String(d.getDate()).padStart(2, '0');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
 
-  const dates = ['15-Apr-2026', '16-Apr-2026', '17-Apr-2026']
+const parseCustomDate = (str) => {
+  if (!str) return null;
+  const parts = str.split('-');
+  if (parts.length !== 3) return null;
+  const day = parseInt(parts[0], 10);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthIndex = months.indexOf(parts[1]);
+  const year = parseInt(parts[2], 10);
+  if (monthIndex === -1 || isNaN(day) || isNaN(year)) return null;
+  return new Date(year, monthIndex, day);
+};
+
+export default function DCDetailsReport() {
+  const [dcs, setDcs] = useState([])
+  const [dates, setDates] = useState([])
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [filteredDcs, setFilteredDcs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await api.get('/api/delivery-challan')
+        if (res.data?.success) {
+          const list = res.data.data || []
+          setDcs(list)
+          
+          // Extract unique formatted dates
+          const uniqueDatesMap = {}
+          list.forEach(item => {
+            const formatted = formatDate(item.date)
+            if (formatted && formatted !== '—') {
+              uniqueDatesMap[formatted] = new Date(item.date).getTime()
+            }
+          })
+          
+          const sortedFormattedDates = Object.keys(uniqueDatesMap).sort((a, b) => uniqueDatesMap[a] - uniqueDatesMap[b])
+          setDates(sortedFormattedDates)
+          
+          if (sortedFormattedDates.length > 0) {
+            setFromDate(sortedFormattedDates[0])
+            setToDate(sortedFormattedDates[sortedFormattedDates.length - 1])
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching DC details:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  const handleSearch = () => {
+    const fromObj = parseCustomDate(fromDate)
+    const toObj = parseCustomDate(toDate)
+    
+    const filtered = dcs.filter(dc => {
+      const dcDateObj = new Date(dc.date)
+      dcDateObj.setHours(0, 0, 0, 0)
+      
+      if (fromObj && dcDateObj < fromObj) return false
+      if (toObj && dcDateObj > toObj) return false
+      return true
+    })
+    setFilteredDcs(filtered)
+  }
+
+  useEffect(() => {
+    if (dcs.length > 0) {
+      handleSearch()
+    } else {
+      setFilteredDcs([])
+    }
+  }, [dcs, fromDate, toDate])
+
+  const handlePrintRecord = (row) => {
+    if (!row) return
+    const printWindow = window.open('', '_blank', 'width=900,height=800')
+    if (!printWindow) return
+
+    const itemsHtml = (row.details || []).map((item, index) => `
+      <tr>
+        <td style="text-align: center;">${index + 1}</td>
+        <td><b>${item.partNo || '—'}</b></td>
+        <td>${item.partName || '—'}</td>
+        <td>${item.spec || item.details || '—'}</td>
+        <td style="text-align: right; font-weight: bold;">${item.qty || 0}</td>
+        <td style="text-align: center;">${item.uom || item.unit || '—'}</td>
+        <td style="text-align: right;">₹${Number(item.rate || 0).toFixed(2)}</td>
+        <td style="text-align: right; font-weight: bold;">₹${Number(item.amount || 0).toFixed(2)}</td>
+      </tr>
+    `).join('')
+
+    const totalQty = (row.details || []).reduce((sum, item) => sum + Number(item.qty || 0), 0)
+    const totalAmount = (row.details || []).reduce((sum, item) => sum + Number(item.amount || 0), 0)
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Delivery Challan - ${row.dcNo}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; }
+            .header-title { text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin-bottom: 25px; }
+            h1 { margin: 0; font-size: 24px; text-transform: uppercase; font-weight: 900; letter-spacing: 1.5px; color: #0f172a; }
+            .grid-details { display: grid; grid-template-cols: 1fr 1fr; gap: 30px; margin-bottom: 30px; font-size: 13px; line-height: 1.6; }
+            .grid-col p { margin: 4px 0; }
+            .bold-label { font-weight: bold; display: inline-block; width: 140px; color: #475569; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th { background: #f8fafc; color: #475569; font-size: 11px; text-transform: uppercase; font-weight: bold; padding: 10px 8px; border: 1px solid #cbd5e1; }
+            td { padding: 10px 8px; border: 1px solid #e2e8f0; font-size: 12px; }
+            .footer-sign { display: flex; justify-content: space-between; margin-top: 100px; font-size: 13px; font-weight: bold; }
+            .footer-sign div { border-top: 2px solid #94a3b8; padding-top: 8px; width: 200px; text-align: center; }
+            .sys-footer { text-align: center; margin-top: 60px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+          </style>
+        </head>
+        <body>
+          <div class="header-title">
+            <h1>DELIVERY CHALLAN</h1>
+          </div>
+          <div class="grid-details">
+            <div class="grid-col">
+              <p><span class="bold-label">DC No:</span> <b>#${row.dcNo}</b></p>
+              <p><span class="bold-label">DC Date:</span> ${formatDate(row.date)}</p>
+              <p><span class="bold-label">Vehicle No:</span> ${row.vehicleNo || '—'}</p>
+              <p><span class="bold-label">Driver Name:</span> ${row.driverName || '—'}</p>
+            </div>
+            <div class="grid-col">
+              <p><span class="bold-label">Customer Name:</span> <b>${row.partyName}</b></p>
+              <p><span class="bold-label">Address:</span> ${row.address || '—'}</p>
+              <p><span class="bold-label">Despatch Through:</span> ${row.desThrough || '—'}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">S.No</th>
+                <th>Part No</th>
+                <th>Part Name</th>
+                <th>Description</th>
+                <th style="width: 80px;">Qty</th>
+                <th style="width: 70px;">Unit</th>
+                <th style="width: 100px;">Rate</th>
+                <th style="width: 120px;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr style="background: #f8fafc; font-weight: bold;">
+                <td colspan="4" style="text-align: right;">TOTAL</td>
+                <td style="text-align: right;">${totalQty}</td>
+                <td colspan="2"></td>
+                <td style="text-align: right;">₹${totalAmount.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="footer-sign">
+            <div>Receiver's Signature</div>
+            <div>Authorized Signatory</div>
+          </div>
+          <div class="sys-footer">
+            VELSON ERP - System Generated Delivery Challan - Confidentially Printed
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
 
   return (
     <div className="bg-[#f1f5f9] min-h-screen">
@@ -89,7 +271,7 @@ export default function DCDetailsReport() {
             
             <div className="w-[1px] h-6 bg-slate-200 mx-1" />
             
-            <FilterButton icon="dot">Search</FilterButton>
+            <FilterButton onClick={handleSearch} icon="dot">Search</FilterButton>
             <FilterButton icon="dot">DC Details</FilterButton>
             
             <div className="w-[1px] h-6 bg-slate-200 mx-1" />
@@ -114,31 +296,68 @@ export default function DCDetailsReport() {
           </div>
 
           {/* Data Table */}
-          <div className="flex-1 overflow-auto">
+          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm m-4">
             <table className="w-full text-left border-collapse min-w-[1500px]">
-              <thead className="bg-[#f8fafc] text-[10px] uppercase text-slate-500 font-bold border-b border-slate-300 sticky top-0 z-10">
-                <tr className="divide-x divide-slate-300">
-                  <th className="px-2 py-1.5 w-12 text-center">S.No</th>
-                  <th className="px-3 py-1.5">DC No</th>
-                  <th className="px-3 py-1.5">DC Date</th>
-                  <th className="px-3 py-1.5">DC Type</th>
-                  <th className="px-3 py-1.5">Customer Name</th>
-                  <th className="px-3 py-1.5">Contact Person</th>
-                  <th className="px-3 py-1.5">Contact No</th>
-                  <th className="px-3 py-1.5 text-right">Total Qty</th>
-                  <th className="px-3 py-1.5 text-right">Total Amount</th>
-                  <th className="px-3 py-1.5">Vehicle No</th>
-                  <th className="px-3 py-1.5">Driver Name</th>
-                  <th className="px-3 py-1.5">Despatch Through</th>
+              <thead className="bg-[#fcfdfe] text-[9px] uppercase text-slate-400 font-black border-b border-slate-200">
+                <tr className="divide-x divide-slate-100">
+                  <th className="px-5 py-4 border-r border-slate-100 w-16 text-center">S.No</th>
+                  <th className="px-5 py-4 border-r border-slate-100">DC No</th>
+                  <th className="px-5 py-4 border-r border-slate-100">DC Date</th>
+                  <th className="px-5 py-4 border-r border-slate-100">DC Type</th>
+                  <th className="px-5 py-4 border-r border-slate-100">Customer Name</th>
+                  <th className="px-5 py-4 border-r border-slate-100">Contact Person</th>
+                  <th className="px-5 py-4 border-r border-slate-100">Contact No</th>
+                  <th className="px-5 py-4 border-r border-slate-100 text-right">Total Qty</th>
+                  <th className="px-5 py-4 border-r border-slate-100 text-right">Total Amount</th>
+                  <th className="px-5 py-4 border-r border-slate-100">Vehicle No</th>
+                  <th className="px-5 py-4 border-r border-slate-100">Driver Name</th>
+                  <th className="px-5 py-4 border-r border-slate-100">Despatch Through</th>
+                  <th className="px-5 py-4 text-center w-24">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
-                {[...Array(20)].map((_, i) => (
-                  <tr key={i} className="h-8 hover:bg-slate-50 divide-x divide-slate-200 group">
-                    <td className="px-2 py-1 text-center text-slate-300 font-bold">{i + 1}</td>
-                    {[...Array(11)].map((_, j) => <td key={j} className="px-3 py-1"></td>)}
+              <tbody className="divide-y divide-slate-50 text-[12px]">
+                {loading ? (
+                  <tr>
+                    <td colSpan={13} className="text-center py-8 text-slate-400 italic">
+                      Loading Delivery Challans...
+                    </td>
                   </tr>
-                ))}
+                ) : filteredDcs.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className="text-center py-8 text-slate-400 italic">
+                      No Delivery Challan records found for the selected date range.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredDcs.map((row, i) => (
+                    <tr key={row.id || i} className="h-14 hover:bg-[#0097A7]/5 transition-colors divide-x divide-slate-100 group">
+                      <td className="px-2 py-1 text-center text-slate-300 font-bold">{i + 1}</td>
+                      <td className="px-5 py-2 border-r border-slate-50 font-black text-[#0097A7]">#{row.dcNo}</td>
+                      <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-400">{formatDate(row.date)}</td>
+                      <td className="px-5 py-2 border-r border-slate-50 font-semibold text-slate-600">{row.dcType}</td>
+                      <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-700">{row.partyName}</td>
+                      <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium">{row.contPerson || '—'}</td>
+                      <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium">{row.contactNo || '—'}</td>
+                      <td className="px-5 py-2 border-r border-slate-50 text-right font-bold text-[#0097A7]">{row.totalQty || 0}</td>
+                      <td className="px-5 py-2 border-r border-slate-50 text-right font-bold text-slate-800">₹{Number(row.totalAmount || 0).toFixed(2)}</td>
+                      <td className="px-5 py-2 border-r border-slate-50">{row.vehicleNo || '—'}</td>
+                      <td className="px-5 py-2 border-r border-slate-50">{row.driverName || '—'}</td>
+                      <td className="px-5 py-2 border-r border-slate-50">{row.desThrough || '—'}</td>
+                      <td className="px-5 py-2 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePrintRecord(row)
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0097A7]/10 hover:bg-[#0097A7]/20 text-[#0097A7] transition-colors shadow-sm border border-[#0097A7]/20"
+                          title="Print DC Record"
+                        >
+                          <Printer size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

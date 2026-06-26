@@ -196,7 +196,7 @@ export default function DCEntry() {
   const [date, setDate] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerDetails, setCustomerDetails] = useState('')
-  const [dcType, setDcType] = useState('Returnable')
+  const [dcType, setDcType] = useState('')
   const [vehicleNo, setVehicleNo] = useState('')
   const [contPerson, setContPerson] = useState('')
   const [driverName, setDriverName] = useState('')
@@ -212,7 +212,7 @@ export default function DCEntry() {
   const [spec, setSpec] = useState('')
   const [brand, setBrand] = useState('')
   const [qty, setQty] = useState('')
-  const [uom, setUom] = useState('PCS')
+  const [uom, setUom] = useState('')
   const [rate, setRate] = useState('')
   const [amount, setAmount] = useState('')
   const [availableStock, setAvailableStock] = useState(0.0)
@@ -225,7 +225,7 @@ export default function DCEntry() {
   const [details, setDetails] = useState('')
   const [workType, setWorkType] = useState('')
   const [workTypes, setWorkTypes] = useState([])
-  const [rework, setRework] = useState('NO')
+  const [rework, setRework] = useState('')
 
   // Barcode and Stock list for selection
   const [barcodeList, setBarcodeList] = useState([])
@@ -472,7 +472,7 @@ export default function DCEntry() {
         setPartName(d.partName || '')
         setSpec(d.spec || '')
         setBrand(d.brand || '')
-        setUom(d.uom || 'PCS')
+        setUom(d.uom || '')
         setRate(d.rate || '')
         setAvailableStock(d.availableStock || 0.0)
         setStockLocation(d.stockLocation || '')
@@ -597,7 +597,7 @@ export default function DCEntry() {
     setDate(new Date().toISOString().split('T')[0])
     setCustomerName('')
     setCustomerDetails('')
-    setDcType('Returnable')
+    setDcType('')
     setVehicleNo('')
     setContPerson('')
     setDriverName('')
@@ -644,7 +644,7 @@ export default function DCEntry() {
       amount: parseFloat(amount) || (numQty * numericRate),
       heatTreatment: heatTreatment || null,
       mGrade: mGrade || null,
-      rework: rework || 'NO',
+      rework: rework || null,
       hrc: hrc || null,
       weight: weight || null,
       details: details || null,
@@ -783,12 +783,16 @@ export default function DCEntry() {
       // Company Info (left side)
       if (logoBase64) {
         // Draw logo: x, y, width, height
-        doc.addImage(logoBase64, 'PNG', margin, y - 4, 12, 12)
+        try {
+          doc.addImage(logoBase64, 'PNG', margin, y - 4, 12, 12)
+        } catch (logoErr) {
+          console.error('Failed to add logo to PDF:', logoErr)
+        }
 
         doc.setFontSize(11)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(...dark)
-        doc.text('Welson India', margin + 15, y - 1)
+        doc.text('Velson', margin + 15, y - 1)
 
         y += 4
         doc.setFontSize(9)
@@ -903,7 +907,7 @@ export default function DCEntry() {
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(...dark)
       doc.setFontSize(9)
-      doc.text(payload.dcType || 'Returnable', rightX + 40, y)
+      doc.text(payload.dcType, rightX + 40, y)
 
       y += 5
       doc.setFontSize(8)
@@ -949,7 +953,7 @@ export default function DCEntry() {
           item.partName ? `${item.partName}${item.workType ? ` (${item.workType})` : ''}` : '-',
           item.partNo || '-',
           item.qty,
-          item.uom || 'PCS',
+          item.uom,
           item.rate?.toFixed?.(2) || '0.00',
           taxableValue.toFixed(2)
         ]
@@ -1079,7 +1083,7 @@ export default function DCEntry() {
       doc.save(`DC_${payload.dcNo}.pdf`)
     } catch (err) {
       console.error('PDF generation error:', err)
-      toast.error('Failed to generate PDF')
+      toast.error(`Failed to generate PDF: ${err.message}`)
     }
   }
 
@@ -1102,12 +1106,12 @@ export default function DCEntry() {
       spec: item.spec || null,
       brand: item.brand || null,
       qty: parseFloat(item.qty) || 0,
-      uom: item.uom || 'PCS',
+      uom: item.uom || null,
       rate: parseFloat(item.rate) || 0,
       amount: parseFloat(item.amount) || 0,
       heatTreatment: item.heatTreatment || null,
       mGrade: item.mGrade || null,
-      rework: item.rework || 'NO',
+      rework: item.rework || null,
       hrc: item.hrc || null,
       weight: item.weight || null,
       details: item.details || null,
@@ -1147,7 +1151,7 @@ export default function DCEntry() {
         amount: parseFloat(amount) || (numQty * numericRate),
         heatTreatment: heatTreatment || null,
         mGrade: mGrade || null,
-        rework: rework || 'NO',
+        rework: rework || null,
         hrc: hrc || null,
         weight: weight || null,
         details: details || null,
@@ -1182,7 +1186,7 @@ export default function DCEntry() {
         items: finalItems
       }
 
-      await api.post('/api/delivery-challan', payload)
+      await api.post('/api/delivery-challan', payload, { loadingMessage: 'Submitting Delivery Challan...' })
       toast.success(`Delivery Challan ${dcNo} submitted successfully!`)
       await fetchRecentValues()
 

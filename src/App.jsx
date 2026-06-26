@@ -152,6 +152,8 @@ import NotificationRights from './pages/Notifications/NotificationRights'
 import SalesDashboard from './pages/SalesDashboard'
 import StockDashboard from './pages/StockDashboard'
 import MainDashboard from './pages/MainDashboard'
+import QuotationSalesDetails from './pages/QuatationSalesDetails'
+import LandingPage from './pages/LandingPage'
 
 // page key → component (used to build <Route> elements)
 const PAGE_COMPONENTS = {
@@ -296,6 +298,8 @@ const PAGE_COMPONENTS = {
   NotificationHistory: NotificationHistory,
   UserNotificationPreferences: UserNotificationPreferences,
   NotificationRights: NotificationRights,
+  QuotationSalesDetails: QuotationSalesDetails,
+  LandingPage: LandingPage,
 }
 
 // Bridges legacy velson:navigate custom events to React Router navigation.
@@ -347,7 +351,7 @@ function ProtectedRoute({ pageKey, children }) {
     return children
   }
 
-  return <Navigate to="/dashboard" replace />
+  return <Navigate to="/LandingPage" replace />
 }
 
 function AppRoutes() {
@@ -356,7 +360,8 @@ function AppRoutes() {
       <NavigationEventBridge />
       <Layout>
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/LandingPage" replace />} />
+          <Route path="/LandingPage" element={<LandingPage />} />
           {Object.entries(PAGE_COMPONENTS).map(([pageKey, Component]) => {
             const path = PAGE_TO_PATH[pageKey]
             if (!path) return null
@@ -372,7 +377,7 @@ function AppRoutes() {
               />
             )
           })}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/LandingPage" replace />} />
         </Routes>
       </Layout>
     </>

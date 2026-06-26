@@ -1,8 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  ChevronRight, X, Search, FileBarChart, Play, Edit2, Trash2, Printer, 
+  ChevronRight, X, Search, FileBarChart, Edit2, Trash2, Printer, 
   FileSpreadsheet, FileText, Filter, Settings, Download
 } from 'lucide-react'
+import { useToast } from '../components/Toast'
+import api from '../services/api'
+
+// Helper to format date as DD/MM/YYYY
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return dateStr
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+// Helper to format numbers with commas and decimals
+const formatNumber = (num, decimals = 2) => {
+  const parsed = Number(num)
+  if (isNaN(parsed)) return '0.00'
+  return parsed.toLocaleString('en-IN', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  })
+}
 
 // ── Shared UI primitives ──
 const Label = ({ children }) => (
@@ -14,7 +38,7 @@ const Label = ({ children }) => (
 const Input = ({ type = 'text', value, onChange, placeholder, className = "" }) => (
   <input
     type={type}
-    value={value}
+    value={value || ''}
     onChange={onChange}
     placeholder={placeholder}
     className={`px-4 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/20 focus:border-[#0097A7] transition-all duration-200 hover:border-slate-300 shadow-sm ${className}`}
@@ -22,16 +46,85 @@ const Input = ({ type = 'text', value, onChange, placeholder, className = "" }) 
 )
 
 export default function ServiceBillDetails() {
-  const [fromDate, setFromDate] = useState('2026-04-15')
-  const [toDate, setToDate] = useState('2026-04-15')
+  const toast = useToast()
+  const navigate = useNavigate()
+
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30) // Default to last 30 days
+    return d.toISOString().split('T')[0]
+  })
+  const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [searchPartyName, setSearchPartyName] = useState('')
+  const [bills, setBills] = useState([])
+  const [selectedBillId, setSelectedBillId] = useState(null)
+
+  const fetchBills = async () => {
+    try {
+      const res = await api.get('/api/service-bill')
+      if (res.data?.success) {
+        setBills(res.data.data || [])
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to load Service Bills')
+    }
+  }
+
+  useEffect(() => {
+    fetchBills()
+  }, [])
+
+  // Filter and sort bills based on dates and customer name, ordered by refNo descending
+  const filteredBills = bills
+    .filter(bill => {
+      const billDateStr = bill.billDate ? new Date(bill.billDate).toISOString().split('T')[0] : ''
+      const dateMatch = (!fromDate || billDateStr >= fromDate) && (!toDate || billDateStr <= toDate)
+      const nameMatch = !searchPartyName || (bill.partyName || '').toLowerCase().includes(searchPartyName.toLowerCase())
+      return dateMatch && nameMatch
+    })
+    .sort((a, b) => {
+      const numA = parseInt(a.refNo, 10)
+      const numB = parseInt(b.refNo, 10)
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numB - numA
+      }
+      return (b.refNo || '').localeCompare(a.refNo || '')
+    })
+
+  const handleEdit = () => {
+    if (!selectedBillId) {
+      toast.error('Please select a bill row to edit')
+      return
+    }
+    navigate('/sales/service-bill-entry', { state: { id: selectedBillId } })
+  }
+
+  const handleDelete = async () => {
+    if (!selectedBillId) {
+      toast.error('Please select a bill row to delete')
+      return
+    }
+    if (window.confirm('Are you sure you want to delete the selected Service Bill?')) {
+      try {
+        const res = await api.delete(`/api/service-bill/${selectedBillId}`)
+        if (res.data?.success) {
+          toast.success('Service Bill deleted successfully')
+          setSelectedBillId(null)
+          fetchBills()
+        }
+      } catch (err) {
+        console.error(err)
+        toast.error('Failed to delete Service Bill')
+      }
+    }
+  }
 
   return (
     <div className="bg-[#f4f6f8] min-h-full">
       <div className="px-6 py-6">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-[12px] text-slate-400 mb-5">
-          {/* <span className="hover:text-[#0097A7] cursor-pointer transition-colors">Dashboard</span> */}
-          {/* <ChevronRight className="w-3 h-3" /> */}
           <span className="hover:text-[#0097A7] cursor-pointer transition-colors uppercase tracking-widest">Sales</span>
           <ChevronRight className="w-3 h-3" />
           <span className="text-[#0097A7] font-semibold uppercase tracking-widest">Service Bill Details</span>
@@ -46,17 +139,25 @@ export default function ServiceBillDetails() {
             </div>
             
             <div className="flex items-center gap-2">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-[11px] font-bold rounded-md transition-all shadow-sm group">
+              <button 
+                onClick={handleEdit}
+                disabled={!selectedBillId}
+                className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-[11px] font-bold rounded-md transition-all shadow-sm group ${!selectedBillId ? 'opacity-50 cursor-not-allowed text-slate-400' : 'text-slate-600'}`}
+              >
                 <Edit2 size={14} className="text-[#0097A7] group-hover:scale-110 transition-transform" /> Edit
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 text-rose-600 text-[11px] font-bold rounded-md transition-all shadow-sm group">
+              <button 
+                onClick={handleDelete}
+                disabled={!selectedBillId}
+                className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 text-[11px] font-bold rounded-md transition-all shadow-sm group ${!selectedBillId ? 'opacity-50 cursor-not-allowed text-slate-400' : 'text-rose-600'}`}
+              >
                 <Trash2 size={14} className="group-hover:scale-110 transition-transform" /> Delete
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-[11px] font-bold rounded-md transition-all shadow-sm">
-                <div className="w-4 h-4 bg-slate-400 rounded-full flex items-center justify-center">
-                  <X size={10} className="text-white" strokeWidth={3} />
-                </div>
-                Close
+              <button 
+                onClick={() => navigate('/sales/service-bill-entry')}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded-md transition-all shadow-sm"
+              >
+                New Entry
               </button>
             </div>
           </div>
@@ -64,8 +165,8 @@ export default function ServiceBillDetails() {
           <div className="p-5 flex-1 flex flex-col">
             {/* Filter Bar */}
             <div className="flex flex-wrap items-center gap-8 mb-6 bg-slate-50/50 p-5 rounded-xl border border-slate-100">
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-6">
+              <div className="flex flex-col gap-4 w-full">
+                <div className="flex flex-wrap items-center gap-6">
                   <div className="flex items-center gap-3">
                     <Label>From Date :</Label>
                     <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-44" />
@@ -74,18 +175,15 @@ export default function ServiceBillDetails() {
                     <Label>To Date :</Label>
                     <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-44" />
                   </div>
-                  <button className="flex items-center justify-center gap-2 px-8 py-2 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded-lg transition-all shadow-md active:scale-95 group ml-4">
-                    <div className="w-2.5 h-2.5 bg-red-500 rounded-full group-hover:animate-pulse" />
-                    Search
-                  </button>
-                  <button className="flex items-center justify-center gap-2 px-6 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[12px] font-bold rounded-lg transition-all shadow-sm active:scale-95">
-                    <Printer size={16} className="text-blue-600" />
-                    Print Bill
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Label>Customer Name :</Label>
-                  <Input className="w-[185px]" />
+                  <div className="flex items-center gap-3">
+                    <Label>Customer Name :</Label>
+                    <Input 
+                      className="w-[250px]" 
+                      placeholder="Search Customer..." 
+                      value={searchPartyName}
+                      onChange={e => setSearchPartyName(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -94,7 +192,7 @@ export default function ServiceBillDetails() {
             <div className="flex items-center justify-end gap-5 mb-4 px-2 text-slate-500">
               <div className="flex items-center gap-1.5 cursor-pointer hover:text-[#0097A7] transition-colors border-r border-slate-200 pr-5">
                 <span className="text-[11px] font-bold">LS</span>
-                <span className="text-[12px] font-black text-[#0097A7]">1</span>
+                <span className="text-[12px] font-black text-[#0097A7]">{filteredBills.length}</span>
               </div>
               <button className="flex items-center gap-1.5 hover:text-[#0097A7] transition-colors group" title="Dos">
                 <Download size={16} />
@@ -124,16 +222,16 @@ export default function ServiceBillDetails() {
                 <thead className="bg-[#cbd5e1]/30 text-[11px] uppercase text-slate-600 font-bold border-b border-slate-300">
                   <tr>
                     {[
-                      { label: 'Bill No', w: 'w-32' },
+                      { label: 'Bill No/Ref', w: 'w-32' },
                       { label: 'Service No', w: 'w-48' },
                       { label: 'Service Job', w: 'w-40' },
-                      { label: 'Vehicle_Count_No', w: 'w-48' },
-                      { label: 'Vehicle_Serial_No', w: 'w-48' },
+                      { label: 'Vehicle No', w: 'w-48' },
+                      { label: 'Serial No', w: 'w-48' },
                       { label: 'Bill Date', w: 'w-36' },
-                      { label: 'BILL MODE', w: 'w-32' },
-                      { label: 'Supplier', w: 'w-64' },
+                      { label: 'Tax Type', w: 'w-32' },
+                      { label: 'Customer', w: 'w-64' },
                       { label: 'Material Cost', w: 'w-36' },
-                      { label: 'Labour_Charge', w: 'w-36' },
+                      { label: 'Labour Charge', w: 'w-36' },
                       { label: 'GST %', w: 'w-24' },
                       { label: 'GST Amt', w: 'w-32' },
                       { label: 'Bill Amt', w: 'w-32' }
@@ -143,11 +241,35 @@ export default function ServiceBillDetails() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[12px]">
-                  {[...Array(15)].map((_, i) => (
-                    <tr key={i} className="h-10 hover:bg-[#f0f9fa]/40 transition-colors group">
-                      {[...Array(13)].map((_, j) => <td key={j} className="border-r border-slate-100 last:border-r-0"></td>)}
+                  {filteredBills.length === 0 ? (
+                    <tr>
+                      <td colSpan={13} className="text-center py-10 text-slate-400 font-semibold uppercase italic">
+                        No Service Bills Found
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredBills.map((bill) => (
+                      <tr 
+                        key={bill.id} 
+                        onClick={() => setSelectedBillId(bill.id === selectedBillId ? null : bill.id)}
+                        className={`h-10 hover:bg-[#f0f9fa]/40 transition-colors cursor-pointer group ${bill.id === selectedBillId ? 'bg-[#0097A7]/10 font-bold' : ''}`}
+                      >
+                        <td className="px-3 py-2 border-r border-slate-100">{bill.refNo}</td>
+                        <td className="px-3 py-2 border-r border-slate-100 font-medium text-[#0097A7]">{bill.serviceNo}</td>
+                        <td className="px-3 py-2 border-r border-slate-100">{bill.serviceJobNo}</td>
+                        <td className="px-3 py-2 border-r border-slate-100">{bill.vehicleNo}</td>
+                        <td className="px-3 py-2 border-r border-slate-100">{bill.serialNo}</td>
+                        <td className="px-3 py-2 border-r border-slate-100">{formatDate(bill.billDate)}</td>
+                        <td className="px-3 py-2 border-r border-slate-100">{bill.taxType}</td>
+                        <td className="px-3 py-2 border-r border-slate-100 uppercase">{bill.partyName}</td>
+                        <td className="px-3 py-2 border-r border-slate-100 text-right pr-4 tabular-nums">₹{formatNumber(bill.materialCost)}</td>
+                        <td className="px-3 py-2 border-r border-slate-100 text-right pr-4 tabular-nums">₹{formatNumber(bill.labourCharge)}</td>
+                        <td className="px-3 py-2 border-r border-slate-100 text-center">{bill.gstPer}%</td>
+                        <td className="px-3 py-2 border-r border-slate-100 text-right pr-4 tabular-nums">₹{formatNumber(bill.gstAmt)}</td>
+                        <td className="px-3 py-2 border-r border-slate-100 text-right pr-4 font-bold text-slate-800 tabular-nums">₹{formatNumber(bill.billAmt)}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -159,7 +281,7 @@ export default function ServiceBillDetails() {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 italic">Service Billing Analysis & Revenue Compliance Ledger</span>
               </div>
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Records: <span className="text-[#0097A7]">0</span>
+                Records: <span className="text-[#0097A7]">{filteredBills.length}</span>
               </div>
             </div>
           </div>

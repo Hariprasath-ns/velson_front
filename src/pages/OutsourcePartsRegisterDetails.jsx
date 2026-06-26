@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronRight, X, Edit2, Trash2, Printer, 
   ChevronDown, ChevronUp, Search
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import api from '../services/api'
 
 // ── Shared UI primitives ──
 const Label = ({ children, required, className = "" }) => (
@@ -64,17 +65,15 @@ export default function OutsourcePartsRegisterDetails() {
     loadDcs()
   }, [])
 
-  const loadDcs = () => {
-    const existing = localStorage.getItem('velson_dc_sales')
-    if (existing) {
-      try {
-        const parsed = JSON.parse(existing)
-        setDcs(parsed)
-        setFilteredDcs(parsed)
-      } catch (e) {
-        setDcs([])
-        setFilteredDcs([])
+  const loadDcs = async () => {
+    try {
+      const res = await api.get('/api/outsource-parts')
+      if (res.data && res.data.success && Array.isArray(res.data.data)) {
+        setDcs(res.data.data)
+        setFilteredDcs(res.data.data)
       }
+    } catch (err) {
+      toast.error('Failed to load outsource parts register entries')
     }
   }
 
@@ -84,10 +83,10 @@ export default function OutsourcePartsRegisterDetails() {
 
     // Date range filter
     if (fromDate) {
-      result = result.filter(d => d.dcDate >= fromDate)
+      result = result.filter(d => d.dcDate && d.dcDate.slice(0, 10) >= fromDate)
     }
     if (toDate) {
-      result = result.filter(d => d.dcDate <= toDate)
+      result = result.filter(d => d.dcDate && d.dcDate.slice(0, 10) <= toDate)
     }
 
     // Text search filter (matches Customer Name or DC No)
@@ -126,6 +125,7 @@ export default function OutsourcePartsRegisterDetails() {
       const key = d.partyName
       if (!groupedMap[key]) {
         groupedMap[key] = {
+          id: d.id,
           dcNo: d.dcNo,
           partyName: d.partyName,
           dcDate: d.dcDate, // Will hold the latest date
@@ -136,6 +136,7 @@ export default function OutsourcePartsRegisterDetails() {
         groupedMap[key].originalRecords.push(d)
         // Set to the latest (last entered date)
         if (d.dcDate > groupedMap[key].dcDate) {
+          groupedMap[key].id = d.id
           groupedMap[key].dcDate = d.dcDate
           groupedMap[key].dcNo = d.dcNo // Display the latest DC No
           groupedMap[key].address = d.address
@@ -155,7 +156,7 @@ export default function OutsourcePartsRegisterDetails() {
           d.items.forEach(it => {
             history.push({
               itemName: it.itemName,
-              date: it.date || d.dcDate
+              date: it.entryDate || d.dcDate
             })
           })
         }
@@ -175,24 +176,29 @@ export default function OutsourcePartsRegisterDetails() {
       return
     }
     const group = groupedList.find(g => g.partyName === selectedCustomerName)
-    const targetNo = group ? group.dcNo : null
-    const targetDate = group ? group.dcDate : null
-    navigate('/sales/dc-sales', { state: { editDcNo: targetNo, editDcDate: targetDate } })
+    if (group) {
+      navigate('/sales/dc-sales', { state: { editId: group.id } })
+    }
   }
 
-  // Action: Delete selected Customer's DCs
-  const handleDelete = () => {
+  // Action: Delete selected Customer's latest DC
+  const handleDelete = async () => {
     if (!selectedCustomerName) {
       toast.error('Please select a customer from the table first!')
       return
     }
-    if (window.confirm(`Are you sure you want to delete all DC records for customer "${selectedCustomerName}"?`)) {
-      const updated = dcs.filter(d => d.partyName !== selectedCustomerName)
-      localStorage.setItem('velson_dc_sales', JSON.stringify(updated))
-      setDcs(updated)
-      setFilteredDcs(prev => prev.filter(d => d.partyName !== selectedCustomerName))
-      setSelectedCustomerName(null)
-      toast.success(`All DC records for customer "${selectedCustomerName}" deleted successfully`)
+    const group = groupedList.find(g => g.partyName === selectedCustomerName)
+    if (!group) return
+
+    if (window.confirm(`Are you sure you want to delete the DC record #${group.dcNo} for customer "${selectedCustomerName}"?`)) {
+      try {
+        await api.delete(`/api/outsource-parts/${group.id}`)
+        toast.success(`DC record #${group.dcNo} deleted successfully`)
+        loadDcs()
+        setSelectedCustomerName(null)
+      } catch (err) {
+        toast.error('Failed to delete DC record')
+      }
     }
   }
 
@@ -234,9 +240,6 @@ export default function OutsourcePartsRegisterDetails() {
               <HeaderButton onClick={handlePrint} disabled={!selectedCustomerName}>
                 <Printer size={13} /> Print
               </HeaderButton>
-              {/* <HeaderButton onClick={() => navigate('/sales/dc-sales')} color="rose">
-                <X size={15} strokeWidth={2.5} /> Close / Entry Form
-              </HeaderButton> */}
             </div>
           </div>
 
@@ -307,17 +310,16 @@ export default function OutsourcePartsRegisterDetails() {
                   </tr>
                 ) : (
                   groupedList.map((row) => (
-                    <>
+                    <React.Fragment key={row.partyName}>
                       {/* Master Row */}
                       <tr 
-                        key={row.partyName} 
                         onClick={() => handleRowClick(row.partyName)}
                         className={`hover:bg-slate-50 transition-colors cursor-pointer divide-x divide-slate-200 ${
                           selectedCustomerName === row.partyName ? 'bg-sky-50/50 hover:bg-sky-50' : ''
                         }`}
                       >
                         <td className="px-4 py-2 font-bold text-[#0097A7]">
-                          <span>#{row.dcNo}</span>
+                          <span>{row.dcNo}</span>
                         </td>
                         <td className="px-4 py-2 font-medium">
                           {row.dcDate ? new Date(row.dcDate).toLocaleDateString('en-IN') : '—'}
@@ -370,7 +372,7 @@ export default function OutsourcePartsRegisterDetails() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))
                 )}
               </tbody>

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import api from '../services/api'
 import { useToast } from '../components/Toast'
+import { useLoading } from '../context/LoadingContext'
 
 // ── Shared UI primitives ──
 const Label = ({ children, required, className = "" }) => (
@@ -45,6 +46,7 @@ const Select = ({ value, onChange, options = [], className = "", placeholder = "
 
 export default function QuotationSales() {
   const toast = useToast()
+  const { show: showLoader, hide: hideLoader } = useLoading()
 
   // Form State
   const [billDate, setBillDate] = useState(() => new Date().toISOString().split('T')[0])
@@ -66,32 +68,61 @@ export default function QuotationSales() {
   // Item Masters & Grid Rows State
   const [itemMasters, setItemMasters] = useState([])
   const [gridRows, setGridRows] = useState([
-    { id: 1, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', discAmt2: '0.00', netAmt: '0.00' }
+    { id: 1, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', netAmt: '0.00' }
   ])
   const [selectedRowId, setSelectedRowId] = useState(1)
 
-  // Loaded quotations lists
+  const [activeRowSearchId, setActiveRowSearchId] = useState(null)
+  const [activeField, setActiveField] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
   const [quotations, setQuotations] = useState([])
   const [editingId, setEditingId] = useState(null)
 
+  const getNextQuotationNo = (list) => {
+    const prefix = '26-27/QS'
+    let maxNum = 0
+    if (list && list.length > 0) {
+      list.forEach(q => {
+        const no = q.quotationNo || ''
+        if (no.startsWith(prefix)) {
+          const numStr = no.slice(prefix.length)
+          const num = parseInt(numStr, 10)
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num
+          }
+        }
+      })
+    }
+    const nextNum = maxNum + 1
+    return `${prefix}${String(nextNum).padStart(4, '0')}`
+  }
+
   const fetchNextQuotationNo = async () => {
     try {
-      const res = await api.get('/api/quotation-master/next-no')
-      if (res.data?.success && res.data?.quotationNo) {
-        setQuotationNo(res.data.quotationNo)
+      const res = await api.get('/api/quotation-sales')
+      if (res.data?.success) {
+        const list = res.data.data || []
+        setQuotations(list)
+        if (!editingId) {
+          setQuotationNo(getNextQuotationNo(list))
+        }
       } else {
-        setQuotationNo('001')
+        setQuotationNo('26-27/QS0001')
       }
     } catch (err) {
-      setQuotationNo('001')
+      setQuotationNo('26-27/QS0001')
     }
   }
 
   const fetchQuotations = async () => {
     try {
-      const res = await api.get('/api/quotation-master')
+      const res = await api.get('/api/quotation-sales')
       if (res.data?.success) {
-        setQuotations(res.data.data || [])
+        const list = res.data.data || []
+        setQuotations(list)
+        if (!editingId) {
+          setQuotationNo(getNextQuotationNo(list))
+        }
       }
     } catch (err) {
       console.error("Failed to load quotations:", err)
@@ -110,20 +141,25 @@ export default function QuotationSales() {
   }
 
   useEffect(() => {
-    const fetchCustomers = async () => {
+    const fetchAllData = async () => {
+      showLoader('Loading Data...')
       try {
-        const res = await api.get('/api/customer-master', { skipGlobalLoader: true })
-        if (res.data?.success) {
-          setCustomers(res.data.data || [])
+        const fetchCustomers = async () => {
+          const res = await api.get('/api/customer-master', { skipGlobalLoader: true })
+          if (res.data?.success) setCustomers(res.data.data || [])
         }
+        await Promise.all([
+          fetchCustomers(),
+          fetchQuotations(),
+          fetchItemMasters()
+        ])
       } catch (err) {
-        console.error("Failed to load customer list:", err)
+        console.error("Initialization error:", err)
+      } finally {
+        hideLoader()
       }
     }
-    fetchCustomers()
-    fetchQuotations()
-    fetchItemMasters()
-    fetchNextQuotationNo()
+    fetchAllData()
   }, [])
 
   const handleCustomerInputChange = (val) => {
@@ -146,7 +182,6 @@ export default function QuotationSales() {
       .filter(Boolean)
     setAddress(addrParts.join(', '))
     setContactPerson(c.contactPerson || '')
-    setContactNo(c.mobile || c.phone || '')
     setShowSuggestions(false)
   }
 
@@ -163,7 +198,7 @@ export default function QuotationSales() {
       discAmt = Number(row.discPercent) || 0
     }
 
-    const netAmt = totalAmt - discAmt - (Number(row.discAmt2) || 0)
+    const netAmt = totalAmt - discAmt
 
     return {
       ...row,
@@ -172,6 +207,56 @@ export default function QuotationSales() {
       discAmt: discAmt.toFixed(2),
       netAmt: netAmt.toFixed(2)
     }
+  }
+
+  const filteredPartSuggestions = itemMasters.filter(item => {
+    if (!searchTerm) return true
+    return (item.partNo || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+           (item.partName || '').toLowerCase().includes(searchTerm.toLowerCase())
+  })
+
+  const filteredNameSuggestions = itemMasters.filter(item => {
+    if (!searchTerm) return true
+    return (item.partName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+           (item.itemName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+           (item.partNo || '').toLowerCase().includes(searchTerm.toLowerCase())
+  })
+
+  const handleItemSearchChange = (id, field, val) => {
+    setSearchTerm(val)
+    handleRowChange(id, field, val)
+  }
+
+  const selectItemForRow = (rowId, item) => {
+    const updated = gridRows.map(row => {
+      if (row.id === rowId) {
+        let updatedRow = { ...row }
+        updatedRow.itemId = item.id
+        updatedRow.partNo = item.partNo || ''
+        updatedRow.itemName = item.partName || item.itemName || ''
+        updatedRow.spec = item.description || ''
+        updatedRow.brand = item.brand || ''
+        updatedRow.uom = item.uom || ''
+        updatedRow.rate = String(item.rate || item.purchaseRate || '0.00')
+        updatedRow.netRate = String(item.rate || item.purchaseRate || '0.00')
+        return calculateRow(updatedRow)
+      }
+      return row
+    })
+
+    const lastRow = updated[updated.length - 1]
+    if (lastRow.id === rowId) {
+      const newId = Math.max(...updated.map(r => r.id)) + 1
+      const newRow = { id: newId, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', netAmt: '0.00' }
+      setGridRows([...updated, newRow])
+      setSelectedRowId(newId)
+    } else {
+      setGridRows(updated)
+    }
+    
+    setSearchTerm('')
+    setActiveRowSearchId(null)
+    setActiveField(null)
   }
 
   const handleRowChange = (id, key, val) => {
@@ -210,7 +295,7 @@ export default function QuotationSales() {
     const lastRow = gridRows[gridRows.length - 1]
     if (lastRow.id === id && key === 'itemId' && val !== '') {
       const newId = Math.max(...updated.map(r => r.id)) + 1
-      const newRow = { id: newId, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', discAmt2: '0.00', netAmt: '0.00' }
+      const newRow = { id: newId, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', netAmt: '0.00' }
       setGridRows([...updated, newRow])
       setSelectedRowId(newId)
     } else {
@@ -290,18 +375,22 @@ export default function QuotationSales() {
     }
 
     try {
+      showLoader('Saving Quotation...')
       if (editingId) {
-        await api.put(`/api/quotation-master/${editingId}`, payload)
+        await api.put(`/api/quotation-sales/${editingId}`, payload)
         toast.success('Quotation updated successfully')
       } else {
-        await api.post('/api/quotation-master', payload)
+        await api.post('/api/quotation-sales', payload)
         toast.success('Quotation created successfully')
       }
       handleCancel()
       fetchQuotations()
+      window.dispatchEvent(new CustomEvent('velson:navigate', { detail: '/sales/quotation-details' }))
     } catch (err) {
       console.error(err)
       toast.error('Failed to save quotation: ' + (err.response?.data?.message || err.message))
+    } finally {
+      hideLoader()
     }
   }
 
@@ -320,7 +409,7 @@ export default function QuotationSales() {
     setRemarks('')
     setEditingId(null)
     setGridRows([
-      { id: 1, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', discAmt2: '0.00', netAmt: '0.00' }
+      { id: 1, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', netAmt: '0.00' }
     ])
     setSelectedRowId(1)
   }
@@ -334,7 +423,7 @@ export default function QuotationSales() {
       return
     }
     try {
-      await api.delete(`/api/quotation-master/${editingId}`)
+      await api.delete(`/api/quotation-sales/${editingId}`)
       toast.success('Quotation deleted successfully')
       handleCancel()
       fetchQuotations()
@@ -375,13 +464,12 @@ export default function QuotationSales() {
         dType: '%',
         discPercent: '0',
         discAmt: '0.00',
-        discAmt2: '0.00',
         netAmt: String(d.amount || 0)
       })))
       setSelectedRowId(row.details[0]?.id || 1)
     } else {
       setGridRows([
-        { id: 1, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', discAmt2: '0.00', netAmt: '0.00' }
+        { id: 1, itemId: '', partNo: '', itemName: '', spec: '', brand: '', uom: '', qty: '1', netRate: '0.00', rate: '0.00', totalAmt: '0.00', dType: '%', discPercent: '0', discAmt: '0.00', netAmt: '0.00' }
       ])
       setSelectedRowId(1)
     }
@@ -414,16 +502,16 @@ export default function QuotationSales() {
             {/* Form layout */}
             <div className="grid grid-cols-12 gap-x-8 gap-y-2.5 mb-5 max-w-7xl mx-auto">
               
-              {/* Column 1 (Left) */}
+              {/* Column 1 (Left - 5 Fields) */}
               <div className="col-span-6 space-y-2.5">
                 {/* Quotation A/c */}
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4 text-right pr-1">
+                  <div className="col-span-4 text-left pr-1">
                     <Label required>Quotation A/c :</Label>
                   </div>
                   <div className="col-span-8">
                     <Select
-                      options={['General Sales A/c', 'Direct Sales A/c', 'Contract Sales A/c']}
+                      options={['General Sales A/c', 'Direct Sales A/c']}
                       placeholder="Select Sales A/c..."
                       value={quotationAc}
                       onChange={e => setQuotationAc(e.target.value)}
@@ -433,17 +521,17 @@ export default function QuotationSales() {
 
                 {/* Quotation No */}
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4 text-right pr-1">
+                  <div className="col-span-4 text-left pr-1">
                     <Label required>Qu. No :</Label>
                   </div>
                   <div className="col-span-8">
-                    <Input value={quotationNo} onChange={e => setQuotationNo(e.target.value)} className="!font-bold text-[#0097A7] w-full" />
+                    <Input value={quotationNo} readOnly={true} className="!font-bold text-[#0097A7] w-full bg-slate-50 cursor-not-allowed" />
                   </div>
                 </div>
 
                 {/* Quot Date */}
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4 text-right pr-1">
+                  <div className="col-span-4 text-left pr-1">
                     <Label required>Quot. Date :</Label>
                   </div>
                   <div className="col-span-8">
@@ -453,7 +541,7 @@ export default function QuotationSales() {
 
                 {/* Party Name Autocomplete */}
                 <div className="grid grid-cols-12 gap-2 items-center relative z-50">
-                  <div className="col-span-4 text-right pr-1">
+                  <div className="col-span-4 text-left pr-1">
                     <Label required>Party Name :</Label>
                   </div>
                   <div className="col-span-8 relative">
@@ -498,23 +586,26 @@ export default function QuotationSales() {
 
                 {/* Address */}
                 <div className="grid grid-cols-12 gap-2 items-start">
-                  <div className="col-span-4 text-right pr-1 pt-1">
+                  <div className="col-span-4 text-left pr-1 pt-1">
                     <Label>Address :</Label>
                   </div>
                   <div className="col-span-8">
                     <textarea
                       value={address}
-                      onChange={e => setAddress(e.target.value)}
-                      placeholder="Enter address details..."
+                      readOnly={true}
+                      placeholder="Address details (auto-populated)"
                       rows={2}
-                      className="w-full px-2.5 py-1 text-[12px] border border-slate-300 rounded bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7] transition-all hover:border-slate-400 resize-none shadow-sm"
+                      className="w-full px-2.5 py-1 text-[12px] border border-slate-200 rounded bg-slate-50 text-slate-500 cursor-not-allowed resize-none shadow-sm font-semibold"
                     />
                   </div>
                 </div>
+              </div>
 
+              {/* Column 2 (Right - 5 Fields) */}
+              <div className="col-span-6 space-y-2.5 border-l border-slate-100 pl-8">
                 {/* Con. Person */}
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4 text-right pr-1">
+                  <div className="col-span-4 text-left pr-1">
                     <Label>Con. Person :</Label>
                   </div>
                   <div className="col-span-8">
@@ -524,33 +615,30 @@ export default function QuotationSales() {
 
                 {/* Contact No */}
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4 text-right pr-1">
+                  <div className="col-span-4 text-left pr-1">
                     <Label>Contact No :</Label>
                   </div>
                   <div className="col-span-8">
                     <Input value={contactNo} onChange={e => setContactNo(e.target.value)} placeholder="Contact Number" className="w-full" />
                   </div>
                 </div>
-              </div>
 
-              {/* Column 2 (Right) */}
-              <div className="col-span-6 space-y-2.5 border-l border-slate-100 pl-8">
                 {/* Delivery Place */}
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-3 text-right pr-1">
+                  <div className="col-span-4 text-left pr-1">
                     <Label>Delivery Pl :</Label>
                   </div>
-                  <div className="col-span-9">
+                  <div className="col-span-8">
                     <Input value={deliveryPlace} onChange={e => setDeliveryPlace(e.target.value)} placeholder="Delivery Destination" className="w-full" />
                   </div>
                 </div>
 
                 {/* Delivery To */}
                 <div className="grid grid-cols-12 gap-2 items-start">
-                  <div className="col-span-3 text-right pr-1 pt-1">
+                  <div className="col-span-4 text-left pr-1 pt-1">
                     <Label>Delivery To :</Label>
                   </div>
-                  <div className="col-span-9">
+                  <div className="col-span-8">
                     <textarea
                       value={deliveryTo}
                       onChange={e => setDeliveryTo(e.target.value)}
@@ -563,10 +651,10 @@ export default function QuotationSales() {
 
                 {/* Remarks */}
                 <div className="grid grid-cols-12 gap-2 items-start">
-                  <div className="col-span-3 text-right pr-1 pt-1">
+                  <div className="col-span-4 text-left pr-1 pt-1">
                     <Label>Remark's :</Label>
                   </div>
-                  <div className="col-span-9">
+                  <div className="col-span-8">
                     <textarea
                       value={remarks}
                       onChange={e => setRemarks(e.target.value)}
@@ -574,16 +662,6 @@ export default function QuotationSales() {
                       rows={2}
                       className="w-full px-2.5 py-1 text-[12px] border border-slate-300 rounded bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7] transition-all hover:border-slate-400 resize-none shadow-sm"
                     />
-                  </div>
-                </div>
-
-                {/* Transport */}
-                <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-3 text-right pr-1">
-                    <Label>Transport :</Label>
-                  </div>
-                  <div className="col-span-9">
-                    <Input value={transport} onChange={e => setTransport(e.target.value)} placeholder="Vehicle / Agency" className="w-full" />
                   </div>
                 </div>
               </div>
@@ -611,29 +689,27 @@ export default function QuotationSales() {
             {/* Items Header */}
             <div className="max-w-7xl mx-auto bg-[#0097A7] text-white px-4 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider shadow-sm flex items-center justify-between">
               <span>Items (Quotation Details)</span>
-              <span className="text-[10px] font-normal lowercase italic text-cyan-100">Pick item from Item Master dropdown to auto-fill details</span>
             </div>
 
             {/* Items Grid */}
-            <div className="max-w-7xl mx-auto border border-slate-200 rounded-b-lg overflow-hidden shadow-sm bg-white mb-6">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1500px]">
-                  <thead>
-                    <tr className="bg-slate-50 text-[11px] uppercase text-slate-400 font-bold border-b border-slate-200 h-8">
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-12 text-center">S.No</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-44">Part Number / Item</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-52">Item Name</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-52">Specification</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-28">Brand</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-20 text-center">UOM</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-16 text-center">Qty</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-24 text-right">Rate</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-24 text-right">Total Amt</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-18 text-center">D.Type</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-20 text-center">Disc% / Amt</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-24 text-right">Disc Amt</th>
-                      <th className="px-2.5 py-1 border-r border-slate-100 w-24 text-right">Disc Amt2</th>
-                      <th className="px-2.5 py-1 text-right w-28">Net Amt</th>
+            <div className="max-w-7xl mx-auto border border-slate-200 rounded-b-lg shadow-sm bg-white mb-6">
+              <div className="h-[400px] overflow-y-auto overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[1400px]">
+                  <thead className="sticky top-0 z-20 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                    <tr className="bg-slate-50 text-[11px] uppercase text-slate-500 font-bold h-9">
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-12 text-center bg-slate-50">S.No</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-44 bg-slate-50">Part Number / Item</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-52 bg-slate-50">Item Name</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-52 bg-slate-50">Specification</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-28 bg-slate-50">Brand</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-20 text-center bg-slate-50">UOM</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-16 text-center bg-slate-50">Qty</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-24 text-right bg-slate-50">Rate</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-24 text-right bg-slate-50">Total Amt</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-18 text-center bg-slate-50">D.Type</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-20 text-center bg-slate-50">Disc% / Amt</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 border-r w-24 text-right bg-slate-50">Disc Amt</th>
+                      <th className="px-2.5 py-1 border-b border-slate-200 text-right w-28 bg-slate-50">Net Amt</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-[12px]">
@@ -646,27 +722,77 @@ export default function QuotationSales() {
                         <td className="px-2.5 py-1 border-r border-slate-50 text-center text-slate-500 font-bold bg-slate-50/50">
                           {idx + 1}
                         </td>
-                        <td className="px-2.5 py-1 border-r border-slate-50">
-                          <select
-                            value={row.itemId}
-                            onChange={e => handleRowChange(row.id, 'itemId', e.target.value)}
-                            className="w-full h-[30px] px-1 py-0 text-[12px] border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white text-slate-700 hover:border-slate-300"
-                          >
-                            <option value="">-- Pick Item --</option>
-                            {itemMasters.map(item => (
-                              <option key={item.id} value={item.id}>
-                                {item.partNo} {item.partName ? `- ${item.partName}` : ''}
-                              </option>
-                            ))}
-                          </select>
+                        <td className="px-2.5 py-1 border-r border-slate-50 relative">
+                          <input
+                            type="text"
+                            value={row.partNo}
+                            onChange={e => handleItemSearchChange(row.id, 'partNo', e.target.value)}
+                            onFocus={() => {
+                              setActiveRowSearchId(row.id)
+                              setActiveField('partNo')
+                              setSearchTerm(row.partNo || '')
+                            }}
+                            onBlur={() => setTimeout(() => {
+                              setActiveRowSearchId(null)
+                              setActiveField(null)
+                            }, 200)}
+                            placeholder="Type Part No..."
+                            className="w-full h-[30px] px-2 text-[12px] border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white text-slate-700"
+                          />
+                          {activeRowSearchId === row.id && activeField === 'partNo' && (
+                            <div className="absolute left-1 right-1 top-full mt-1 bg-white border border-slate-200 rounded shadow-lg max-h-48 overflow-y-auto z-50">
+                              {filteredPartSuggestions.slice(0, 100).map(item => (
+                                <div
+                                  key={item.id}
+                                  onMouseDown={() => selectItemForRow(row.id, item)}
+                                  className="px-2 py-1.5 text-[11px] hover:bg-[#0097A7] hover:text-white cursor-pointer border-b border-slate-100 last:border-0 truncate"
+                                  title={`${item.partNo} - ${item.partName || ''}`}
+                                >
+                                  <span className="font-bold text-[#0097A7]">{item.partNo}</span>
+                                  {item.partName && ` - ${item.partName}`}
+                                </div>
+                              ))}
+                              {filteredPartSuggestions.length === 0 && (
+                                <div className="p-2 text-slate-400 text-center text-[11px]">No items found</div>
+                              )}
+                            </div>
+                          )}
                         </td>
-                        <td className="px-2.5 py-1 border-r border-slate-50">
+                        <td className="px-2.5 py-1 border-r border-slate-50 relative">
                           <input
                             type="text"
                             value={row.itemName}
-                            readOnly
-                            className="w-full h-[30px] px-2 text-[12px] border border-slate-200 rounded bg-slate-50 text-slate-500 cursor-not-allowed outline-none"
+                            onChange={e => handleItemSearchChange(row.id, 'itemName', e.target.value)}
+                            onFocus={() => {
+                              setActiveRowSearchId(row.id)
+                              setActiveField('itemName')
+                              setSearchTerm(row.itemName || '')
+                            }}
+                            onBlur={() => setTimeout(() => {
+                              setActiveRowSearchId(null)
+                              setActiveField(null)
+                            }, 200)}
+                            placeholder="Type Item Name..."
+                            className="w-full h-[30px] px-2 text-[12px] border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white text-slate-700"
                           />
+                          {activeRowSearchId === row.id && activeField === 'itemName' && (
+                            <div className="absolute left-1 right-1 top-full mt-1 bg-white border border-slate-200 rounded shadow-lg max-h-48 overflow-y-auto z-50">
+                              {filteredNameSuggestions.slice(0, 100).map(item => (
+                                <div
+                                  key={item.id}
+                                  onMouseDown={() => selectItemForRow(row.id, item)}
+                                  className="px-2 py-1.5 text-[11px] hover:bg-[#0097A7] hover:text-white cursor-pointer border-b border-slate-100 last:border-0 truncate"
+                                  title={`${item.partNo} - ${item.partName || ''}`}
+                                >
+                                  <span className="font-semibold text-slate-800">{item.partName || item.itemName}</span>
+                                  <span className="text-slate-400 text-[10px] ml-1">({item.partNo})</span>
+                                </div>
+                              ))}
+                              {filteredNameSuggestions.length === 0 && (
+                                <div className="p-2 text-slate-400 text-center text-[11px]">No items found</div>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="px-2.5 py-1 border-r border-slate-50">
                           <input
@@ -728,14 +854,6 @@ export default function QuotationSales() {
                           />
                         </td>
                         <td className="px-2.5 py-1 border-r border-slate-50 text-right text-slate-500 font-semibold bg-slate-50/20">{row.discAmt}</td>
-                        <td className="px-2.5 py-1 border-r border-slate-50">
-                          <input
-                            type="number"
-                            value={row.discAmt2}
-                            onChange={e => handleRowChange(row.id, 'discAmt2', e.target.value)}
-                            className="w-full h-[30px] px-1 text-[12px] text-right border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-[#0097A7] outline-none"
-                          />
-                        </td>
                         <td className="px-2.5 py-1 text-right font-black text-[#0097A7] bg-slate-50/40">{row.netAmt}</td>
                       </tr>
                     ))}
@@ -744,63 +862,9 @@ export default function QuotationSales() {
               </div>
             </div>
 
-            {/* List of Saved Quotations Table */}
-            <div className="max-w-7xl mx-auto bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
-              <h3 className="text-[12px] font-bold text-slate-700 uppercase tracking-wider mb-3">Saved Sales Quotations</h3>
-              <div className="border border-slate-200 rounded-lg overflow-auto bg-white max-h-[300px]">
-                <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
-                  <thead className="bg-slate-50 text-[9px] uppercase text-slate-600 font-extrabold border-b border-slate-200 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[4%] text-center">S.No</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[10%]">Quotation A/C</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[10%]">Qu. No</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[10%]">Quot. Date</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[18%]">Party Name</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[20%]">Address</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[12%]">Contact Person</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[12%]">Contact No</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[12%]">Total Amount</th>
-                      <th className="px-1 py-1 border-r border-slate-200 w-[15%]">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-[10.5px]">
-                    {quotations.length === 0 ? (
-                      <tr>
-                        <td colSpan={10} className="text-center py-6 text-slate-400 italic">No quotations entered yet.</td>
-                      </tr>
-                    ) : (
-                      quotations.map((row, idx) => (
-                        <tr key={row.id || idx} className="hover:bg-[#f0f9fa]/30 transition-colors group cursor-pointer" onClick={() => handleRowClick(row)}>
-                          <td className="px-1 py-1 border-r border-slate-200 text-center font-bold text-slate-600">{idx + 1}</td>
-                          <td className="border-r border-slate-100 px-1 py-1 truncate">{row.quotationType || '—'}</td>
-                          <td className="border-r border-slate-100 px-1 py-1 truncate font-bold text-[#0097A7]">{row.quotationNo || '—'}</td>
-                          <td className="border-r border-slate-100 px-1 py-1 truncate">{row.quotationDate ? new Date(row.quotationDate).toLocaleDateString() : '—'}</td>
-                          <td className="border-r border-slate-100 px-1 py-1 truncate font-bold text-slate-700">{row.customer?.customerName || row.customerName || '—'}</td>
-                          <td className="border-r border-slate-100 px-1 py-1 truncate">{row.address || '—'}</td>
-                          <td className="border-r border-slate-100 px-1 py-1 truncate">{row.contactPerson || '—'}</td>
-                          <td className="border-r border-slate-100 px-1 py-1 truncate">{row.contactNo || '—'}</td>
-                          <td className="border-r border-slate-100 px-1 py-1 text-right font-bold text-[#0097A7]">{Number(row.totalAmount || 0).toFixed(2)}</td>
-                          <td className="border-r border-slate-100 last:border-r-0 px-1 py-1 truncate">{row.remarks || '—'}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
-            {/* Footer Summary */}
-            <div className="max-w-7xl mx-auto flex items-center justify-between border-t border-slate-100 pt-2.5">
-              <div className="flex items-center gap-1.5 opacity-35 group hover:opacity-100 transition-opacity cursor-default">
-                <ClipboardCheck size={13} className="text-[#0097A7]" />
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 italic">Quotation Sales Console</span>
-              </div>
-              <div className="flex items-center gap-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                Total Items: <span className="text-[#0097A7]">{gridRows.filter(r => r.itemId).length}</span>
-                <span className="w-px h-3 bg-slate-200" />
-                Grand Total Amt: <span className="text-[#0097A7]">{totalBillAmt.toFixed(2)}</span>
-              </div>
-            </div>
+
+
 
           </div>
         </div>

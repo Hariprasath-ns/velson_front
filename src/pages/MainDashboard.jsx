@@ -505,8 +505,8 @@ export default function MainDashboard() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 pb-4 text-xs uppercase font-extrabold tracking-wider transition-all border-b-2 relative ${active
-                    ? 'text-[#0C5CAB] border-[#0C5CAB]'
-                    : 'text-slate-500 border-transparent hover:text-slate-350'
+                  ? 'text-[#0C5CAB] border-[#0C5CAB]'
+                  : 'text-slate-500 border-transparent hover:text-slate-350'
                   }`}
               >
                 <Icon className="w-4 h-4" />
@@ -625,8 +625,8 @@ export default function MainDashboard() {
                               </td>
                               <td className="py-3.5 pr-4">
                                 <span className={`inline-block px-2.5 py-0.5 text-[9px] font-bold uppercase rounded-full ${job.priority === 'High'
-                                    ? 'bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20 shadow-[0_0_8px_rgba(239,68,68,0.15)] animate-pulse'
-                                    : 'bg-slate-800/40 text-slate-400'
+                                  ? 'bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20 shadow-[0_0_8px_rgba(239,68,68,0.15)] animate-pulse'
+                                  : 'bg-slate-800/40 text-slate-400'
                                   }`}>
                                   {job.priority || 'Medium'}
                                 </span>

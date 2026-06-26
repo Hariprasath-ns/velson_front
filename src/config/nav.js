@@ -13,7 +13,7 @@ import { lazy } from 'react'
 
 export const NAV = [
   {
-    id: 'dashboard-top', label: 'Dashboard', icon: LayoutDashboard, page: 'MainDashboard',
+    id: 'dashboard-top', label: 'Dashboard', icon: LayoutDashboard,
     children: [
       {id: 'main-dashboard', label: 'Main Dashboard', page: 'MainDashboard'},
       { id: 'job-process-dashboard', label: 'Job Process Analysis', page: 'Dashboard' },
@@ -238,13 +238,13 @@ export const NAV = [
       { id: 'credit-sales', label: 'Sales', page: 'CreditSales' },
       { id: 'sales-details', label: 'Sales Details', page: 'SalesDetails' },
       { id: 'quotation-sales', label: 'Quotation Sales', page: 'QuotationSales' },
-      { id: 'quotation-details', label: 'Quotation Details', page: 'QuotationDetails' },
+      { id: 'quotation-details', label: 'Quotation Details', page: 'QuotationSalesDetails' },
       { id: 'outsource-parts-register', label: 'Outsource Parts Register', page: 'OutsourcePartsRegister' },
       { id: 'outsource-parts-register-details', label: 'Outsource Parts Register Details', page: 'OutsourcePartsRegisterDetails' },
       { id: 'service-bill-entry', label: 'Service Bill Entry', page: 'ServiceBillEntry' },
       { id: 'service-bill-details', label: 'Service Bill Details', page: 'ServiceBillDetails' },
-      { id: 'service-labour-bill-details', label: 'Service Labour Details', page: 'ServiceLabourBillDetails' },
-      { id: 'temp-service-bill-details', label: 'Temp Ser Bill Details', page: 'TempServiceBillDetails' },
+      // { id: 'service-labour-bill-details', label: 'Service Labour Details', page: 'ServiceLabourBillDetails' },
+      // { id: 'temp-service-bill-details', label: 'Temp Ser Bill Details', page: 'TempServiceBillDetails' },
     ],
   },
   {
