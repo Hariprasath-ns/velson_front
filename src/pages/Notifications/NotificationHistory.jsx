@@ -132,6 +132,8 @@ export default function NotificationHistory() {
       navigate('/stock-adjustment')
     } else if (notif.referenceType === "ServiceSpare") {
       navigate('/service-spare-entry')
+    } else if (notif.referenceType === "ServiceBill") {
+      navigate('/sales/service-bill-details')
     }
   }
 

@@ -387,7 +387,7 @@ function AppRoutes() {
 // ─── LOGIN GATE ──────────────────────────────────────────────────────────────
 // Set to true  → login page required; users must authenticate
 // Set to false → login skipped; app opens directly as admin (dev / demo mode)
-const LOGIN_REQUIRED = false
+const LOGIN_REQUIRED = true
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Default identity used when LOGIN_REQUIRED = false

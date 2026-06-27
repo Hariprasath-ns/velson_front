@@ -41,7 +41,7 @@ export const NAV = [
     children: [
       { id: 'company-master', label: 'Company Master', page: 'CompanyMaster' },
       { id: 'employee-master', label: 'Employee Master', page: 'EmployeeMaster' },
-      { id: 'ledger-group-master', label: 'Ledger Group Master', page: 'LedgerGroupMaster' },
+      // { id: 'ledger-group-master', label: 'Ledger Group Master', page: 'LedgerGroupMaster' },
       { id: 'machine-master', label: 'Machine Master', page: 'MachineMaster' },
       // { id: 'vehicle-service-master',label: 'Vehicle Service Master',        page: 'VehicleServiceMaster' },
       { id: 'contractor-master', label: 'Contractor Master', page: 'ContractorMaster' },

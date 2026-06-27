@@ -84,6 +84,7 @@ export default function ServiceBillEntry() {
   const [itemMaster, setItemMaster] = useState([])
   const [bookingEntries, setBookingEntries] = useState([])
   const [materialIssues, setMaterialIssues] = useState([])
+  const [existingBills, setExistingBills] = useState([])
 
   // Form Header State
   const [form, setForm] = useState({
@@ -134,13 +135,14 @@ export default function ServiceBillEntry() {
   useEffect(() => {
     const loadMasterData = async () => {
       try {
-        const [custRes, vehRes, spareRes, beRes, itemRes, issueRes] = await Promise.all([
+        const [custRes, vehRes, spareRes, beRes, itemRes, issueRes, billsRes] = await Promise.all([
           api.get('/api/customer-master'),
           api.get('/api/vehicle-master'),
           api.get('/api/service-spare'),
           api.get('/api/service-booking'),
           api.get('/api/item-master?limit=10000', { loadingMessage: 'Loading items...' }),
-          api.get('/api/material-issue')
+          api.get('/api/material-issue'),
+          api.get('/api/service-bill').catch(() => ({ data: { data: [] } }))
         ])
 
         if (custRes.data?.success) setCustomers(custRes.data.data || [])
@@ -149,6 +151,7 @@ export default function ServiceBillEntry() {
         if (itemRes.data?.success) setItemMaster(itemRes.data.data || [])
         if (beRes.data?.success) setBookingEntries(beRes.data.data || [])
         if (issueRes.data?.success) setMaterialIssues(issueRes.data.data || [])
+        if (billsRes?.data?.success) setExistingBills(billsRes.data.data || [])
 
         if (editId) {
           // Fetch existing service bill for editing
@@ -518,6 +521,16 @@ export default function ServiceBillEntry() {
     ? vehicles.filter(v => v.customerId === selectedCustomerRecord.id)
     : vehicles
 
+  // Filter out serviceJobNo options that already have active service bills (excluding current editId)
+  const filteredServiceSpares = serviceSpares.filter(spare => {
+    const hasActiveBill = existingBills.some(b => 
+      b.serviceJobNo === spare.serviceJobNo && 
+      b.status !== 'Cancelled' && 
+      (!editId || b.id !== Number(editId))
+    );
+    return !hasActiveBill;
+  });
+
   return (
     <div className="h-[calc(100vh-46px)] w-full flex flex-col overflow-hidden bg-slate-50 text-slate-800">
       
@@ -602,7 +615,7 @@ export default function ServiceBillEntry() {
                   <Label>Service Job .No</Label>
                   <Select 
                     placeholder="-- Select Service Job --"
-                    options={serviceSpares.map(s => ({ value: s.serviceJobNo, label: s.serviceJobNo }))}
+                    options={filteredServiceSpares.map(s => ({ value: s.serviceJobNo, label: s.serviceJobNo }))}
                     value={form.serviceJobNo}
                     onChange={e => handleInputChange('serviceJobNo', e.target.value)}
                   />
