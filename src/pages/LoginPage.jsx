@@ -124,7 +124,7 @@ export default function LoginPage({ onLogin }) {
           <div className="space-y-1">
             <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">CAPTCHA Verification</label>
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center gap-2 bg-slate-100 border border-slate-300 rounded-lg px-4 py-2.5 min-w-[110px] select-none">
+              <div className="flex items-center justify-center gap-2 bg-slate-100 border border-slate-300 rounded-lg px-4 py-2.5 min-w-[145px] select-none">
                 <span className="text-[17px] font-black text-slate-700 tracking-widest font-mono"
                   style={{ letterSpacing: '0.15em', textShadow: '1px 1px 0 #94a3b8' }}>
                   {captcha.question} = ?
@@ -140,7 +140,7 @@ export default function LoginPage({ onLogin }) {
                 onChange={e => setCaptchaIn(e.target.value)}
                 placeholder="Answer"
                 maxLength={4}
-                className="flex-1 px-3 py-2.5 text-[13px] border border-slate-300 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7] focus:border-transparent transition-all text-center font-bold"
+                className="flex-1 w-[5%] py-2.5 text-[13px] border border-slate-300 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7] focus:border-transparent transition-all text-center font-bold"
               />
             </div>
           </div>
