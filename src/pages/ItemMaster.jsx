@@ -1059,14 +1059,12 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
 
         {/* ── Form body ── */}
         <div className="w-full px-5 pb-4 flex-1">
-          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
 
           {/* ── COLUMN 1: Item Information ── */}
           <SectionCard
             title="Item Information"
             icon={<Package className="w-4 h-4" />}
-            className="h-full flex flex-col"
-            bodyClassName="flex-1 flex flex-col justify-between"
           >
             {/* Row 1: Item Group — full width */}
             <div>
@@ -1098,7 +1096,7 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
                 <Label>OutSource Part No</Label>
                 <div className="flex gap-2">
                   <Input placeholder="OutSource Part No" value={form.outsourcePartNo} onChange={u('outsourcePartNo')} />
-                  <button className="flex-shrink-0 w-8 h-[36px] bg-[#0097A7] hover:bg-[#007a87] text-white rounded-lg flex items-center justify-center transition-colors shadow-sm font-bold text-lg leading-none">+</button>
+                  <button className="flex-shrink-0 w-8 h-[32px] bg-[#0097A7] hover:bg-[#007a87] text-white rounded-lg flex items-center justify-center transition-colors shadow-sm font-bold text-lg leading-none">+</button>
                 </div>
               </div>
             </Row>
@@ -1254,12 +1252,9 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
                 </div>
               </Row>
               <Row>
-              <div className="mb-4 flex flex-col gap-2 mt-1">
-                <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider flex items-center">
-                  <span className="text-red-500 mr-0.5">*</span>
-                  Do you need a barcode?
-                </div>
-                  <div className="flex items-center gap-5 pl-6">
+                <div>
+                  <Label required>Do you need a barcode?</Label>
+                  <div className="flex items-center gap-5 h-[32px]">
                     <label className="flex items-center gap-2 text-[12px] font-medium text-slate-700 cursor-pointer">
                       <input type="radio" name="hasBarcodeYesNo" value="Yes" checked={form.hasBarcodeYesNo === 'Yes'} onChange={u('hasBarcodeYesNo')} className="accent-[#0097A7] w-3.5 h-3.5" />
                       Yes
@@ -1270,20 +1265,19 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
                     </label>
                   </div>
                 </div>
-              {/* Barcode Type — full width */}
-              <div className='pt-[3px]'>
-                <Label>Barcode Type</Label>
-                <Select
-                  options={[
-                    { value: 'Single', label: 'Single' },
-                    { value: 'Multiple', label: 'Multiple' },
-                  ]}
-                  placeholder="---Select Barcode Type---"
-                  value={form.barcodeType}
-                  onChange={u('barcodeType')}
-                  disabled={form.hasBarcodeYesNo !== 'Yes'}
-                />
-              </div>
+                <div>
+                  <Label>Barcode Type</Label>
+                  <Select
+                    options={[
+                      { value: 'Single', label: 'Single' },
+                      { value: 'Multiple', label: 'Multiple' },
+                    ]}
+                    placeholder="---Select Barcode Type---"
+                    value={form.barcodeType}
+                    onChange={u('barcodeType')}
+                    disabled={form.hasBarcodeYesNo !== 'Yes'}
+                  />
+                </div>
               </Row>
               <div className="col-span-2">
                 <Label>Remark</Label>
