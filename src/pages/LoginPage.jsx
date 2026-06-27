@@ -151,7 +151,7 @@ export default function LoginPage({ onLogin }) {
           </button>
 
           <p className="text-center text-[10px] text-slate-400 pt-1">
-            Default: <span className="font-bold text-slate-500">admin@admin.com / password123</span>
+            {/* Default: <span className="font-bold text-slate-500">admin@admin.com / password123</span> */}
           </p>
         </form>
       </div>
