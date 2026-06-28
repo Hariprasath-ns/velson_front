@@ -164,7 +164,7 @@ export default function PrintPurchaseRequest() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const res  = await fetch('http://localhost:3000/api/purchase-request')
+        const res  = await fetch('/api/purchase-request')
         const json = await res.json()
         if (json.success && json.data) {
           setAllData(json.data)
@@ -233,7 +233,7 @@ export default function PrintPurchaseRequest() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      const res  = await fetch(`http://localhost:3000/api/purchase-request/${deleteTarget.id}`, { method: 'DELETE' })
+      const res  = await fetch(`/api/purchase-request/${deleteTarget.id}`, { method: 'DELETE' })
       const json = await res.json()
       if (res.ok && json.success !== false) {
         const updated = allData.filter(r => r.id !== deleteTarget.id)
@@ -262,7 +262,7 @@ export default function PrintPurchaseRequest() {
     try {
       // If PR already has a PO number, navigate to edit that existing PO
       if (pr.poNo) {
-        const poListRes  = await fetch('http://localhost:3000/api/purchase-master')
+        const poListRes  = await fetch('/api/purchase-master')
         const poListJson = await poListRes.json()
         if (poListJson.success) {
           const existingPO = poListJson.data.find(p => p.poNo === pr.poNo)
@@ -276,14 +276,14 @@ export default function PrintPurchaseRequest() {
       }
 
       // First-time approval: generate a new PO number
-      const nextRes  = await fetch('http://localhost:3000/api/purchase-master/next-no')
+      const nextRes  = await fetch('/api/purchase-master/next-no')
       const nextJson = await nextRes.json()
       if (!nextJson.success) throw new Error('Could not generate PO number')
       const poNo   = nextJson.poNo
       const poDate = new Date().toISOString().split('T')[0]
 
       // Update PR status to Approved and save the generated PO number
-      const prRes = await fetch(`http://localhost:3000/api/purchase-request/${pr.id}`, {
+      const prRes = await fetch(`/api/purchase-request/${pr.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -323,7 +323,7 @@ export default function PrintPurchaseRequest() {
   const handleReject = async (pr) => {
     setRejecting(true)
     try {
-      await fetch(`http://localhost:3000/api/purchase-request/${pr.id}`, {
+      await fetch(`/api/purchase-request/${pr.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

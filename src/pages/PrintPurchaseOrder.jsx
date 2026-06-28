@@ -208,7 +208,7 @@ export default function PrintPurchaseOrder() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const res  = await fetch('http://localhost:3000/api/purchase-master')
+        const res  = await fetch('/api/purchase-master')
         const json = await res.json()
         if (json.success && json.data) {
           setAllData(json.data)
@@ -266,7 +266,7 @@ export default function PrintPurchaseOrder() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      const res  = await fetch(`http://localhost:3000/api/purchase-master/${deleteTarget.id}`, { method: 'DELETE' })
+      const res  = await fetch(`/api/purchase-master/${deleteTarget.id}`, { method: 'DELETE' })
       const json = await res.json()
       if (res.ok && json.success !== false) {
         const updated = allData.filter(r => r.id !== deleteTarget.id)

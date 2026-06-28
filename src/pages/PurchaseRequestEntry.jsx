@@ -6,7 +6,7 @@ import api from '../services/api'
 import { useModulePermission } from '../hooks/useModulePermission'
 
 const today = new Date().toISOString().split('T')[0]
-const BASE = 'http://localhost:3000'
+const BASE = ''
 
 // Module-level cache — survives re-mounts (e.g. return from pick) but not page refresh
 let _ddCache = null

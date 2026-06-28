@@ -5,7 +5,7 @@ import { useLoading } from '../context/LoadingContext'
 import { SpinnerLoader } from '../components/LocalLoader'
 import { useModulePermission } from '../hooks/useModulePermission'
 
-const BASE = 'http://localhost:3000'
+const BASE = ''
 const today = new Date().toISOString().split('T')[0]
 
 const emptyForm = () => ({

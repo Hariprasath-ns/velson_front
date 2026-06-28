@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Trash2, Eye, Pencil } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 
-const BASE = 'http://localhost:3000'
+const BASE = ''
 const today = new Date().toISOString().split('T')[0]
 const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 

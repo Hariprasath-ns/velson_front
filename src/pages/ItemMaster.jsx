@@ -8,19 +8,13 @@ import { useToast } from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { SpinnerLoader } from '../components/LocalLoader'
 
+import globalApi from '../services/api'
+
 const api = {
-  get: (url) => fetch(url).then(r => r.json()),
-  post: (url, data) => fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }).then(r => r.json()),
-  put: (url, data) => fetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }).then(r => r.json()),
-  del: (url) => fetch(url, { method: 'DELETE' }).then(r => r.json()),
+  get: (url) => globalApi.get(url).then(res => res.data),
+  post: (url, data) => globalApi.post(url, data).then(res => res.data),
+  put: (url, data) => globalApi.put(url, data).then(res => res.data),
+  del: (url) => globalApi.delete(url).then(res => res.data),
 }
 
 

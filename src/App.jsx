@@ -1,159 +1,159 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import { PAGE_TO_PATH, NAV } from './config/nav'
 import { useAuth } from './context/AuthContext'
 import { useModulePermission } from './hooks/useModulePermission'
 
-import BookingEntryNew from './pages/BookingEntryNew'
-import ServiceQuotation from './pages/ServiceQuotation'
-import ServiceQuotationDetails from './pages/ServiceQuotationDetails'
-import ServiceDetailsEntry from './pages/ServiceDetailsEntry'
-import ServiceDetailsReport from './pages/ServiceDetailsReport'
-import ServiceBookingDetails from './pages/ServiceBookingDetails'
-import ServiceSpareEntry from './pages/ServiceSpareEntry'
+const BookingEntryNew = lazy(() => import('./pages/BookingEntryNew'))
+const ServiceQuotation = lazy(() => import('./pages/ServiceQuotation'))
+const ServiceQuotationDetails = lazy(() => import('./pages/ServiceQuotationDetails'))
+const ServiceDetailsEntry = lazy(() => import('./pages/ServiceDetailsEntry'))
+const ServiceDetailsReport = lazy(() => import('./pages/ServiceDetailsReport'))
+const ServiceBookingDetails = lazy(() => import('./pages/ServiceBookingDetails'))
+const ServiceSpareEntry = lazy(() => import('./pages/ServiceSpareEntry'))
 
 
-import TaxLedgerMaster from './pages/TaxLedgerMaster'
-import ItemMaster from './pages/ItemMaster'
-import PartNumberBaseMaster from './pages/PartNumberBaseMaster'
-import TaxMaster from './pages/TaxMaster'
-import ItemGroupMaster from './pages/ItemGroupMaster'
-import SupplierMaster from './pages/SupplierMaster'
-import CustomerMaster from './pages/CustomerMaster'
-import VehicleMaster from './pages/VehicleMaster'
-import QuotationEntry from './pages/QuotationEntry'
-import QuotationDetails from './pages/QuotationDetails'
-import PurchaseOrderEntry from './pages/PurchaseOrderEntry'
-import PurchaseOrderDetails from './pages/PurchaseOrderDetails'
-import PrintPurchaseOrder from './pages/PrintPurchaseOrder'
-import PurchaseRequestEntry from './pages/PurchaseRequestEntry'
-import PrintPurchaseRequest from './pages/PrintPurchaseRequest'
-import MaterialRequestEntry from './pages/MaterialRequestEntry'
-import PrintMaterialRequest from './pages/PrintMaterialRequest'
-import GateEntry from './pages/GateEntry'
-import GateEntryReport from './pages/GateEntryReport'
-import GRNEntry from './pages/GRNEntry'
-import GRNEntryReport from './pages/GRNEntryReport'
-import CompanyMaster from './pages/CompanyMaster'
-import EmployeeMaster from './pages/EmployeeMaster'
-import LedgerGroupMaster from './pages/LedgerGroupMaster'
-import MachineMaster from './pages/MachineMaster'
-import VehicleServiceMaster from './pages/VehicleServiceMaster'
-import ContractorMaster from './pages/ContractorMaster'
-import ProcessMaster from './pages/ProcessMaster'
-import PartUsageList from './pages/PartUsageList'
-import QCCheckMethod from './pages/QCCheckMethod'
-import QCInspectionChar from './pages/QCInspectionChar'
-import QCStandardMaster from './pages/QCStandardMaster'
-import AutoPO from './pages/AutoPO'
-import SystemInfoMaster from './pages/SystemInfoMaster'
-import DBCopy from './pages/DBCopy'
-import RestoreDB from './pages/RestoreDB'
-import ReceiptEntry from './pages/ReceiptEntry'
-import ReceiptDetails from './pages/ReceiptDetails'
-import VoucherEntry from './pages/VoucherEntry'
-import DayReport from './pages/DayReport'
-import DayBook from './pages/DayBook'
-import LedgerBalance from './pages/LedgerBalance'
-import MonthlyLedgerBalance from './pages/MonthlyLedgerBalance'
-import OutstandingReceiptReport from './pages/OutstandingReceiptReport'
-import PaymentEntry from './pages/PaymentEntry'
-import PaymentDetails from './pages/PaymentDetails'
-import JournalEntry from './pages/JournalEntry'
-import BOMCreation from './pages/BOMCreation'
-import BOMCreationReport from './pages/BOMCreationReport'
-import IndexCreation from './pages/IndexCreation'
-import IndexCreationReport from './pages/IndexCreationReport'
-import UploadBOM from './pages/UploadBOM'
-import MainIndex from './pages/MainIndex'
-import MainIndexReport from './pages/MainIndexReport'
-import ViewModel from './pages/ViewModel'
-import CustomerComplaintEntry from './pages/CustomerComplaintEntry'
-// import CCMSEntryDetails from './pages/CCMSEntryDetails'
-import DCEntry from './pages/DCEntry'
-import MachineBreakDown from './pages/MachineBreakDown'
-import BreakDownClearence from './pages/BreakDownClearence'
-import BreakDownAcceptance from './pages/BreakDownAcceptance'
-import BreakDownApprovalList from './pages/BreakDownApprovalList'
-import QCRejectionDetails from './pages/QCRejectionDetails'
-import NCApproval from './pages/NCApproval'
-import NCJobCreated from './pages/NCJobCreated'
-import NCDCEntry from './pages/NCDCEntry'
-import NCDCDetails from './pages/NCDCDetails'
-import JobList from './pages/JobList'
-import BarcodeDetails from './pages/BarcodeDetails'
-import AutoJobEntry from './pages/AutoJobEntry'
-import ServiceJobEntryDetails from './pages/ServiceJobEntryDetails'
-import ConformationList from './pages/ConformationList'
-import ConformationEntryDetails from './pages/ConformationEntryDetails'
-import ProcessCard from './pages/ProcessCard'
-import RawMaterialIssue from './pages/RawMaterialIssue'
-import RawMaterialIssuedDetails from './pages/RawMaterialIssuedDetails'
-import MaterialRequestRejectionList from './pages/MaterialRequestRejectionList'
-import InwardReports from './pages/InwardReports'
-import OutwardDetails from './pages/OutwardDetails'
-import MinStock from './pages/MinStock'
-import MaterialIssuedDetails from './pages/MaterialIssuedDetails'
-import CompletedJobList from './pages/CompletedJobList'
-import PurchaseOrderReport from './pages/PurchaseOrderReport'
-import PurchaseOrderOverallReport from './pages/PurchaseOrderOverallReport'
-import CurrentStock from './pages/CurrentStock'
-import QCCompletedList from './pages/QCCompletedList'
-import MaterialIssueCorrection from './pages/MaterialIssueCorrection'
-import StockManagement from './pages/StockManagement'
-import MaterialIssue from './pages/MaterialIssue'
-import StockDetails from './pages/StockDetails'
-import QCEntryReport from './pages/QCEntryReport'
-import CreditSales from './pages/CreditSales'
-import SalesDetails from './pages/SalesDetails'
-import QuotationSales from './pages/QuotationSales'
-import DCDetails from './pages/DCDetails'
-import DCDetailsReport from './pages/DCDetailsReport'
-import ServiceBillEntry from './pages/ServiceBillEntry'
-import ServiceBillDetails from './pages/ServiceBillDetails'
-import ServiceLabourBillDetails from './pages/ServiceLabourBillDetails'
-import TempServiceBillDetails from './pages/TempServiceBillDetails'
-import DrawingUpload from './pages/DrawingUpload'
-import MarketingLog from './pages/MarketingLog'
+const TaxLedgerMaster = lazy(() => import('./pages/TaxLedgerMaster'))
+const ItemMaster = lazy(() => import('./pages/ItemMaster'))
+const PartNumberBaseMaster = lazy(() => import('./pages/PartNumberBaseMaster'))
+const TaxMaster = lazy(() => import('./pages/TaxMaster'))
+const ItemGroupMaster = lazy(() => import('./pages/ItemGroupMaster'))
+const SupplierMaster = lazy(() => import('./pages/SupplierMaster'))
+const CustomerMaster = lazy(() => import('./pages/CustomerMaster'))
+const VehicleMaster = lazy(() => import('./pages/VehicleMaster'))
+const QuotationEntry = lazy(() => import('./pages/QuotationEntry'))
+const QuotationDetails = lazy(() => import('./pages/QuotationDetails'))
+const PurchaseOrderEntry = lazy(() => import('./pages/PurchaseOrderEntry'))
+const PurchaseOrderDetails = lazy(() => import('./pages/PurchaseOrderDetails'))
+const PrintPurchaseOrder = lazy(() => import('./pages/PrintPurchaseOrder'))
+const PurchaseRequestEntry = lazy(() => import('./pages/PurchaseRequestEntry'))
+const PrintPurchaseRequest = lazy(() => import('./pages/PrintPurchaseRequest'))
+const MaterialRequestEntry = lazy(() => import('./pages/MaterialRequestEntry'))
+const PrintMaterialRequest = lazy(() => import('./pages/PrintMaterialRequest'))
+const GateEntry = lazy(() => import('./pages/GateEntry'))
+const GateEntryReport = lazy(() => import('./pages/GateEntryReport'))
+const GRNEntry = lazy(() => import('./pages/GRNEntry'))
+const GRNEntryReport = lazy(() => import('./pages/GRNEntryReport'))
+const CompanyMaster = lazy(() => import('./pages/CompanyMaster'))
+const EmployeeMaster = lazy(() => import('./pages/EmployeeMaster'))
+const LedgerGroupMaster = lazy(() => import('./pages/LedgerGroupMaster'))
+const MachineMaster = lazy(() => import('./pages/MachineMaster'))
+const VehicleServiceMaster = lazy(() => import('./pages/VehicleServiceMaster'))
+const ContractorMaster = lazy(() => import('./pages/ContractorMaster'))
+const ProcessMaster = lazy(() => import('./pages/ProcessMaster'))
+const PartUsageList = lazy(() => import('./pages/PartUsageList'))
+const QCCheckMethod = lazy(() => import('./pages/QCCheckMethod'))
+const QCInspectionChar = lazy(() => import('./pages/QCInspectionChar'))
+const QCStandardMaster = lazy(() => import('./pages/QCStandardMaster'))
+const AutoPO = lazy(() => import('./pages/AutoPO'))
+const SystemInfoMaster = lazy(() => import('./pages/SystemInfoMaster'))
+const DBCopy = lazy(() => import('./pages/DBCopy'))
+const RestoreDB = lazy(() => import('./pages/RestoreDB'))
+const ReceiptEntry = lazy(() => import('./pages/ReceiptEntry'))
+const ReceiptDetails = lazy(() => import('./pages/ReceiptDetails'))
+const VoucherEntry = lazy(() => import('./pages/VoucherEntry'))
+const DayReport = lazy(() => import('./pages/DayReport'))
+const DayBook = lazy(() => import('./pages/DayBook'))
+const LedgerBalance = lazy(() => import('./pages/LedgerBalance'))
+const MonthlyLedgerBalance = lazy(() => import('./pages/MonthlyLedgerBalance'))
+const OutstandingReceiptReport = lazy(() => import('./pages/OutstandingReceiptReport'))
+const PaymentEntry = lazy(() => import('./pages/PaymentEntry'))
+const PaymentDetails = lazy(() => import('./pages/PaymentDetails'))
+const JournalEntry = lazy(() => import('./pages/JournalEntry'))
+const BOMCreation = lazy(() => import('./pages/BOMCreation'))
+const BOMCreationReport = lazy(() => import('./pages/BOMCreationReport'))
+const IndexCreation = lazy(() => import('./pages/IndexCreation'))
+const IndexCreationReport = lazy(() => import('./pages/IndexCreationReport'))
+const UploadBOM = lazy(() => import('./pages/UploadBOM'))
+const MainIndex = lazy(() => import('./pages/MainIndex'))
+const MainIndexReport = lazy(() => import('./pages/MainIndexReport'))
+const ViewModel = lazy(() => import('./pages/ViewModel'))
+const CustomerComplaintEntry = lazy(() => import('./pages/CustomerComplaintEntry'))
+// const CCMSEntryDetails = lazy(() => import('./pages/CCMSEntryDetails'))
+const DCEntry = lazy(() => import('./pages/DCEntry'))
+const MachineBreakDown = lazy(() => import('./pages/MachineBreakDown'))
+const BreakDownClearence = lazy(() => import('./pages/BreakDownClearence'))
+const BreakDownAcceptance = lazy(() => import('./pages/BreakDownAcceptance'))
+const BreakDownApprovalList = lazy(() => import('./pages/BreakDownApprovalList'))
+const QCRejectionDetails = lazy(() => import('./pages/QCRejectionDetails'))
+const NCApproval = lazy(() => import('./pages/NCApproval'))
+const NCJobCreated = lazy(() => import('./pages/NCJobCreated'))
+const NCDCEntry = lazy(() => import('./pages/NCDCEntry'))
+const NCDCDetails = lazy(() => import('./pages/NCDCDetails'))
+const JobList = lazy(() => import('./pages/JobList'))
+const BarcodeDetails = lazy(() => import('./pages/BarcodeDetails'))
+const AutoJobEntry = lazy(() => import('./pages/AutoJobEntry'))
+const ServiceJobEntryDetails = lazy(() => import('./pages/ServiceJobEntryDetails'))
+const ConformationList = lazy(() => import('./pages/ConformationList'))
+const ConformationEntryDetails = lazy(() => import('./pages/ConformationEntryDetails'))
+const ProcessCard = lazy(() => import('./pages/ProcessCard'))
+const RawMaterialIssue = lazy(() => import('./pages/RawMaterialIssue'))
+const RawMaterialIssuedDetails = lazy(() => import('./pages/RawMaterialIssuedDetails'))
+const MaterialRequestRejectionList = lazy(() => import('./pages/MaterialRequestRejectionList'))
+const InwardReports = lazy(() => import('./pages/InwardReports'))
+const OutwardDetails = lazy(() => import('./pages/OutwardDetails'))
+const MinStock = lazy(() => import('./pages/MinStock'))
+const MaterialIssuedDetails = lazy(() => import('./pages/MaterialIssuedDetails'))
+const CompletedJobList = lazy(() => import('./pages/CompletedJobList'))
+const PurchaseOrderReport = lazy(() => import('./pages/PurchaseOrderReport'))
+const PurchaseOrderOverallReport = lazy(() => import('./pages/PurchaseOrderOverallReport'))
+const CurrentStock = lazy(() => import('./pages/CurrentStock'))
+const QCCompletedList = lazy(() => import('./pages/QCCompletedList'))
+const MaterialIssueCorrection = lazy(() => import('./pages/MaterialIssueCorrection'))
+const StockManagement = lazy(() => import('./pages/StockManagement'))
+const MaterialIssue = lazy(() => import('./pages/MaterialIssue'))
+const StockDetails = lazy(() => import('./pages/StockDetails'))
+const QCEntryReport = lazy(() => import('./pages/QCEntryReport'))
+const CreditSales = lazy(() => import('./pages/CreditSales'))
+const SalesDetails = lazy(() => import('./pages/SalesDetails'))
+const QuotationSales = lazy(() => import('./pages/QuotationSales'))
+const DCDetails = lazy(() => import('./pages/DCDetails'))
+const DCDetailsReport = lazy(() => import('./pages/DCDetailsReport'))
+const ServiceBillEntry = lazy(() => import('./pages/ServiceBillEntry'))
+const ServiceBillDetails = lazy(() => import('./pages/ServiceBillDetails'))
+const ServiceLabourBillDetails = lazy(() => import('./pages/ServiceLabourBillDetails'))
+const TempServiceBillDetails = lazy(() => import('./pages/TempServiceBillDetails'))
+const DrawingUpload = lazy(() => import('./pages/DrawingUpload'))
+const MarketingLog = lazy(() => import('./pages/MarketingLog'))
 
 const ProformaEntry = () => <div className="p-8 bg-[#f4f6f8] min-h-screen text-slate-800"><h2 className="text-xl font-bold uppercase tracking-tight text-[#0097A7]">Proforma Entry</h2><p className="mt-2 text-slate-500">This page is under active development.</p></div>
 const ProformaDetails = () => <div className="p-8 bg-[#f4f6f8] min-h-screen text-slate-800"><h2 className="text-xl font-bold uppercase tracking-tight text-[#0097A7]">Proforma Entry Details</h2><p className="mt-2 text-slate-500">This page is under active development.</p></div>
 const MarketingReport = () => <div className="p-8 bg-[#f4f6f8] min-h-screen text-slate-800"><h2 className="text-xl font-bold uppercase tracking-tight text-[#0097A7]">Marketing Log Report</h2><p className="mt-2 text-slate-500">This page is under active development.</p></div>
 
-import JobCardEntry from './pages/JobCardEntry'
-import ProcessMenu from './pages/ProcessMenu'
-import TechAutoJobEntry from './pages/TechAutoJobEntry'
-import ViewJobStatus from './pages/ViewJobStatus'
-import WaitingForApproval from './pages/WaitingForApproval'
-import UpdateRouteDetails from './pages/UpdateRouteDetails'
-import RejectedJobList from './pages/RejectedJobList'
-import ProcessCompleted from './pages/ProcessCompleted'
-import FileUploads from './pages/FileUploads'
-import MRApproval from './pages/MRApproval'
-import JobEntryClosed from './pages/JobEntryClosed'
-import JobCardCancel from './pages/JobCardCancel'
-import IPRApproval from './pages/IPRApproval'
-import PoApproval from './pages/PoApproval'
-import ReferenceMaster from './pages/ReferenceMaster'
+const JobCardEntry = lazy(() => import('./pages/JobCardEntry'))
+const ProcessMenu = lazy(() => import('./pages/ProcessMenu'))
+const TechAutoJobEntry = lazy(() => import('./pages/TechAutoJobEntry'))
+const ViewJobStatus = lazy(() => import('./pages/ViewJobStatus'))
+const WaitingForApproval = lazy(() => import('./pages/WaitingForApproval'))
+const UpdateRouteDetails = lazy(() => import('./pages/UpdateRouteDetails'))
+const RejectedJobList = lazy(() => import('./pages/RejectedJobList'))
+const ProcessCompleted = lazy(() => import('./pages/ProcessCompleted'))
+const FileUploads = lazy(() => import('./pages/FileUploads'))
+const MRApproval = lazy(() => import('./pages/MRApproval'))
+const JobEntryClosed = lazy(() => import('./pages/JobEntryClosed'))
+const JobCardCancel = lazy(() => import('./pages/JobCardCancel'))
+const IPRApproval = lazy(() => import('./pages/IPRApproval'))
+const PoApproval = lazy(() => import('./pages/PoApproval'))
+const ReferenceMaster = lazy(() => import('./pages/ReferenceMaster'))
 import LoginPage from './pages/LoginPage'
 import { DashboardPage } from './pages/OtherPages'
-import JobQtyMismatch from './pages/JobQtyMismatch'
-import ProcessCardClose from './pages/ProcessCardClose'
-import JobQCEntry from './pages/JobQCEntry'
-import OutsourcePartsRegister from './pages/OutsourcePartsRegister'
-import OutsourcePartsRegisterDetails from './pages/OutsourcePartsRegisterDetails'
+const JobQtyMismatch = lazy(() => import('./pages/JobQtyMismatch'))
+const ProcessCardClose = lazy(() => import('./pages/ProcessCardClose'))
+const JobQCEntry = lazy(() => import('./pages/JobQCEntry'))
+const OutsourcePartsRegister = lazy(() => import('./pages/OutsourcePartsRegister'))
+const OutsourcePartsRegisterDetails = lazy(() => import('./pages/OutsourcePartsRegisterDetails'))
 
-import Users from './pages/Users/Users'
+const Users = lazy(() => import('./pages/Users/Users'))
 import CCMSEntryDetails from './pages/CCMSEntryDetails'
-import NotificationHistory from './pages/Notifications/NotificationHistory'
-import UserNotificationPreferences from './pages/Notifications/UserNotificationPreferences'
-import NotificationRights from './pages/Notifications/NotificationRights'
-import SalesDashboard from './pages/SalesDashboard'
-import StockDashboard from './pages/StockDashboard'
-import MainDashboard from './pages/MainDashboard'
-import QuotationSalesDetails from './pages/QuatationSalesDetails'
-import LandingPage from './pages/LandingPage'
+const NotificationHistory = lazy(() => import('./pages/Notifications/NotificationHistory'))
+const UserNotificationPreferences = lazy(() => import('./pages/Notifications/UserNotificationPreferences'))
+const NotificationRights = lazy(() => import('./pages/Notifications/NotificationRights'))
+const SalesDashboard = lazy(() => import('./pages/SalesDashboard'))
+const StockDashboard = lazy(() => import('./pages/StockDashboard'))
+const MainDashboard = lazy(() => import('./pages/MainDashboard'))
+const QuotationSalesDetails = lazy(() => import('./pages/QuatationSalesDetails'))
+const LandingPage = lazy(() => import('./pages/LandingPage'))
 
 // page key → component (used to build <Route> elements)
 const PAGE_COMPONENTS = {
@@ -359,6 +359,7 @@ function AppRoutes() {
     <>
       <NavigationEventBridge />
       <Layout>
+        <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading page...</div>}>
         <Routes>
           <Route path="/" element={<Navigate to="/LandingPage" replace />} />
           <Route path="/LandingPage" element={<LandingPage />} />
@@ -379,6 +380,7 @@ function AppRoutes() {
           })}
           <Route path="*" element={<Navigate to="/LandingPage" replace />} />
         </Routes>
+        </Suspense>
       </Layout>
     </>
   )

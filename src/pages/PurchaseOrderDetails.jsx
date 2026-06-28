@@ -3,7 +3,7 @@ import { ChevronRight, Trash2, Printer, X, Pencil, Filter, Settings, FileText, F
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useModulePermission } from '../hooks/useModulePermission'
 
-const BASE = 'http://localhost:3000'
+const BASE = ''
 const today = new Date().toISOString().split('T')[0]
 const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 

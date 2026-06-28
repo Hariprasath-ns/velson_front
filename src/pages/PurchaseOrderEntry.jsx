@@ -68,7 +68,7 @@ export default function PurchaseOrderEntry() {
 
   const fetchNextPoNo = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/purchase-master/next-no')
+      const res = await fetch('/api/purchase-master/next-no')
       const json = await res.json()
       if (json.success) setField('poNumber', json.poNo)
     } catch (err) {
@@ -87,7 +87,7 @@ export default function PurchaseOrderEntry() {
       let loadedItems = []
 
       try {
-        const resSuppliers = await fetch('http://localhost:3000/api/supplier-master')
+        const resSuppliers = await fetch('/api/supplier-master')
         const jsonSuppliers = await resSuppliers.json()
         if (jsonSuppliers.success && jsonSuppliers.data.length > 0) {
           setSuppliersData(jsonSuppliers.data)
@@ -98,7 +98,7 @@ export default function PurchaseOrderEntry() {
       }
 
       try {
-        const resItems = await fetch('http://localhost:3000/api/item-master?limit=10000')
+        const resItems = await fetch('/api/item-master?limit=10000')
         const jsonItems = await resItems.json()
         if (jsonItems.success && jsonItems.data) {
           loadedItems = jsonItems.data
@@ -109,7 +109,7 @@ export default function PurchaseOrderEntry() {
       }
 
       try {
-        const resPR = await fetch('http://localhost:3000/api/purchase-request')
+        const resPR = await fetch('/api/purchase-request')
         const jsonPR = await resPR.json()
         if (jsonPR.success && jsonPR.data) {
           setPurchaseRequests(jsonPR.data.map(pr => pr.prNo))
@@ -119,7 +119,7 @@ export default function PurchaseOrderEntry() {
       }
 
       try {
-        const resPoTypes = await fetch('http://localhost:3000/api/reference-master/PO%20Type')
+        const resPoTypes = await fetch('/api/reference-master/PO%20Type')
         const jsonPoTypes = await resPoTypes.json()
         if (jsonPoTypes.success && jsonPoTypes.data.length > 0) {
           setPoTypes(jsonPoTypes.data.map(item => item.description))
@@ -131,7 +131,7 @@ export default function PurchaseOrderEntry() {
       try {
         const entries = await Promise.all(
           Object.entries(FIELD_REF_TYPES).map(async ([key, type]) => {
-            const res  = await fetch(`http://localhost:3000/api/reference-master/${encodeURIComponent(type)}`)
+            const res  = await fetch(`/api/reference-master/${encodeURIComponent(type)}`)
             const json = await res.json()
             return [key, json.success ? json.data.map(r => r.description) : []]
           })
@@ -148,7 +148,7 @@ export default function PurchaseOrderEntry() {
         const poId = parseInt(editRaw, 10)
         setEditPoId(poId)
         try {
-          const poRes  = await fetch(`http://localhost:3000/api/purchase-master/${poId}`)
+          const poRes  = await fetch(`/api/purchase-master/${poId}`)
           const poJson = await poRes.json()
           if (poJson.success && poJson.data) {
             const po = poJson.data
@@ -201,7 +201,7 @@ export default function PurchaseOrderEntry() {
 
         if (prPickId) {
           try {
-            const prRes = await fetch(`http://localhost:3000/api/purchase-request/${prPickId}`)
+            const prRes = await fetch(`/api/purchase-request/${prPickId}`)
             const prJson = await prRes.json()
             if (prJson && prJson.success && prJson.data) {
               const pr = prJson.data
@@ -385,9 +385,9 @@ export default function PurchaseOrderEntry() {
       if (fieldSuggestions[key]?.includes(trimmed)) continue
       const type = FIELD_REF_TYPES[key]
       try {
-        const typeRes  = await fetch(`http://localhost:3000/api/reference-master/${encodeURIComponent(type)}`)
+        const typeRes  = await fetch(`/api/reference-master/${encodeURIComponent(type)}`)
         const typeJson = await typeRes.json()
-        await fetch('http://localhost:3000/api/reference-master', {
+        await fetch('/api/reference-master', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ referenceType: type, code: typeJson.nextCode || '001', description: trimmed, updatedBy: form.createdBy || 'Admin' }),
@@ -426,7 +426,7 @@ export default function PurchaseOrderEntry() {
         createdBy: form.createdBy || 'Admin',
         items,
       }
-      const url    = editPoId ? `http://localhost:3000/api/purchase-master/${editPoId}` : 'http://localhost:3000/api/purchase-master'
+      const url    = editPoId ? `/api/purchase-master/${editPoId}` : '/api/purchase-master'
       const method = editPoId ? 'PUT' : 'POST'
       const res = await fetch(url, {
         method,
