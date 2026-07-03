@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
+import { useReferenceMaster, useCustomers, useVehicles } from '../hooks/useMasterData'
+import { useMemo } from 'react'
 import { X, Save, RotateCcw, List, Edit, Trash2, Info, ChevronRight, Loader2 } from 'lucide-react'
 import { TableSkeleton, SpinnerLoader } from '../components/LocalLoader'
 import { useToast } from '../components/Toast'
@@ -124,8 +126,24 @@ function ConfirmDeleteModal({ customerName, onConfirm, onCancel, loading }) {
 
 export default function VehicleMaster() {
   const toast = useToast()
-  const [rows, setRows]               = useState([])
-  const [customers, setCustomers]     = useState([])
+  const { data: vehicleTypesData = [] } = useReferenceMaster('Vehicle_Type')
+  const { data: subTypesData = [] } = useReferenceMaster('Vehicle_Sub_Type')
+  const { data: bNamesData = [] } = useReferenceMaster('Booking_Vehicle_Name')
+  const { data: customersRes = [] } = useCustomers()
+  const { data: vehiclesRes = [], refetch: refetchVehicles, isLoading: isVehiclesLoading } = useVehicles()
+
+  const [rows, setRows] = useState([])
+  useEffect(() => {
+    if (vehiclesRes) {
+      setRows(vehiclesRes)
+    }
+  }, [vehiclesRes])
+
+  const customers = customersRes
+  const modelNameOptions = useMemo(() => vehicleTypesData.map(r => r.description).filter(Boolean), [vehicleTypesData])
+  const modelSubTypeOptions = useMemo(() => subTypesData.map(r => r.description).filter(Boolean), [subTypesData])
+  const vehicleNameOptions = useMemo(() => bNamesData.map(r => r.description).filter(Boolean), [bNamesData])
+
   const [form, setForm]               = useState(emptyForm)
   const [errors, setErrors]           = useState({})
   const [editId, setEditId]           = useState(null)
@@ -136,75 +154,15 @@ export default function VehicleMaster() {
   const [deleteTarget, setDeleteTarget] = useState(null)
 
   // Loading states
-  const [loadingList, setLoadingList]           = useState(false)
-  const [loadingCustomers, setLoadingCustomers] = useState(false)
-  const [loadingRefData, setLoadingRefData]     = useState(false)
+  const loadingList = isVehiclesLoading
+  const loadingCustomers = false
+  const loadingRefData = false
   const [loadingSave, setLoadingSave]           = useState(false)
   const [loadingDelete, setLoadingDelete]       = useState(false)
 
-  // Reference-master driven options
-  const [modelNameOptions, setModelNameOptions]       = useState([])
-  const [modelSubTypeOptions, setModelSubTypeOptions] = useState([])
-  const [vehicleNameOptions, setVehicleNameOptions]   = useState([])
-
   const selectedCustomer = customers.find(c => c.id === Number(form.customerId)) || null
 
-  // ── Fetch reference-master options ──
 
-  const fetchRefOptions = useCallback(async () => {
-    setLoadingRefData(true)
-    try {
-      const [modelRes, subTypeRes, vehicleRes] = await Promise.all([
-        api.get('/api/reference-master/Vehicle_Type'),
-        api.get('/api/reference-master/Vehicle_Sub_Type'),
-        api.get('/api/reference-master/Booking_Vehicle_Name'),
-      ])
-      setModelNameOptions((modelRes.data?.data || []).map(r => r.description).filter(Boolean))
-      setModelSubTypeOptions((subTypeRes.data?.data || []).map(r => r.description).filter(Boolean))
-      setVehicleNameOptions((vehicleRes.data?.data || []).map(r => r.description).filter(Boolean))
-    } catch (err) {
-      console.error('[VehicleMaster] fetchRefOptions error:', err)
-      toast.error('Failed to load vehicle reference data.')
-    } finally {
-      setLoadingRefData(false)
-    }
-  }, [toast])
-
-  // ── Fetch customers for dropdown ──
-
-  const fetchCustomers = useCallback(async () => {
-    setLoadingCustomers(true)
-    try {
-      const res = await api.get('/api/customer-master')
-      setCustomers(res.data?.data || [])
-    } catch (err) {
-      console.error('[VehicleMaster] fetchCustomers error:', err)
-      toast.error('Failed to load customer list.')
-    } finally {
-      setLoadingCustomers(false)
-    }
-  }, [toast])
-
-  // ── Fetch vehicle records ──
-
-  const fetchVehicles = useCallback(async () => {
-    setLoadingList(true)
-    try {
-      const res = await api.get('/api/vehicle-master')
-      setRows(res.data?.data || [])
-    } catch (err) {
-      console.error('[VehicleMaster] fetchVehicles error:', err)
-      toast.error('Failed to load vehicle records.')
-    } finally {
-      setLoadingList(false)
-    }
-  }, [toast])
-
-  useEffect(() => {
-    fetchRefOptions()
-    fetchCustomers()
-    fetchVehicles()
-  }, [fetchRefOptions, fetchCustomers, fetchVehicles])
 
   // ── Form helpers ──
 
@@ -264,11 +222,13 @@ export default function VehicleMaster() {
         const res = await api.put(`/api/vehicle-master/${editId}`, payload)
         setRows(r => r.map(x => x.id === editId ? res.data.data : x))
         setEditId(null)
+        refetchVehicles()
         toast.success('Vehicle record updated successfully.')
       } else {
         const res = await api.post('/api/vehicle-master', payload)
         setRows(r => [...r, res.data.data])
         setPage(1)
+        refetchVehicles()
         toast.success('Vehicle record created successfully.')
       }
       setForm(emptyForm)
@@ -290,6 +250,7 @@ export default function VehicleMaster() {
       await api.delete(`/api/vehicle-master/${deleteTarget.id}`)
       setRows(r => r.filter(x => x.id !== deleteTarget.id))
       setDeleteTarget(null)
+      refetchVehicles()
       toast.success('Vehicle record deleted successfully.')
     } catch (err) {
       console.error('[VehicleMaster] delete error:', err)

@@ -6,6 +6,7 @@ import {
   Clock, CheckSquare, Settings, Play, BarChart, Hammer, Info, User
 } from 'lucide-react'
 import api from '../services/api'
+import { useCustomers } from '../hooks/useMasterData'
 import { useToast } from '../components/Toast'
 import { getSocket } from '../services/socket'
 
@@ -194,12 +195,13 @@ export default function MainDashboard() {
   const [activeTab, setActiveTab] = useState('executive')
   const [loading, setLoading] = useState(true)
 
+  const { data: customers = [] } = useCustomers()
+
   // Database States
   const [jobCards, setJobCards] = useState([])
   const [machines, setMachines] = useState([])
   const [breakdowns, setBreakdowns] = useState([])
   const [quotations, setQuotations] = useState([])
-  const [customers, setCustomers] = useState([])
   const [qcMethods, setQcMethods] = useState([])
   const [complaints, setComplaints] = useState([])
   const [purchaseRequests, setPurchaseRequests] = useState([])
@@ -208,12 +210,11 @@ export default function MainDashboard() {
   const loadAllMetrics = async () => {
     setLoading(true)
     try {
-      const [jobsRes, machRes, breakRes, quotRes, custRes, qcRes, compRes, prRes, poRes] = await Promise.all([
+      const [jobsRes, machRes, breakRes, quotRes, qcRes, compRes, prRes, poRes] = await Promise.all([
         api.get('/api/job-card', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/machine-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/machine-breakdown', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/quotation-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/customer-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/qc-check-method', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/customer-complaint', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/purchase-request', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
@@ -224,7 +225,6 @@ export default function MainDashboard() {
       setMachines(machRes)
       setBreakdowns(breakRes)
       setQuotations(quotRes)
-      setCustomers(custRes)
       setQcMethods(qcRes)
       setComplaints(compRes)
       setPurchaseRequests(prRes)

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useCustomers } from '../hooks/useMasterData'
 
 // ── Shared UI primitives (Matching BOMCreation Sizing & Styling) ──
 const Label = ({ children, required }) => (
@@ -119,24 +120,19 @@ export default function OutsourcePartsRegister() {
   const [isEdit, setIsEdit] = useState(false)
   const [editId, setEditId] = useState(null)
 
+  const { data: customerList = [] } = useCustomers()
+
   // Master Lists for Comboboxes
   const [dcList, setDcList] = useState([])
-  const [customerList, setCustomerList] = useState([])
 
   // Load DC lists and Customer list
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [dcRes, customerRes] = await Promise.all([
-          api.get('/api/delivery-challan'),
-          api.get('/api/customer-master')
-        ])
+        const dcRes = await api.get('/api/delivery-challan')
 
         if (dcRes.data && Array.isArray(dcRes.data.data)) {
           setDcList(dcRes.data.data)
-        }
-        if (customerRes.data && Array.isArray(customerRes.data.data)) {
-          setCustomerList(customerRes.data.data)
         }
       } catch (err) {
         toast.error('Failed to fetch support data')

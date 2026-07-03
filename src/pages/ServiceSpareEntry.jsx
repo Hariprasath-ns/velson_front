@@ -5,6 +5,9 @@ import {
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useServiceBookings, useBoms, useServiceSpares } from '../hooks/useMasterData'
+import { useQueryClient } from '@tanstack/react-query'
+import AuthenticatedImage from '../components/AuthenticatedImage'
 
 
 // ── Ultra-compact, premium UI primitives ──
@@ -289,13 +292,34 @@ const STANDARD_ASSEMBLIES = [
 
 export default function ServiceSpareEntry() {
   const toast = useToast()
+  const queryClient = useQueryClient()
 
-  // Master job/booking list
-  const [jobsList, setJobsList] = useState([])
-  const [bomCreationsList, setBomCreationsList] = useState([])
-  const [sparesList, setSparesList] = useState([])
+  // React Query hooks for Master Data
+  const { data: bookingsDataRes = [] } = useServiceBookings()
+  const { data: bomCreationsList = [] } = useBoms()
+  const { data: sparesList = [] } = useServiceSpares()
+
+  const [selectedItemForImage, setSelectedItemForImage] = useState(null)
+
+  // Memoized jobs list formatted from bookingsDataRes
+  const jobsList = useMemo(() => {
+    return bookingsDataRes.map(b => ({
+      serviceJobNo: b.serviceJobNo || '—',
+      customerCode: b.customerCode || '—',
+      customerName: b.customerName || '—',
+      bookingId: b.bookingId,
+      bookingDate: b.bookingDate,
+      serialNo: b.vehicleSerialNo || b.serialNo || '—',
+      vehicleNo: b.vehicleNo || '—',
+      vehicleModelNo: b.vehicleModelNo || '—',
+      modelSubType: b.modelSubType || '—',
+      vehicleName: b.vehicleName || '—',
+      status: b.status || 'Pending',
+      count: b.customerVehicleCount || 1
+    }))
+  }, [bookingsDataRes])
+
   const [filteredSpares, setFilteredSpares] = useState([])
-  const [itemMasterList, setItemMasterList] = useState([])
   const [serviceDetailsList, setServiceDetailsList] = useState([])
   const [selectedRowId, setSelectedRowId] = useState(null)
   const [editingId, setEditingId] = useState(null)
@@ -335,45 +359,17 @@ export default function ServiceSpareEntry() {
     setSearchQuery(searchText)
   }
 
-  // Load data on mount
+  // Load page-specific service details on mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchServiceDetails = async () => {
       try {
-        const bookingsRes = await api.get('/api/service-booking')
-        const bookings = bookingsRes.data?.data || []
-        const formatted = bookings.map(b => ({
-          serviceJobNo: b.serviceJobNo || '—',
-          customerCode: b.customerCode || '—',
-          customerName: b.customerName || '—',
-          bookingId: b.bookingId,
-          bookingDate: b.bookingDate,
-          serialNo: b.vehicleSerialNo || b.serialNo || '—',
-          vehicleNo: b.vehicleNo || '—',
-          vehicleModelNo: b.vehicleModelNo || '—',
-          modelSubType: b.modelSubType || '—',
-          vehicleName: b.vehicleName || '—',
-          status: b.status || 'Pending',
-          count: b.customerVehicleCount || 1
-        }))
-        setJobsList(formatted)
-
-        const bomRes = await api.get('/api/bom-creation')
-        setBomCreationsList(bomRes.data?.data || [])
-
-        const sparesRes = await api.get('/api/service-spare')
-        setSparesList(sparesRes.data?.data || [])
-
         const detailsRes = await api.get('/api/service-detail')
         setServiceDetailsList(detailsRes.data?.data || [])
-
-        const itemsRes = await api.get('/api/item-master?limit=10000').catch(() => ({ data: { data: [] } }))
-        setItemMasterList(itemsRes.data?.data || [])
       } catch (err) {
-        console.error('Failed to fetch initial data', err)
-        toast.error('Failed to load required records.')
+        console.error('Failed to load service details:', err)
       }
     }
-    fetchData()
+    fetchServiceDetails()
   }, [])
 
   // Auto-fill when Job No selected
@@ -434,34 +430,20 @@ export default function ServiceSpareEntry() {
         if (bom) {
           matchingBoms.push(bom);
         } else {
-          let displayName = assPartNo;
-          if (Array.isArray(itemMasterList)) {
-            const matchedItem = itemMasterList.find(
-              item => String(item.partNo || '').trim().toLowerCase() === assPartNo.trim().toLowerCase()
-            );
-            if (matchedItem && matchedItem.partName) displayName = matchedItem.partName;
-          }
           matchingBoms.push({
             id: `temp-${assPartNo}`,
             bomNo: '—',
             assemblyPartNo: assPartNo,
-            groupName: displayName,
+            groupName: assPartNo,
             model: vehicleModelNo || '—',
             excelRows: []
           });
         }
       });
-
-      if (matchingBoms.length === 0) {
-        matchingBoms = bomCreationsList.filter(b =>
-          (b.serviceJobNo && b.serviceJobNo === serviceJobNo) ||
-          (b.serialJobNo && b.serialJobNo === serviceJobNo)
-        );
-      }
     }
 
     if (matchingBoms.length > 0) {
-      const nested = buildNestedBomRows(matchingBoms, itemMasterList, selectedPartNo, []);
+      const nested = buildNestedBomRows(matchingBoms, [], selectedPartNo, []);
       setBomRows(nested);
 
       // Expand all assemblies by default
@@ -474,7 +456,7 @@ export default function ServiceSpareEntry() {
       setBomRows([]);
       setExpandedAssemblyIds({});
     }
-  }, [serviceJobNo, servicePartNo, bomCreationsList, serviceDetailsList, editingId, itemMasterList, vehicleModelNo])
+  }, [serviceJobNo, servicePartNo, bomCreationsList, serviceDetailsList, editingId, vehicleModelNo])
 
   const serviceJobNoOptions = useMemo(() => {
     const unique = [...new Set(jobsList.map(j => j.serviceJobNo).filter(j => j && j !== '—'))]
@@ -486,38 +468,32 @@ export default function ServiceSpareEntry() {
 
   // Memoized unique assembly parts from Service Details checklist matching selected job number
   const servicePartNoOptions = useMemo(() => {
-    if (!serviceJobNo) return []
-    const detail = serviceDetailsList.find(d => d.serviceJobNo === serviceJobNo)
-    if (!detail || !Array.isArray(detail.checkedAssemblies)) return []
-    const matchingBoms = bomCreationsList.filter(b =>
-      (b.serviceJobNo && b.serviceJobNo === serviceJobNo) ||
-      (b.serialJobNo && b.serialJobNo === serviceJobNo)
+    if (!serviceJobNo || !serviceDetailsList.length) return []
+    const detail = serviceDetailsList.find(
+      d => d.serviceJobNo && d.serviceJobNo.toLowerCase() === serviceJobNo.toLowerCase()
     )
+    if (!detail || !detail.checkedAssemblies?.length) return []
 
-
-    // Build a lookup map of partNo -> formatted name
     const partMap = new Map()
-    matchingBoms.forEach(b => {
+    bomCreationsList.forEach(b => {
+      if (b.assemblyPartNo) {
+        const pNo = b.assemblyPartNo.trim()
+        partMap.set(pNo.toLowerCase(), b.groupName ? `${pNo} - ${b.groupName}` : pNo)
+      }
       if (Array.isArray(b.excelRows)) {
         b.excelRows.forEach(row => {
           const keys = Object.keys(row)
-          const partNoKey = keys.find(k => {
+          const pNoKey = keys.find(k => {
             const l = k.toLowerCase()
             return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno'
           })
-          const partNameKey = keys.find(k => {
+          const pNameKey = keys.find(k => {
             const l = k.toLowerCase()
             return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description')
           })
-          const partNo = partNoKey ? String(row[partNoKey] || '').trim() : ''
-          let partName = partNameKey ? String(row[partNameKey] || '').trim() : ''
-          if (partNo) {
-            if (!partName && Array.isArray(itemMasterList)) {
-              const matchedItem = itemMasterList.find(
-                item => String(item.partNo || '').trim().toLowerCase() === partNo.toLowerCase()
-              )
-              if (matchedItem) partName = matchedItem.partName
-            }
+          if (pNoKey) {
+            const partNo = String(row[pNoKey] || '').trim()
+            const partName = pNameKey ? String(row[pNameKey] || '').trim() : ''
             partMap.set(partNo.toLowerCase(), partName ? `${partNo} - ${partName}` : partNo)
           }
         })
@@ -529,27 +505,17 @@ export default function ServiceSpareEntry() {
       const matchedName = partMap.get(idStr.toLowerCase())
       if (matchedName) return matchedName
 
-      // Fallback: search itemMasterList
-      if (Array.isArray(itemMasterList)) {
-        const matchedItem = itemMasterList.find(
-          item => String(item.partNo || '').trim().toLowerCase() === idStr.toLowerCase()
-        )
-        if (matchedItem && matchedItem.partName) {
-          return `${idStr} - ${matchedItem.partName}`
-        }
-      }
-
       // Fallback: search matchingBoms matching assemblyPartNo
-      const bom = matchingBoms.find(b => b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === idStr.toLowerCase())
+      const bom = bomCreationsList.find(b => b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === idStr.toLowerCase())
       if (bom) {
         return bom.groupName ? `${idStr} - ${bom.groupName}` : idStr
       }
 
       return idStr
     }).filter(Boolean)
-  }, [serviceJobNo, serviceDetailsList, bomCreationsList, itemMasterList])
+  }, [serviceJobNo, serviceDetailsList, bomCreationsList])
 
-  const selectedItemForImage = useMemo(() => {
+  useEffect(() => {
     let partNoToUse = ''
     if (selectedChildPartNo) {
       partNoToUse = selectedChildPartNo.split(' - ')[0].trim()
@@ -564,12 +530,27 @@ export default function ServiceSpareEntry() {
       }
     }
 
-    if (!partNoToUse) return null
+    if (!partNoToUse) {
+      setSelectedItemForImage(null)
+      return
+    }
 
-    return itemMasterList.find(
-      item => String(item.partNo || '').trim().toLowerCase() === partNoToUse.toLowerCase()
-    )
-  }, [activeBOMPartNo, servicePartNo, selectedRowId, sparesList, itemMasterList])
+    const fetchImageItem = async () => {
+      try {
+        const res = await api.get(`/api/item-master?search=${encodeURIComponent(partNoToUse)}&limit=1`, { skipGlobalLoader: true })
+        const matchedItem = res.data?.data?.[0]
+        if (matchedItem && String(matchedItem.partNo || '').trim().toLowerCase() === partNoToUse.toLowerCase()) {
+          setSelectedItemForImage(matchedItem)
+        } else {
+          setSelectedItemForImage(null)
+        }
+      } catch (err) {
+        console.error('Failed to fetch image item:', err)
+        setSelectedItemForImage(null)
+      }
+    }
+    fetchImageItem()
+  }, [selectedChildPartNo, activeBOMPartNo, servicePartNo, selectedRowId, sparesList])
 
   const bookingCustomerCodeOptions = useMemo(() => {
     let list = jobsList
@@ -834,7 +815,7 @@ export default function ServiceSpareEntry() {
       return
     }
     const selectedParts = selectedPartsList.map(r => r.id)
-    
+
     const items = []
     bomRows.forEach(assembly => {
       if (Array.isArray(assembly.parts)) {
@@ -874,19 +855,16 @@ export default function ServiceSpareEntry() {
 
 
     try {
-      let updated
       if (editingId !== null) {
-        const res = await api.put(`/api/service-spare/${editingId}`, newEntry, { loadingMessage: 'Updating record...' })
-        updated = sparesList.map(s => s.id === editingId ? res.data.data : s)
+        await api.put(`/api/service-spare/${editingId}`, newEntry, { loadingMessage: 'Updating record...' })
         toast.success(`Spare entry for Job ${serviceJobNo} updated!`)
         setEditingId(null)
       } else {
-        const res = await api.post('/api/service-spare', newEntry, { loadingMessage: 'Saving record...' })
-        updated = [res.data.data, ...sparesList]
+        await api.post('/api/service-spare', newEntry, { loadingMessage: 'Saving record...' })
         toast.success(`Spare entry for Job ${serviceJobNo} saved!`)
       }
 
-      setSparesList(updated)
+      queryClient.invalidateQueries({ queryKey: ['service-spare'] })
       handleClear()
     } catch (err) {
       console.error('Failed to save service spare entry', err)
@@ -959,8 +937,8 @@ export default function ServiceSpareEntry() {
     }
 
     if (matchingBoms.length > 0) {
-      const nested = buildNestedBomRows(matchingBoms, itemMasterList, selectedPartNo, row.selectedParts || []);
-      setBomRows(nested)
+      const nested = buildNestedBomRows(matchingBoms, [], selectedPartNo, row.selectedParts || []);
+      setEditingRowBomRows(nested);
 
       const expanded = {};
       nested.forEach(b => {
@@ -993,8 +971,7 @@ export default function ServiceSpareEntry() {
     if (window.confirm('Delete this spare entry?')) {
       try {
         await api.delete(`/api/service-spare/${selectedRowId}`, { loadingMessage: 'Deleting record...' })
-        const updated = sparesList.filter(s => s.id !== selectedRowId)
-        setSparesList(updated)
+        queryClient.invalidateQueries({ queryKey: ['service-spare'] })
         toast.error('Spare entry deleted successfully.')
         handleClear()
       } catch (err) {
@@ -1262,7 +1239,6 @@ export default function ServiceSpareEntry() {
   }
 
   const selectedPartsCount = getSelectedParts().length
-  const totalAmount = getTotalAmount()
 
   return (
     <div className="bg-[#f4f6f8] min-h-full pb-6">
@@ -1449,7 +1425,7 @@ export default function ServiceSpareEntry() {
                 <div className="text-[12px] font-bold text-slate-400 uppercase tracking-wider mb-2">Part Image</div>
                 {selectedItemForImage && (selectedItemForImage.hasImage || selectedItemForImage.imagePath || selectedItemForImage.imageMimeType) ? (
                   <div className="w-full h-[180px] border border-slate-200 rounded-lg bg-white overflow-hidden flex items-center justify-center shadow-inner relative group">
-                    <img
+                    <AuthenticatedImage
                       src={`/api/item-master/${selectedItemForImage.id}/download-image`}
                       alt={selectedItemForImage.partName || 'Selected Part'}
                       className="max-w-full max-h-full object-contain p-1"
@@ -1614,7 +1590,7 @@ export default function ServiceSpareEntry() {
                                               className={`cursor-pointer transition-colors ${isPartSelected || isPartActive
                                                 ? 'bg-[#0097A7]/10 font-semibold'
                                                 : 'hover:bg-[#0097A7]/5'
-                                              }`}
+                                                }`}
                                             >
                                               <td className="px-3 py-1.5 border-r border-slate-50 text-center" onClick={(e) => e.stopPropagation()}>
                                                 <input
@@ -1639,11 +1615,10 @@ export default function ServiceSpareEntry() {
                                                     value={partRow.issuedQty}
                                                     placeholder="0"
                                                     onChange={(e) => handleIssuedQtyChange(partRow.id, e.target.value)}
-                                                    className={`w-16 text-center px-1 py-0.5 text-[12px] h-[22px] border rounded focus:outline-none focus:ring-1 bg-white ${
-                                                      partRow.issuedQty > partRow.fasterQty
-                                                        ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50'
-                                                        : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
-                                                    }`}
+                                                    className={`w-16 text-center px-1 py-0.5 text-[12px] h-[22px] border rounded focus:outline-none focus:ring-1 bg-white ${partRow.issuedQty > partRow.fasterQty
+                                                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                                                      : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
+                                                      }`}
                                                   />
                                                   {partRow.issuedQty > partRow.fasterQty && (
                                                     <span className="text-[9px] text-red-500 font-bold mt-0.5 leading-none whitespace-nowrap">

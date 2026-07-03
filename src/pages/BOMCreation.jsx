@@ -3,6 +3,9 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { ChevronRight, X, Plus, Image as ImageIcon, Search, RotateCcw, FileSpreadsheet } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useCustomers, useVehicles, useServiceBookings, useItemGroups, useBoms } from '../hooks/useMasterData'
+import ItemSearchInput from '../components/ItemSearchInput'
+import AuthenticatedImage from '../components/AuthenticatedImage'
 import ExcelJS from 'exceljs'
 import { useLoading } from '../context/LoadingContext'
 
@@ -138,12 +141,18 @@ export default function BOMCreation() {
   const [skippedRecords, setSkippedRecords] = useState([])
   const [hoverImage, setHoverImage] = useState(null) // { src, x, y }
 
-  // Master lists loaded from API
-  const [customers, setCustomers] = useState([])
-  const [vehicles, setVehicles] = useState([])
-  const [bookings, setBookings] = useState([])
-  const [itemGroups, setItemGroups] = useState([])
-  const [itemMasterList, setItemMasterList] = useState([])
+  // React Query master data fetches
+  const { data: custsRes = [] } = useCustomers()
+  const { data: vehsRes = [] } = useVehicles()
+  const { data: bookingsRes = [] } = useServiceBookings()
+  const { data: groupRes = [] } = useItemGroups()
+  const { data: bomsRes = [], refetch: refetchBoms } = useBoms()
+
+  const customers = custsRes
+  const vehicles = vehsRes
+  const bookings = bookingsRes
+  const itemGroups = groupRes
+  const [selectedPart, setSelectedPart] = useState(null)
   // Helper to compute next BOM No based on sequence
   const getNextBOMNo = (records) => {
     const bomNumbers = records
@@ -157,42 +166,12 @@ export default function BOMCreation() {
     return `BOM-${max + 1}`
   }
 
-  // Load master data on mount
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [custRes, vehRes, bookRes, groupRes, itemRes] = await Promise.all([
-          api.get('/api/customer-master').catch(() => ({ data: { data: [] } })),
-          api.get('/api/vehicle-master').catch(() => ({ data: { data: [] } })),
-          api.get('/api/service-booking').catch(() => ({ data: { data: [] } })),
-          api.get('/api/item-group-master').catch(() => ({ data: { data: [] } })),
-          api.get('/api/item-master?limit=10000').catch(() => ({ data: { data: [] } }))
-        ])
-        setCustomers(custRes.data?.data || [])
-        setVehicles(vehRes.data?.data || [])
-        setBookings(bookRes.data?.data || [])
-        setItemGroups(groupRes.data?.data || [])
-        setItemMasterList(itemRes.data?.data || [])
-      } catch (err) {
-        console.error('Error loading master data', err)
-      }
+    if (bomsRes) {
+      setCreatedRecords(bomsRes)
+      setForm(f => ({ ...f, bomNo: getNextBOMNo(bomsRes) }))
     }
-    loadData()
-  }, [])
-
-  useEffect(() => {
-    const loadBoms = async () => {
-      try {
-        const res = await api.get('/api/bom-creation')
-        const records = res.data?.data || []
-        setCreatedRecords(records)
-        setForm(f => ({ ...f, bomNo: getNextBOMNo(records) }))
-      } catch (err) {
-        console.error('Error fetching BOM list', err)
-      }
-    }
-    loadBoms()
-  }, [])
+  }, [bomsRes])
 
   const u = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -285,6 +264,7 @@ export default function BOMCreation() {
         const savedRecord = res.data.data
         const updated = [savedRecord, ...createdRecords]
         setCreatedRecords(updated)
+        refetchBoms()
         toast.success('BOM Uploaded & Saved Successfully!')
         handleClear(updated)
       } else {
@@ -417,7 +397,7 @@ export default function BOMCreation() {
 
         const validRows = []
         const skipped = []
-        parsedRows.forEach((rowObj) => {
+        for (const rowObj of parsedRows) {
           const row = rowObj.data
           const rowNum = rowObj.rowNumber
           const partNoVal = partNoHeader ? String(row[partNoHeader] || '').trim() : ''
@@ -434,32 +414,43 @@ export default function BOMCreation() {
               image: imgVal,
               reason: 'Part Number is missing in Excel row'
             })
-            return
+            continue
           }
 
-          // Search in Item Master list loaded on mount
-          const matchedItem = itemMasterList.find(
-            item => String(item.partNo || '').trim().toLowerCase() === partNoVal.toLowerCase()
-          )
+          // Search in Item Master dynamically
+          try {
+            const res = await api.get(`/api/item-master?search=${encodeURIComponent(partNoVal)}&limit=1`, { skipGlobalLoader: true })
+            const matchedItem = res.data?.data?.[0]
+            const isExactMatch = matchedItem && String(matchedItem.partNo || '').trim().toLowerCase() === partNoVal.toLowerCase()
 
-          if (!matchedItem) {
+            if (!isExactMatch) {
+              skipped.push({
+                row: rowNum,
+                partNo: partNoVal,
+                partName: partNameHeader ? String(row[partNameHeader] || '').trim() : '—',
+                image: imgVal,
+                reason: 'Part Number not found in Item Master'
+              })
+              continue
+            }
+
+            // Fetch official Part Name from Item Master and override Excel spelling errors
+            if (partNameHeader) {
+              row[partNameHeader] = matchedItem.partName
+            }
+
+            validRows.push(row)
+          } catch (err) {
+            console.error('Failed to validate part no:', partNoVal, err)
             skipped.push({
               row: rowNum,
               partNo: partNoVal,
               partName: partNameHeader ? String(row[partNameHeader] || '').trim() : '—',
               image: imgVal,
-              reason: 'Part Number not found in Item Master'
+              reason: 'Failed to query database for verification'
             })
-            return
           }
-
-          // Fetch official Part Name from Item Master and override Excel spelling errors
-          if (partNameHeader) {
-            row[partNameHeader] = matchedItem.partName
-          }
-
-          validRows.push(row)
-        })
+        }
 
         setSkippedRecords(skipped)
 
@@ -521,19 +512,9 @@ export default function BOMCreation() {
     return Array.from(new Set(itemGroups.map(g => g.groupName).filter(Boolean))).sort()
   }, [itemGroups])
 
-  const assemblyPartNoOptions = useMemo(() => {
-    if (!form.groupName) return []
-    const selectedGroup = itemGroups.find(g => g.groupName === form.groupName)
-    if (!selectedGroup) return []
-    return itemMasterList
-      .filter(item => Number(item.groupId) === Number(selectedGroup.id))
-      .map(item => item.partNo)
-      .filter(Boolean)
-  }, [itemGroups, itemMasterList, form.groupName])
-
   const selectedPartImage = useMemo(() => {
     if (!form.assemblyPartNo) return null
-    const item = itemMasterList.find(it => it.partNo === form.assemblyPartNo)
+    const item = selectedPart && selectedPart.partNo === form.assemblyPartNo ? selectedPart : null
     if (!item) return null
 
     // Check if back-end provides hasImage (derived property) or is direct database column check
@@ -549,7 +530,7 @@ export default function BOMCreation() {
       return `/uploads/${item.imagePath}`
     }
     return null
-  }, [itemMasterList, form.assemblyPartNo])
+  }, [selectedPart, form.assemblyPartNo])
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -640,7 +621,7 @@ export default function BOMCreation() {
                   </div>
                   <div>
                     <Label>Vehicle Count</Label>
-                    <Input value={form.vehicleCount} onChange={u('vehicleCount')} type="number" placeholder="0" readOnly/>
+                    <Input value={form.vehicleCount} onChange={u('vehicleCount')} type="number" placeholder="0" readOnly />
                   </div>
                   <div>
                     <Label>Choose Vehicle</Label>
@@ -690,7 +671,29 @@ export default function BOMCreation() {
                 </div>
                 <div>
                   <Label>Assembly Part No</Label>
-                  <Select options={assemblyPartNoOptions} value={form.assemblyPartNo} onChange={u('assemblyPartNo')} placeholder="Pick Assembly Part" />
+                  <ItemSearchInput
+                    value={form.assemblyPartNo}
+                    onChange={(val, item) => {
+                      if (item) {
+                        const matchedGroup = itemGroups.find(g => Number(g.id) === Number(item.groupId))
+                        setForm(f => ({
+                          ...f,
+                          assemblyPartNo: item.partNo,
+                          groupName: matchedGroup ? matchedGroup.groupName : f.groupName
+                        }))
+                        setSelectedPart(item)
+                      } else {
+                        setForm(f => ({
+                          ...f,
+                          assemblyPartNo: val
+                        }))
+                        if (!val) setSelectedPart(null)
+                      }
+                    }}
+                    displayField="partNo"
+                    placeholder="Search Assembly Part No"
+                    className="w-full px-3 py-[7px] text-sm border border-slate-200 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all duration-200 hover:border-slate-300"
+                  />
                 </div>
 
                 <div className="flex gap-3 pt-6">
@@ -713,10 +716,10 @@ export default function BOMCreation() {
                 <Label>Model Visualization</Label>
                 <div className="aspect-square w-full bg-slate-50 border border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-300 overflow-hidden relative">
                   {selectedPartImage ? (
-                    <img
+                    <AuthenticatedImage
                       src={selectedPartImage}
-                      alt="Part Preview"
-                      className="w-full h-full object-contain p-2"
+                      alt="Assembly Preview"
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center">

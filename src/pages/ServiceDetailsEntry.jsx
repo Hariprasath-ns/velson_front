@@ -231,7 +231,6 @@ export default function ServiceDetailsEntry() {
 
   const [bomCreationsList, setBomCreationsList] = useState([])
   const [assembliesList, setAssembliesList] = useState([])
-  const [itemMasterList, setItemMasterList] = useState([])
 
   // Form states
   const [serviceJobNo, setServiceJobNo] = useState('')
@@ -309,13 +308,6 @@ export default function ServiceDetailsEntry() {
         // 5. Load BOM creation entries
         const bomRes = await api.get('/api/bom-creation')
         setBomCreationsList(bomRes.data?.data || [])
-
-        // 6. Load Item master list
-        const itemsRes = await api.get('/api/item-master?limit=10000').catch(err => {
-          console.error('Failed to fetch items', err)
-          return { data: { data: [] } }
-        })
-        setItemMasterList(itemsRes.data?.data || [])
       } catch (err) {
         console.error('Failed to fetch data', err)
         toast.error('Failed to load required data.')

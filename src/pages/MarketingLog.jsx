@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ChevronRight, Upload, Eye, Search, RotateCcw, Save, Trash2, X, FileText, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useCustomers } from '../hooks/useMasterData'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 // ── Shared UI primitives ──
@@ -69,9 +70,34 @@ export default function MarketingLog() {
     remarks: '',
   })
   
-  // Master data
-  const [ledgers, setLedgers] = useState([])
-  const [masterLoading, setMasterLoading] = useState(true)
+  // Master data (React Query & state)
+  const { data: customers = [], isLoading: custsLoading } = useCustomers()
+  const [suppliers, setSuppliers] = useState([])
+  const [suppliersLoading, setSuppliersLoading] = useState(true)
+
+  const ledgers = useMemo(() => {
+    const list = []
+    customers.forEach(c => {
+      list.push({
+        value: c.customerName,
+        label: c.customerName,
+        code: c.cCode || '',
+        type: 'Customer'
+      })
+    })
+    suppliers.forEach(s => {
+      list.push({
+        value: s.supplierName,
+        label: s.supplierName,
+        code: s.sCode || '',
+        type: 'Supplier'
+      })
+    })
+    list.sort((a, b) => a.label.localeCompare(b.label))
+    return list
+  }, [customers, suppliers])
+
+  const masterLoading = custsLoading || suppliersLoading
   
   // List filter states
   const [filterFromDate, setFilterFromDate] = useState(thirtyDaysAgoStr)
@@ -88,54 +114,22 @@ export default function MarketingLog() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // 1. Fetch ledger data (Customers and Suppliers) on mount
+  // 1. Fetch supplier data on mount and logs
   useEffect(() => {
-    const fetchMasterData = async () => {
+    const fetchSuppliers = async () => {
       try {
-        setMasterLoading(true)
-        const [custRes, suppRes] = await Promise.allSettled([
-          api.get('/api/customer-master', { skipGlobalLoader: true }),
-          api.get('/api/supplier-master', { skipGlobalLoader: true })
-        ])
-        
-        const ledgerList = []
-        
-        if (custRes.status === 'fulfilled') {
-          const customers = custRes.value.data?.data || []
-          customers.forEach(c => {
-            ledgerList.push({
-              value: c.customerName,
-              label: c.customerName,
-              code: c.cCode || '',
-              type: 'Customer'
-            })
-          })
-        }
-        
-        if (suppRes.status === 'fulfilled') {
-          const suppliers = suppRes.value.data?.data || []
-          suppliers.forEach(s => {
-            ledgerList.push({
-              value: s.supplierName,
-              label: s.supplierName,
-              code: s.sCode || '',
-              type: 'Supplier'
-            })
-          })
-        }
-        
-        // Sort alphabetically
-        ledgerList.sort((a, b) => a.label.localeCompare(b.label))
-        setLedgers(ledgerList)
+        setSuppliersLoading(true)
+        const res = await api.get('/api/supplier-master', { skipGlobalLoader: true })
+        setSuppliers(res.data?.data || [])
       } catch (err) {
-        console.error('Error fetching master data:', err)
-        toast.error('Failed to load customers and suppliers list.')
+        console.error('Error fetching suppliers:', err)
+        toast.error('Failed to load suppliers list.')
       } finally {
-        setMasterLoading(false)
+        setSuppliersLoading(false)
       }
     }
     
-    fetchMasterData()
+    fetchSuppliers()
     fetchLogs(thirtyDaysAgoStr, todayStr)
   }, [])
 

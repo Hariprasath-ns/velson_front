@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
+import { useEmployees, useReferenceMaster } from '../hooks/useMasterData'
+import { useMemo } from 'react'
 import { X, Save, RotateCcw, List, Edit, Trash2, Info, ChevronRight, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -104,12 +106,23 @@ function DetailModal({ row, onClose }) {
 export default function EmployeeMaster() {
   const toast = useToast()
 
+  const { data: employeesData = [], refetch: refetchEmployees, isLoading: isEmployeesLoading } = useEmployees()
+  const { data: deptsData = [] } = useReferenceMaster('Department')
+  const { data: desigsData = [] } = useReferenceMaster('Designation')
+
   const [rows, setRows] = useState([])
+  useEffect(() => {
+    if (employeesData) {
+      setRows(employeesData)
+    }
+  }, [employeesData])
+
+  const departments = useMemo(() => deptsData.map(r => r.description).filter(Boolean), [deptsData])
+  const designations = useMemo(() => desigsData.map(r => r.description).filter(Boolean), [desigsData])
+
   const [companies, setCompanies] = useState([])
-  const [departments, setDepartments] = useState([])
-  const [designations, setDesignations] = useState([])
   const [contractors, setContractors] = useState([])
-  const [tableLoading, setTableLoading] = useState(false)
+  const tableLoading = isEmployeesLoading
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -121,19 +134,6 @@ export default function EmployeeMaster() {
   const [page, setPage] = useState(1)
   const [detailRow, setDetailRow] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
-
-  const fetchAll = useCallback(async () => {
-    setTableLoading(true)
-    try {
-      const res = await api.get('/api/employee-master')
-      setRows(res.data.data || [])
-    } catch (err) {
-      console.error('[EmployeeMaster] fetchAll:', err)
-      toast.error('Failed to load employee records')
-    } finally {
-      setTableLoading(false)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchNextCode = useCallback(async () => {
     try {
@@ -153,24 +153,6 @@ export default function EmployeeMaster() {
     }
   }, [])
 
-  const fetchDepartments = useCallback(async () => {
-    try {
-      const res = await api.get('/api/reference-master/Department')
-      setDepartments((res.data.data || []).map(d => d.description))
-    } catch {
-      setDepartments([])
-    }
-  }, [])
-
-  const fetchDesignations = useCallback(async () => {
-    try {
-      const res = await api.get('/api/reference-master/Designation')
-      setDesignations((res.data.data || []).map(d => d.description))
-    } catch {
-      setDesignations([])
-    }
-  }, [])
-
   const fetchContractors = useCallback(async () => {
     try {
       const res = await api.get('/api/contractor-master')
@@ -181,9 +163,10 @@ export default function EmployeeMaster() {
   }, [])
 
   useEffect(() => {
-    fetchAll(); fetchNextCode(); fetchCompanies()
-    fetchDepartments(); fetchDesignations(); fetchContractors()
-  }, [fetchAll, fetchNextCode, fetchCompanies, fetchDepartments, fetchDesignations, fetchContractors])
+    fetchNextCode()
+    fetchCompanies()
+    fetchContractors()
+  }, [fetchNextCode, fetchCompanies, fetchContractors])
 
   const sf = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
@@ -209,7 +192,7 @@ export default function EmployeeMaster() {
         toast.success('Employee created successfully.')
       }
       setForm({ ...emptyForm }); setErrors({}); setEditId(null); setPage(1)
-      await fetchAll(); await fetchNextCode()
+      refetchEmployees(); await fetchNextCode()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to save employee.')
     } finally {
@@ -248,7 +231,7 @@ export default function EmployeeMaster() {
       toast.success('Employee deleted.')
       setConfirmDelete(null)
       if (editId === confirmDelete) { setForm({ ...emptyForm }); setEditId(null) }
-      await fetchAll()
+      refetchEmployees()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to delete.')
     } finally {

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, Save, Trash2, X, Plus, RotateCcw, Search, Image as ImageIcon } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useCustomers, useReferenceMaster } from '../hooks/useMasterData'
+import ItemSearchInput from '../components/ItemSearchInput'
 
 const Label = ({ children, required }) => (
   <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase tracking-wider">
@@ -63,18 +65,21 @@ export default function JobCardEntry() {
   const [loading, setLoading] = useState(true)
 
   // Customer states
-  const [customers, setCustomers] = useState([])
+  const { data: customers = [] } = useCustomers()
   const [selfStockIn, setSelfStockIn] = useState(false)
   const [selectedCustomers, setSelectedCustomers] = useState([])
   const [custSearchTerm, setCustSearchTerm] = useState('')
   const [isCustDropdownOpen, setIsCustDropdownOpen] = useState(false)
   const customerDropdownRef = useRef(null)
 
-  // Master lists
-  const [vehicleTypes, setVehicleTypes] = useState([])
-  const [priorities, setPriorities] = useState([])
-  const [uoms, setUoms] = useState([])
-  const [itemMasterList, setItemMasterList] = useState([])
+  // Master lists (React Query hooks)
+  const { data: vehicleRes = [] } = useReferenceMaster('Vehicle_Type')
+  const { data: priorityRes = [] } = useReferenceMaster('Priority')
+  const { data: uomsRes = [] } = useReferenceMaster('UOM')
+
+  const vehicleTypes = useMemo(() => vehicleRes.map(r => r.description).filter(Boolean), [vehicleRes])
+  const priorities = useMemo(() => priorityRes.map(r => r.description).filter(Boolean), [priorityRes])
+  const uoms = useMemo(() => uomsRes.map(r => r.description).filter(Boolean), [uomsRes])
   const [nextJobNo, setNextJobNo] = useState('1')
 
   const fetchJobCards = async () => {
@@ -101,25 +106,15 @@ export default function JobCardEntry() {
     const loadAllData = async () => {
       setLoading(true)
       try {
-        const [jobsRes, nextRes, vehicleRes, priorityRes, uomsRes, itemsRes, custRes] = await Promise.all([
+        const [jobsRes, nextRes] = await Promise.all([
           api.get('/api/job-card').catch(() => ({ data: { data: [] } })),
-          api.get('/api/job-card/next-no').catch(() => ({ data: { jobNo: '1' } })),
-          api.get('/api/reference-master/Vehicle_Type').catch(() => ({ data: { data: [] } })),
-          api.get('/api/reference-master/Priority').catch(() => ({ data: { data: [] } })),
-          api.get('/api/reference-master/UOM').catch(() => ({ data: { data: [] } })),
-          api.get('/api/item-master?limit=10000').catch(() => ({ data: { data: [] } })),
-          api.get('/api/customer-master').catch(() => ({ data: { data: [] } }))
+          api.get('/api/job-card/next-no').catch(() => ({ data: { jobNo: '1' } }))
         ])
 
         setSavedJobs(jobsRes.data?.data || [])
         const nextNo = nextRes.data?.jobNo || '1'
         setNextJobNo(nextNo)
         setForm(f => ({ ...f, jobNo: nextNo }))
-        setVehicleTypes((vehicleRes.data?.data || []).map(r => r.description).filter(Boolean))
-        setPriorities((priorityRes.data?.data || []).map(r => r.description).filter(Boolean))
-        setUoms((uomsRes.data?.data || []).map(r => r.description).filter(Boolean))
-        setItemMasterList(itemsRes.data?.data || [])
-        setCustomers(custRes.data?.data || [])
       } catch (err) {
         console.error('Error loading page data', err)
         toast.error('Failed to load job card data')
@@ -167,8 +162,7 @@ export default function JobCardEntry() {
   const removeLine = (id) => setLineItems(prev => prev.length > 1 ? prev.filter(l => l.id !== id) : prev)
   const updateLine = (id, key, val) => setLineItems(prev => prev.map(l => l.id === id ? { ...l, [key]: val } : l))
 
-  const handlePartNoChange = (id, partNoVal) => {
-    const item = itemMasterList.find(it => it.partNo === partNoVal)
+  const handlePartNoChange = (id, partNoVal, item) => {
     if (item) {
       const hasImg = item.hasImage || !!item.imageMimeType
       if (hasImg) {
@@ -195,8 +189,7 @@ export default function JobCardEntry() {
     }))
   }
 
-  const handlePartNameChange = (id, partNameVal) => {
-    const item = itemMasterList.find(it => it.partName === partNameVal)
+  const handlePartNameChange = (id, partNameVal, item) => {
     if (item) {
       const hasImg = item.hasImage || !!item.imageMimeType
       if (hasImg) {
@@ -563,22 +556,22 @@ export default function JobCardEntry() {
                         </td>
                         <td className="px-3 py-1.5 border-r border-slate-200 text-center text-slate-400 font-bold text-[12px]">{idx + 1}</td>
                         <td className="px-2 py-1.5 border-r border-slate-200">
-                          <select value={li.partNo} onChange={e => handlePartNoChange(li.id, e.target.value)}
-                            className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7]">
-                            <option value="">Select Part No</option>
-                            {itemMasterList.map(it => (
-                              <option key={it.id} value={it.partNo}>{it.partNo}</option>
-                            ))}
-                          </select>
+                          <ItemSearchInput
+                            value={li.partNo}
+                            onChange={(val, item) => handlePartNoChange(li.id, val, item)}
+                            displayField="partNo"
+                            placeholder="Search Part No"
+                            className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7]"
+                          />
                         </td>
                         <td className="px-2 py-1.5 border-r border-slate-200">
-                          <select value={li.partName} onChange={e => handlePartNameChange(li.id, e.target.value)}
-                            className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7]">
-                            <option value="">Select Part Name</option>
-                            {itemMasterList.map(it => (
-                              <option key={it.id} value={it.partName}>{it.partName}</option>
-                            ))}
-                          </select>
+                          <ItemSearchInput
+                            value={li.partName}
+                            onChange={(val, item) => handlePartNameChange(li.id, val, item)}
+                            displayField="partName"
+                            placeholder="Search Part Name"
+                            className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7]"
+                          />
                         </td>
                         <td className="px-2 py-1.5 border-r border-slate-200">
                           <input type="number" value={li.planQty} onChange={e => updateLine(li.id, 'planQty', e.target.value)} placeholder="0"

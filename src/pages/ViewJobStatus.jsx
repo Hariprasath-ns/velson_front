@@ -4,6 +4,8 @@ import logoImg from '../assets/logo.png'
 import { ChevronRight, ChevronDown, Search, X, FileSpreadsheet, CheckCircle2, Eye, Image as ImageIcon, Save, Lock, PieChart as PieChartIcon, Clock, Check, Activity, Archive } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useEmployees } from '../hooks/useMasterData'
+import AuthenticatedImage from '../components/AuthenticatedImage'
 import { PieChart, PieSlice, PieCenter } from '../components/ui/PieChart'
 
 
@@ -108,11 +110,11 @@ const printJobProcessDetails = (job, processMasters = []) => {
     const partProcesses = partDetail.processMenus && partDetail.processMenus.length > 0
       ? partDetail.processMenus
       : processMasters
-          .filter(pm => {
-            if (!pm.PM_Part_Name || !partDetail.productName) return false
-            return pm.PM_Part_Name.trim().toLowerCase() === partDetail.productName.trim().toLowerCase()
-          })
-          .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
+        .filter(pm => {
+          if (!pm.PM_Part_Name || !partDetail.productName) return false
+          return pm.PM_Part_Name.trim().toLowerCase() === partDetail.productName.trim().toLowerCase()
+        })
+        .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
 
     if (partProcesses.length === 0) {
       return `
@@ -467,8 +469,8 @@ const PartProcessDonut = ({ partDetail, processMasters }) => {
   const partProcesses = partDetail.processMenus && partDetail.processMenus.length > 0
     ? partDetail.processMenus
     : processMasters
-        .filter(pm => pm.PM_Part_Name === partDetail.productName)
-        .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
+      .filter(pm => pm.PM_Part_Name === partDetail.productName)
+      .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
 
   let completedCount = 0
   let qcCount = 0
@@ -530,8 +532,8 @@ const PartProcessDonut = ({ partDetail, processMasters }) => {
             <div
               key={idx}
               className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg transition-all duration-250 cursor-pointer border ${isHovered
-                  ? 'bg-white border-slate-200 shadow-sm scale-[1.02]'
-                  : 'border-transparent hover:bg-white/60'
+                ? 'bg-white border-slate-200 shadow-sm scale-[1.02]'
+                : 'border-transparent hover:bg-white/60'
                 }`}
               style={{
                 opacity: isAnyHovered && !isHovered ? 0.4 : 1,
@@ -632,12 +634,12 @@ const ProcessTimeline = ({ processes, lineItems }) => {
             {idx < processes.length - 1 && (
               <div
                 className={`absolute left-[15px] top-8 bottom-0 w-[2px] -mb-4 z-0 ${status === 'completed'
-                    ? 'bg-emerald-250'
-                    : status === 'qc'
-                      ? 'bg-amber-250'
-                      : status === 'in-progress'
-                        ? 'bg-sky-250'
-                        : 'bg-slate-200'
+                  ? 'bg-emerald-250'
+                  : status === 'qc'
+                    ? 'bg-amber-250'
+                    : status === 'in-progress'
+                      ? 'bg-sky-250'
+                      : 'bg-slate-200'
                   }`}
               />
             )}
@@ -663,9 +665,9 @@ const ProcessTimeline = ({ processes, lineItems }) => {
                   <h4 className="text-[13px] font-black text-slate-800 uppercase tracking-tight mt-0.5">{pm.PM_Process_Name}</h4>
                 </div>
                 <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${status === 'completed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200/50' :
-                    status === 'qc' ? 'bg-amber-100 text-amber-800 border border-amber-200/50' :
-                      status === 'in-progress' ? 'bg-sky-100 text-sky-800 border border-sky-200/50' :
-                        'bg-slate-100 text-slate-500 border border-slate-200/30'
+                  status === 'qc' ? 'bg-amber-100 text-amber-800 border border-amber-200/50' :
+                    status === 'in-progress' ? 'bg-sky-100 text-sky-800 border border-sky-200/50' :
+                      'bg-slate-100 text-slate-500 border border-slate-200/30'
                   }`}>
                   {statusColors.label}
                 </span>
@@ -736,7 +738,7 @@ export default function ViewJobStatus() {
   const [loading, setLoading] = useState(true)
   const [processMasters, setProcessMasters] = useState([])
   const [expandedRow, setExpandedRow] = useState(null)
-  const [itemMasterList, setItemMasterList] = useState([])
+  const [selectedPartImage, setSelectedPartImage] = useState(null)
   const [zoomImage, setZoomImage] = useState(null)
   const [isUnlockedModal, setIsUnlockedModal] = useState(true)
   const [flowModalJob, setFlowModalJob] = useState(null)
@@ -796,25 +798,25 @@ export default function ViewJobStatus() {
             const firstItem = items[0]
             const activeJobProcesses = jc.processMenus && jc.processMenus.length > 0
               ? jc.processMenus
-                  .filter(pm => pm.isActive && pm.partName?.toLowerCase() === partName.toLowerCase())
-                  .map(pm => ({
-                    id: pm.id,
-                    PM_Part_Name: pm.partName,
-                    PM_Process_Name: pm.processName,
-                    PM_Process_Name1: pm.processName1 || '',
-                    PM_Process_Order: pm.processOrder,
-                    TeamId: pm.teamId || '',
-                    Machine_Code: pm.machineCode || '',
-                    Machine_Name: pm.machineName || '',
-                    PM_Days: pm.days || '',
-                    PM_Hours: pm.hours || '',
-                    Minutes: pm.minutes || '',
-                    Setting_Time: pm.settingTime || '',
-                    Cycle_Time: pm.cycleTime || '',
-                    Handling_Time: pm.handlingTime || '',
-                    Idle_Time: pm.idleTime || '',
-                    CreatedBy: pm.createdBy || 'Admin'
-                  }))
+                .filter(pm => pm.isActive && pm.partName?.toLowerCase() === partName.toLowerCase())
+                .map(pm => ({
+                  id: pm.id,
+                  PM_Part_Name: pm.partName,
+                  PM_Process_Name: pm.processName,
+                  PM_Process_Name1: pm.processName1 || '',
+                  PM_Process_Order: pm.processOrder,
+                  TeamId: pm.teamId || '',
+                  Machine_Code: pm.machineCode || '',
+                  Machine_Name: pm.machineName || '',
+                  PM_Days: pm.days || '',
+                  PM_Hours: pm.hours || '',
+                  Minutes: pm.minutes || '',
+                  Setting_Time: pm.settingTime || '',
+                  Cycle_Time: pm.cycleTime || '',
+                  Handling_Time: pm.handlingTime || '',
+                  Idle_Time: pm.idleTime || '',
+                  CreatedBy: pm.createdBy || 'Admin'
+                }))
               : procList.filter(pm => pm.PM_Part_Name && pm.PM_Part_Name.toLowerCase() === partName.toLowerCase());
 
             const completedPct = getCompletedPct(partName, items, activeJobProcesses)
@@ -886,24 +888,23 @@ export default function ViewJobStatus() {
     }
   }
 
-  const [employees, setEmployees] = useState([])
+  const { data: empsRes = [] } = useEmployees()
+
+  const employees = empsRes
+
   const [machines, setMachines] = useState([])
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       try {
-        const [empRes, machRes, procRes, itemsRes] = await Promise.all([
-          api.get('/api/employee-master').catch(() => ({ data: { data: [] } })),
+        const [machRes, procRes] = await Promise.all([
           api.get('/api/machine-master').catch(() => ({ data: { data: [] } })),
-          api.get('/api/process-master').catch(() => ({ data: { data: [] } })),
-          api.get('/api/item-master?limit=10000').catch(() => ({ data: { data: [] } }))
+          api.get('/api/process-master').catch(() => ({ data: { data: [] } }))
         ])
-        setEmployees(empRes.data?.data || [])
         setMachines(machRes.data?.data || [])
         const procList = procRes.data?.data || []
         setProcessMasters(procList)
-        setItemMasterList(itemsRes.data?.data || [])
         await fetchJobs(procList)
       } catch (err) {
         console.error('Error loading master data in ViewJobStatus:', err)
@@ -928,24 +929,47 @@ export default function ViewJobStatus() {
 
   const selectedJob = jobs.find(j => j.id === selectedRow)
 
-  const getPartImage = () => {
-    if (!selectedJob) return null
+  useEffect(() => {
+    if (!selectedJob) {
+      setSelectedPartImage(null)
+      return
+    }
     const firstPart = selectedJob.partsList && selectedJob.partsList[0]
     const pNo = firstPart ? firstPart.partNo : selectedJob.partNo
     const pName = firstPart ? firstPart.productName : selectedJob.productName
-    const item = itemMasterList.find(it => it.partNo === pNo || it.partName === pName)
-    if (item) {
-      const hasImg = item.hasImage || !!item.imageMimeType
-      if (hasImg) {
-        return `/api/item-master/${item.id}/download-image`
-      } else if (item.imagePath) {
-        return item.imagePath.startsWith('http') || item.imagePath.startsWith('/') ? item.imagePath : `/uploads/${item.imagePath}`
+
+    if (!pNo && !pName) {
+      setSelectedPartImage(selectedJob.partImage || null)
+      return
+    }
+
+    const fetchImage = async () => {
+      try {
+        const query = pNo ? `search=${encodeURIComponent(pNo)}` : `search=${encodeURIComponent(pName)}`
+        const res = await api.get(`/api/item-master?${query}&limit=1`, { skipGlobalLoader: true })
+        const item = res.data?.data?.[0]
+        if (item) {
+          const hasImg = item.hasImage || !!item.imageMimeType
+          if (hasImg) {
+            setSelectedPartImage(`/api/item-master/${item.id}/download-image`)
+          } else if (item.imagePath) {
+            setSelectedPartImage(item.imagePath.startsWith('http') || item.imagePath.startsWith('/') ? item.imagePath : `/uploads/${item.imagePath}`)
+          } else {
+            setSelectedPartImage(selectedJob.partImage || null)
+          }
+        } else {
+          setSelectedPartImage(selectedJob.partImage || null)
+        }
+      } catch (err) {
+        console.error('Failed to fetch image for job:', err)
+        setSelectedPartImage(selectedJob.partImage || null)
       }
     }
-    return selectedJob.partImage || null
-  }
 
-  const partImage = getPartImage()
+    fetchImage()
+  }, [selectedJob])
+
+  const partImage = selectedPartImage
 
   const [showPopup, setShowPopup] = useState(false)
   const [popupForm, setPopupForm] = useState({
@@ -971,8 +995,8 @@ export default function ViewJobStatus() {
     const partProcesses = partDetail && partDetail.processMenus && partDetail.processMenus.length > 0
       ? partDetail.processMenus
       : processMasters
-          .filter(pm => pm.PM_Part_Name === partName)
-          .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
+        .filter(pm => pm.PM_Part_Name === partName)
+        .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
 
     const pIdx = partProcesses.findIndex(pm => pm.id === processMaster.id)
 
@@ -1148,8 +1172,8 @@ export default function ViewJobStatus() {
                 setSelectedRow(null)
               }}
               className={`flex items-center gap-2 px-4 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all ${activeTab === 'active'
-                  ? 'bg-white text-[#0097A7] shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-white text-[#0097A7] shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
                 }`}
             >
               <Activity size={13} />
@@ -1162,8 +1186,8 @@ export default function ViewJobStatus() {
                 setSelectedRow(null)
               }}
               className={`flex items-center gap-2 px-4 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all ${activeTab === 'closed'
-                  ? 'bg-white text-red-650 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-white text-red-650 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
                 }`}
             >
               <Archive size={13} />
@@ -1258,7 +1282,7 @@ export default function ViewJobStatus() {
               <div className="flex flex-col items-center gap-2 shrink-0">
                 <div className="w-80 h-56 bg-white border border-slate-200 rounded-lg flex items-center justify-center overflow-hidden shadow-md">
                   {partImage ? (
-                    <img
+                    <AuthenticatedImage
                       src={partImage}
                       alt="Part"
                       onClick={() => setZoomImage(partImage)}
@@ -1362,8 +1386,8 @@ export default function ViewJobStatus() {
                                     setFlowModalJob(j)
                                   }}
                                   className={`p-1 rounded-md transition-all inline-flex items-center justify-center hover:scale-110 active:scale-95 ${selectedRow === j.id
-                                      ? 'text-white bg-white/20 hover:bg-white/30'
-                                      : 'text-[#0097A7] bg-slate-100 hover:bg-[#0097A7]/10'
+                                    ? 'text-white bg-white/20 hover:bg-white/30'
+                                    : 'text-[#0097A7] bg-slate-100 hover:bg-[#0097A7]/10'
                                     }`}
                                   title="View Detailed Process Flow Chart & Analytics"
                                 >
@@ -1407,8 +1431,8 @@ export default function ViewJobStatus() {
                                                 const partProcesses = partDetail.processMenus && partDetail.processMenus.length > 0
                                                   ? partDetail.processMenus
                                                   : processMasters
-                                                      .filter(pm => pm.PM_Part_Name === partDetail.productName)
-                                                      .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
+                                                    .filter(pm => pm.PM_Part_Name === partDetail.productName)
+                                                    .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
 
                                                 return partProcesses.map((pm, pIdx) => {
                                                   const savedLi = partDetail.lineItems.find(li => li.processName === pm.PM_Process_Name)
@@ -1686,7 +1710,7 @@ export default function ViewJobStatus() {
             >
               <X className="w-4 h-4" />
             </button>
-            <img
+            <AuthenticatedImage
               src={zoomImage}
               alt="Zoomed"
               className="max-h-[85vh] max-w-full object-contain rounded-xl shadow-2xl"
@@ -1705,9 +1729,9 @@ export default function ViewJobStatus() {
           ? (partDetail.processMenus && partDetail.processMenus.length > 0
             ? partDetail.processMenus
             : processMasters
-                .filter(pm => pm.PM_Part_Name === partDetail.productName)
-                .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
-            )
+              .filter(pm => pm.PM_Part_Name === partDetail.productName)
+              .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
+          )
           : []
 
 
@@ -1748,8 +1772,8 @@ export default function ViewJobStatus() {
                         key={pIdx}
                         onClick={() => setSelectedPartIndex(pIdx)}
                         className={`px-4 py-2.5 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${selectedPartIndex === pIdx
-                            ? 'border-[#0097A7] text-[#0097A7] bg-[#0097A7]/5'
-                            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                          ? 'border-[#0097A7] text-[#0097A7] bg-[#0097A7]/5'
+                          : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
                           }`}
                       >
                         {part.productName} ({part.partNo})

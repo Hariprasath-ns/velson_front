@@ -68,11 +68,11 @@ export function AuthProvider({ children }) {
       // Ensure socket token is up-to-date and socket is connected
       if (socket.auth?.token !== auth.token) {
         socket.auth = { token: auth.token }
-        if (socket.connected) {
-          socket.disconnect().connect()
-        } else {
+        if (!socket.connected) {
           socket.connect()
         }
+        // If already connected, leave the connection alive — Socket.IO will
+        // use the updated socket.auth automatically on its next reconnect
       } else if (!socket.connected) {
         socket.connect()
       }

@@ -4,6 +4,7 @@ import {
   Search, ShieldAlert, Package, CircleDot, RefreshCw, Layers, Users, Calendar
 } from 'lucide-react'
 import api from '../services/api'
+import { useCustomers } from '../hooks/useMasterData'
 import { useToast } from '../components/Toast'
 
 // --- Custom Tooltip Component ---
@@ -33,8 +34,8 @@ const ChartTooltip = ({ active, payload, x, y, isCurrency = true }) => {
 
 export default function SalesDashboard() {
   const toast = useToast()
+  const { data: customers = [] } = useCustomers()
   const [quotations, setQuotations] = useState([])
-  const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   
   // Filters
@@ -52,12 +53,8 @@ export default function SalesDashboard() {
   const fetchSalesData = async () => {
     setLoading(true)
     try {
-      const [quotRes, custRes] = await Promise.all([
-        api.get('/api/quotation-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/customer-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
-      ])
-      setQuotations(quotRes)
-      setCustomers(custRes)
+      const res = await api.get('/api/quotation-master', { skipGlobalLoader: true })
+      setQuotations(res.data?.data || [])
     } catch (err) {
       console.error(err)
       toast.error('Failed to load sales metrics')

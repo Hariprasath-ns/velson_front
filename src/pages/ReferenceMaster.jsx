@@ -69,26 +69,12 @@ export default function ReferenceMaster() {
   useEffect(() => {
     let active = true
     const run = async () => {
-      if (!refType) { setTableData([]); setCode(''); return }
-      setLoading(true)
-      try {
-        const res = await api.get(`/api/reference-master/${encodeURIComponent(refType)}`)
-        if (!active) return
-        setTableData(res.data.data || [])
-        setCode(res.data.nextCode || '')
-        setDescription('')
-        setEditId(null)
-        setExpandedId(null)
-      } catch (err) {
-        console.error('[ReferenceMaster] fetch error:', err)
-        if (active) toast.error('Failed to fetch data')
-      } finally {
-        if (active) setLoading(false)
-      }
+      if (!active) return
+      await fetchReferenceData(refType)
     }
     run()
     return () => { active = false }
-  }, [refType]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refType, fetchReferenceData])
 
   const handleRefTypeChange = (val) => {
     setRefType(val)

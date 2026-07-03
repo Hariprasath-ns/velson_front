@@ -4,6 +4,7 @@ import {
   FileText, ClipboardCheck, LayoutGrid, Truck
 } from 'lucide-react'
 import api from '../services/api'
+import { useCustomers } from '../hooks/useMasterData'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
 
@@ -50,7 +51,7 @@ export default function QuotationSales() {
 
   // Form State
   const [billDate, setBillDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [customers, setCustomers] = useState([])
+  const { data: customers = [] } = useCustomers()
   const [customerName, setCustomerName] = useState('')
   const [customerId, setCustomerId] = useState(null)
   const [address, setAddress] = useState('')
@@ -144,12 +145,7 @@ export default function QuotationSales() {
     const fetchAllData = async () => {
       showLoader('Loading Data...')
       try {
-        const fetchCustomers = async () => {
-          const res = await api.get('/api/customer-master', { skipGlobalLoader: true })
-          if (res.data?.success) setCustomers(res.data.data || [])
-        }
         await Promise.all([
-          fetchCustomers(),
           fetchQuotations(),
           fetchItemMasters()
         ])

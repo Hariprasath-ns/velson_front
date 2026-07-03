@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  ChevronRight, X, Save, Trash2, Plus, 
+  ChevronRight, X, Save, Trash2, Plus,
   Wrench, ClipboardList, LayoutGrid, FileText, Eye, Printer
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import logo from '../assets/logo.png'
 import api from '../services/api'
+import { useCustomers, useVehicles, useServiceSpares, useServiceBookings, useMaterialIssues } from '../hooks/useMasterData'
 
 // Helper to format date as DD/MM/YYYY
 const formatDate = (dateStr) => {
@@ -73,17 +74,24 @@ export default function ServiceBillEntry() {
   const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
-  
+
   // Edit mode from router state
   const editId = location.state?.id || location.state?.editId || null
 
-  // Master Data State
-  const [customers, setCustomers] = useState([])
-  const [vehicles, setVehicles] = useState([])
-  const [serviceSpares, setServiceSpares] = useState([])
-  const [itemMaster, setItemMaster] = useState([])
-  const [bookingEntries, setBookingEntries] = useState([])
-  const [materialIssues, setMaterialIssues] = useState([])
+  // Master Data (React Query hooks)
+  const { data: custsRes = [] } = useCustomers()
+  const { data: vehsRes = [] } = useVehicles()
+  const { data: sparesRes = [] } = useServiceSpares()
+  const { data: bookingRes = [] } = useServiceBookings()
+  const { data: issueRes = [] } = useMaterialIssues()
+
+  const customers = custsRes
+  const vehicles = vehsRes
+  const serviceSpares = sparesRes
+  const bookingEntries = bookingRes
+  const materialIssues = issueRes
+
+  // Existing Bills State
   const [existingBills, setExistingBills] = useState([])
 
   // Form Header State
@@ -135,22 +143,8 @@ export default function ServiceBillEntry() {
   useEffect(() => {
     const loadMasterData = async () => {
       try {
-        const [custRes, vehRes, spareRes, beRes, itemRes, issueRes, billsRes] = await Promise.all([
-          api.get('/api/customer-master'),
-          api.get('/api/vehicle-master'),
-          api.get('/api/service-spare'),
-          api.get('/api/service-booking'),
-          api.get('/api/item-master?limit=10000', { loadingMessage: 'Loading items...' }),
-          api.get('/api/material-issue'),
-          api.get('/api/service-bill').catch(() => ({ data: { data: [] } }))
-        ])
+        const billsRes = await api.get('/api/service-bill').catch(() => ({ data: { data: [] } }))
 
-        if (custRes.data?.success) setCustomers(custRes.data.data || [])
-        if (vehRes.data?.success) setVehicles(vehRes.data.data || [])
-        if (spareRes.data?.success) setServiceSpares(spareRes.data.data || [])
-        if (itemRes.data?.success) setItemMaster(itemRes.data.data || [])
-        if (beRes.data?.success) setBookingEntries(beRes.data.data || [])
-        if (issueRes.data?.success) setMaterialIssues(issueRes.data.data || [])
         if (billsRes?.data?.success) setExistingBills(billsRes.data.data || [])
 
         if (editId) {
@@ -158,8 +152,8 @@ export default function ServiceBillEntry() {
           const billRes = await api.get(`/api/service-bill/${editId}`)
           if (billRes.data?.success && billRes.data.data) {
             const bill = billRes.data.data
-            const veh = vehRes.data.data
-            const bok = beRes.data.data
+            const veh = vehicles
+            const bok = bookingEntries
             setForm({
               refNo: bill.refNo || '',
               billDate: bill.billDate ? new Date(bill.billDate).toISOString().split('T')[0] : '',
@@ -219,14 +213,14 @@ export default function ServiceBillEntry() {
   const handleInputChange = (field, val) => {
     setForm(prev => {
       const updated = { ...prev, [field]: val }
-      
+
       // Auto-populate when Customer changes
       if (field === 'partyName') {
         const custMatch = customers.find(c => c.customerName === val)
         if (custMatch) {
           updated.cusCode = custMatch.cCode || ''
           updated.address = [custMatch.address, custMatch.address2, custMatch.address3, custMatch.city].filter(Boolean).join(', ')
-          
+
           // Fetch associated vehicles and auto select the first one if only one exists
           const clientVehicles = vehicles.filter(v => v.customerId === custMatch.id)
           if (clientVehicles.length === 1) {
@@ -276,7 +270,7 @@ export default function ServiceBillEntry() {
           updated.vehicleName = spareMatch.vehicleName || ''
           updated.serialNo = spareMatch.serialNo || ''
           updated.servicePartNo = spareMatch.servicePartNo || ''
-          
+
           const custMatch = customers.find(c => c.customerName === spareMatch.customerName || c.cCode === spareMatch.customerCode)
           if (custMatch) {
             updated.address = [custMatch.address, custMatch.address2, custMatch.address3, custMatch.city].filter(Boolean).join(', ')
@@ -288,18 +282,18 @@ export default function ServiceBillEntry() {
           if (spareMatch.items && spareMatch.items.length > 0) {
             const matchedBooking = bookingEntries.find(b => b.serviceJobNo === spareMatch.serviceJobNo)
             const bCode = matchedBooking ? String(matchedBooking.bookingId) : (spareMatch.bookingCustomerCode || '')
-            
+
             const loadedRows = spareMatch.items.map((item, idx) => {
               const matchedItem = itemMaster.find(im => im.partName?.toLowerCase() === item.partName?.toLowerCase())
               const pNo = matchedItem?.partNo || ''
-              
+
               // Find issueNo from materialIssues matching customer and item
               const matchedIssue = materialIssues.find(issue => {
-                const isSameCustomer = 
+                const isSameCustomer =
                   (issue.customerCode && issue.customerCode === spareMatch.customerCode) ||
                   (issue.customerName && issue.customerName?.toLowerCase() === spareMatch.customerName?.toLowerCase());
                 if (!isSameCustomer) return false;
-                return issue.items.some(i => 
+                return issue.items.some(i =>
                   (pNo && i.partNo?.toLowerCase() === pNo.toLowerCase()) ||
                   (item.partName && i.partName?.toLowerCase() === item.partName?.toLowerCase())
                 );
@@ -348,11 +342,11 @@ export default function ServiceBillEntry() {
 
             // Lookup issueNo from materialIssues matching customer and item
             const matchedIssue = materialIssues.find(issue => {
-              const isSameCustomer = 
+              const isSameCustomer =
                 (issue.customerCode && issue.customerCode === form.cusCode) ||
                 (issue.customerName && issue.customerName?.toLowerCase() === form.partyName?.toLowerCase());
               if (!isSameCustomer) return false;
-              return issue.items.some(i => 
+              return issue.items.some(i =>
                 (matchedItem.partNo && i.partNo?.toLowerCase() === matchedItem.partNo.toLowerCase()) ||
                 (val && i.partName?.toLowerCase() === val.toLowerCase())
               );
@@ -429,7 +423,7 @@ export default function ServiceBillEntry() {
     const rate = Number(row.rate) || 0
     const labour = Number(row.labourCharge) || 0
     const rowAmt = (qty * rate) + labour
-    
+
     acc.materialCost += (qty * rate)
     acc.labourCharge += labour
     acc.totalAmt += rowAmt
@@ -517,15 +511,15 @@ export default function ServiceBillEntry() {
 
   // Filter vehicles by selected customer
   const selectedCustomerRecord = customers.find(c => c.customerName === form.partyName)
-  const filteredVehicles = selectedCustomerRecord 
+  const filteredVehicles = selectedCustomerRecord
     ? vehicles.filter(v => v.customerId === selectedCustomerRecord.id)
     : vehicles
 
   // Filter out serviceJobNo options that already have active service bills (excluding current editId)
   const filteredServiceSpares = serviceSpares.filter(spare => {
-    const hasActiveBill = existingBills.some(b => 
-      b.serviceJobNo === spare.serviceJobNo && 
-      b.status !== 'Cancelled' && 
+    const hasActiveBill = existingBills.some(b =>
+      b.serviceJobNo === spare.serviceJobNo &&
+      b.status !== 'Cancelled' &&
       (!editId || b.id !== Number(editId))
     );
     return !hasActiveBill;
@@ -533,7 +527,7 @@ export default function ServiceBillEntry() {
 
   return (
     <div className="h-[calc(100vh-46px)] w-full flex flex-col overflow-hidden bg-slate-50 text-slate-800">
-      
+
       {/* 1. Static Top Header Bar */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-3">
@@ -553,7 +547,7 @@ export default function ServiceBillEntry() {
 
       {/* 2. Scrollable Middle Content Container */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        
+
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
             <div className="w-1.5 h-3.5 bg-red-700 rounded-sm" />
@@ -563,7 +557,7 @@ export default function ServiceBillEntry() {
           {/* Form Section (3 Columns) */}
           <div className="bg-slate-50/50 p-3 rounded-lg border border-slate-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 items-start">
-              
+
               {/* Column 1: Billing Core */}
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-2">
@@ -582,7 +576,7 @@ export default function ServiceBillEntry() {
                 </div>
                 <div>
                   <Label required>Customer Name</Label>
-                  <Select 
+                  <Select
                     placeholder="-- Select Customer --"
                     options={customers.map(c => ({ value: c.customerName, label: c.customerName }))}
                     value={form.partyName}
@@ -613,7 +607,7 @@ export default function ServiceBillEntry() {
                 </div>
                 <div>
                   <Label>Service Job .No</Label>
-                  <Select 
+                  <Select
                     placeholder="-- Select Service Job --"
                     options={filteredServiceSpares.map(s => ({ value: s.serviceJobNo, label: s.serviceJobNo }))}
                     value={form.serviceJobNo}
@@ -634,7 +628,7 @@ export default function ServiceBillEntry() {
               <div className="space-y-2">
                 <div>
                   <Label>Vehicle No</Label>
-                  <Select 
+                  <Select
                     placeholder="-- Select Vehicle No --"
                     options={filteredVehicles.map(v => ({ value: v.vehicleNumber, label: v.vehicleNumber }))}
                     value={form.vehicleNo}
@@ -704,157 +698,157 @@ export default function ServiceBillEntry() {
                     <tr key={index} className="hover:bg-[#f0f9fa]/40 transition-colors group">
                       {/* Action */}
                       <td className="px-2 py-1.5 border-r border-slate-200 text-center">
-                        <button 
+                        <button
                           onClick={() => handleDeleteRowIndex(index)}
                           className="text-rose-500 hover:text-rose-700 transition-colors"
                         >
                           <Trash2 size={14} />
                         </button>
                       </td>
-                      
+
                       {/* S.No */}
                       <td className="px-2 py-1.5 border-r border-slate-200 text-center font-bold text-slate-600 italic">{row.slNo}</td>
-                      
+
                       {/* Item Name */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.itemName} 
-                          onChange={e => handleRowChange(index, 'itemName', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded" 
+                        <input
+                          value={row.itemName}
+                          onChange={e => handleRowChange(index, 'itemName', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded"
                         />
                       </td>
-                      
+
                       {/* Barcode */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.barcode} 
-                          onChange={e => handleRowChange(index, 'barcode', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.barcode}
+                          onChange={e => handleRowChange(index, 'barcode', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* UOM */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.uom} 
-                          onChange={e => handleRowChange(index, 'uom', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.uom}
+                          onChange={e => handleRowChange(index, 'uom', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* Qty */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          type="number" 
-                          value={row.qty} 
-                          onChange={e => handleRowChange(index, 'qty', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center font-semibold" 
+                        <input
+                          type="number"
+                          value={row.qty}
+                          onChange={e => handleRowChange(index, 'qty', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center font-semibold"
                         />
                       </td>
-                      
+
                       {/* Rate */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          type="number" 
-                          value={row.rate} 
-                          onChange={e => handleRowChange(index, 'rate', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center font-semibold" 
+                        <input
+                          type="number"
+                          value={row.rate}
+                          onChange={e => handleRowChange(index, 'rate', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center font-semibold"
                         />
                       </td>
-                      
+
                       {/* Labour Charge */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          type="number" 
-                          value={row.labourCharge} 
-                          onChange={e => handleRowChange(index, 'labourCharge', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center font-semibold text-[#0097A7]" 
+                        <input
+                          type="number"
+                          value={row.labourCharge}
+                          onChange={e => handleRowChange(index, 'labourCharge', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center font-semibold text-[#0097A7]"
                         />
                       </td>
-                      
+
                       {/* Total Amt (Calculated) */}
                       <td className="px-2 py-1.5 border-r border-slate-200 text-center font-bold text-slate-700">
                         {rowTotal.toFixed(2)}
                       </td>
-                      
+
                       {/* Issue No */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.issueNo} 
-                          onChange={e => handleRowChange(index, 'issueNo', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.issueNo}
+                          onChange={e => handleRowChange(index, 'issueNo', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* Job No */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.jobNo} 
-                          onChange={e => handleRowChange(index, 'jobNo', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.jobNo}
+                          onChange={e => handleRowChange(index, 'jobNo', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* Receiver */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.receiver} 
-                          onChange={e => handleRowChange(index, 'receiver', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.receiver}
+                          onChange={e => handleRowChange(index, 'receiver', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* MI_Re */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.miRe} 
-                          onChange={e => handleRowChange(index, 'miRe', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.miRe}
+                          onChange={e => handleRowChange(index, 'miRe', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* Booking Code */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.bookingCode} 
-                          onChange={e => handleRowChange(index, 'bookingCode', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.bookingCode}
+                          onChange={e => handleRowChange(index, 'bookingCode', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* Vehicle Type */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.vehicleType} 
-                          onChange={e => handleRowChange(index, 'vehicleType', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.vehicleType}
+                          onChange={e => handleRowChange(index, 'vehicleType', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* Service_M */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.serviceM} 
-                          onChange={e => handleRowChange(index, 'serviceM', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.serviceM}
+                          onChange={e => handleRowChange(index, 'serviceM', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* M.Item_Na */}
                       <td className="p-0 border-r border-slate-200">
-                        <input 
-                          value={row.mItemNa} 
-                          onChange={e => handleRowChange(index, 'mItemNa', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.mItemNa}
+                          onChange={e => handleRowChange(index, 'mItemNa', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
-                      
+
                       {/* Print OrderNo */}
                       <td className="p-0">
-                        <input 
-                          value={row.printOrderNo} 
-                          onChange={e => handleRowChange(index, 'printOrderNo', e.target.value)} 
-                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center" 
+                        <input
+                          value={row.printOrderNo}
+                          onChange={e => handleRowChange(index, 'printOrderNo', e.target.value)}
+                          className="w-full bg-transparent border-0 px-2 py-1 text-[13px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#0097A7] rounded text-center"
                         />
                       </td>
                     </tr>
@@ -883,26 +877,26 @@ export default function ServiceBillEntry() {
       {/* 3. Fixed Bottom Action Bar */}
       <div className="bg-white border-t border-slate-200 px-6 py-3.5 flex items-center justify-between shrink-0 shadow-[0_-3px_12px_rgba(0,0,0,0.04)] z-10">
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={handleSave}
             className="flex items-center gap-1.5 px-6 py-2 bg-[#0097A7] hover:bg-[#007a87] text-white text-[13px] font-bold rounded shadow transition-all active:scale-95"
           >
             <Save size={15} /> Save Bill
           </button>
-          <button 
+          <button
             onClick={() => setShowPreview(true)}
             className="flex items-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-bold rounded transition-colors shadow-sm active:scale-95"
           >
             <Eye size={15} /> Preview Bill
           </button>
-          <button 
+          <button
             onClick={handleDeleteRow}
             className="flex items-center gap-1.5 px-4 py-2 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 text-[13px] font-bold rounded transition-colors shadow-sm active:scale-95"
           >
             <Trash2 size={15} /> Clear All Rows
           </button>
         </div>
-        
+
         <div className="flex gap-6 text-[12px] font-bold text-slate-700 uppercase bg-slate-50 px-5 py-2 rounded-lg border border-slate-200">
           <div className="border-slate-200 flex items-center gap-2">
             <span>Net Amt:</span>
@@ -971,16 +965,16 @@ export default function ServiceBillEntry() {
               }
             }
           `}</style>
-          
+
           <div className="bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col no-print-container">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between bg-slate-900 text-white px-6 py-3 no-print">
               <div className="flex items-center gap-2">
                 <FileText className="text-amber-400 w-5 h-5" />
                 <span className="text-sm font-bold uppercase tracking-wider">Service Bill Invoice Preview</span>
               </div>
-              <button 
+              <button
                 onClick={() => setShowPreview(false)}
                 className="text-white/70 hover:text-white transition-colors"
               >
@@ -991,14 +985,14 @@ export default function ServiceBillEntry() {
             {/* Modal Content - Scrollable Canvas */}
             <div className="p-8 overflow-y-auto flex-1 bg-slate-700 flex justify-center items-start no-print-content-wrapper">
               {/* White A4 Sheet */}
-              <div 
-                id="printable-invoice" 
+              <div
+                id="printable-invoice"
                 className="bg-white text-black p-8 shadow-2xl border border-black w-full max-w-[794px] min-h-[1123px] font-sans flex flex-col justify-between"
                 style={{ boxSizing: 'border-box' }}
               >
                 <div className="flex-1 flex flex-col justify-between">
                   <div className="space-y-4">
-                    
+
                     {/* Header Branding Box */}
                     <div className="border border-black p-4 flex items-center">
                       <div className="flex-grow text-center">
@@ -1036,7 +1030,7 @@ export default function ServiceBillEntry() {
                     {/* Items Grid Table */}
                     <table className="w-full text-left border-collapse border border-black text-[12px]">
                       <thead>
-                        <tr className="border-b border-black font-bold align-middle" style={{ height: '30px', left: '0'}}>
+                        <tr className="border-b border-black font-bold align-middle" style={{ height: '30px', left: '0' }}>
                           <th className="border-r border-black px-2 py-1 text-center w-[6%]">S.No</th>
                           <th className="border-r border-black px-3 py-1 text-center w-[38%]">Description of Goods</th>
                           <th className="border-r border-black px-2 py-1 text-center w-[8%]">Qty</th>
@@ -1123,13 +1117,13 @@ export default function ServiceBillEntry() {
                 Use Ctrl+P or the Print button to print this page.
               </span>
               <div className="flex items-center gap-3">
-                <button 
+                <button
                   onClick={handlePrint}
                   className="flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-bold rounded-lg transition-colors shadow-md active:scale-95"
                 >
                   <Printer size={15} /> Print Invoice
                 </button>
-                <button 
+                <button
                   onClick={() => setShowPreview(false)}
                   className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-white text-[12px] font-bold rounded-lg transition-colors active:scale-95"
                 >

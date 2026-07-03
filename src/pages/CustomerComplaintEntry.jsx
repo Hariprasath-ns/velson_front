@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Save, X, CheckCircle2, Trash2, Plus, ImageIcon } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useCustomers, useVehicles, useEmployees } from '../hooks/useMasterData'
 import { SpinnerLoader } from '../components/LocalLoader'
 
 
@@ -204,10 +205,14 @@ export default function CustomerComplaintEntry() {
   const [images, setImages] = useState([])
   const [previewImage, setPreviewImage] = useState(null)
   
-  // Masters state
-  const [customers, setCustomers] = useState([])
-  const [vehicles, setVehicles] = useState([])
-  const [employees, setEmployees] = useState([])
+  // Masters state (React Query hooks)
+  const { data: custsRes = [] } = useCustomers()
+  const { data: vehsRes = [] } = useVehicles()
+  const { data: empsRes = [] } = useEmployees()
+
+  const customers = custsRes
+  const vehicles = vehsRes
+  const employees = empsRes
   
   // Loading states
   const [loading, setLoading] = useState(false)
@@ -245,28 +250,7 @@ export default function CustomerComplaintEntry() {
     chooseOption: ''
   })
 
-  // Load masters on mount
-  useEffect(() => {
-    const loadMasters = async () => {
-      setLoading(true)
-      try {
-        const [custRes, vehRes, empRes] = await Promise.all([
-          api.get('/api/customer-master').catch(() => ({ data: { data: [] } })),
-          api.get('/api/vehicle-master').catch(() => ({ data: { data: [] } })),
-          api.get('/api/employee-master').catch(() => ({ data: { data: [] } }))
-        ])
-        setCustomers(custRes.data?.data || [])
-        setVehicles(vehRes.data?.data || [])
-        setEmployees(empRes.data?.data || [])
-      } catch (err) {
-        console.error('Failed to load masters:', err)
-        toast.error('Failed to load masters data.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadMasters()
-  }, [])
+
 
   // Generate CC code based on Date
   const fetchNextCcNo = async (dateStr) => {

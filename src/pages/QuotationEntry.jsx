@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import { useCustomers, useReferenceMaster } from '../hooks/useMasterData'
 import { ChevronRight, Plus, Trash2, Send, X, RefreshCw, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { SpinnerLoader } from '../components/LocalLoader'
@@ -55,12 +56,18 @@ export default function QuotationEntry() {
   const isRevisionMode = pageData?.mode === 'revision'
 
   /* master data */
-  const [customers, setCustomers]     = useState([])
-  const [currencies, setCurrencies]   = useState([])
-  const [modelOptions, setModelOptions]   = useState([])
-  const [taxTypeOptions, setTaxTypeOptions]         = useState([])
-  const [quotationTypeOptions, setQuotationTypeOptions] = useState([])
-  const [masterLoading, setMasterLoading]  = useState(true)
+  const { data: custsRes = [], isLoading: custsLoading } = useCustomers()
+  const { data: currRes = [], isLoading: currLoading } = useReferenceMaster('Currency')
+  const { data: modelRes = [], isLoading: modelLoading } = useReferenceMaster('Vehicle_Type')
+  const { data: taxRes = [], isLoading: taxLoading } = useReferenceMaster('Tax Type')
+  const { data: quotTypeRes = [], isLoading: qTypeLoading } = useReferenceMaster('Quotation_Type')
+
+  const customers = custsRes
+  const currencies = currRes
+  const modelOptions = modelRes
+  const taxTypeOptions = taxRes
+  const quotationTypeOptions = quotTypeRes
+  const masterLoading = custsLoading || currLoading || modelLoading || taxLoading || qTypeLoading
 
   /* form */
   const [form, setForm]     = useState(emptyForm)
@@ -87,59 +94,16 @@ export default function QuotationEntry() {
 
   /* ── load master data on mount ─────────────────────────────────────────── */
   useEffect(() => {
-    const fetchAll = async () => {
-      setMasterLoading(true)
+    const fetchNextNo = async () => {
       try {
-        const [custRes, currRes, modelRes, taxRes, quotTypeRes, nextNoRes] = await Promise.allSettled([
-          api.get('/api/customer-master', { skipGlobalLoader: true }),
-          api.get('/api/reference-master/Currency', { skipGlobalLoader: true }),
-          api.get('/api/reference-master/Vehicle_Type', { skipGlobalLoader: true }),
-          api.get('/api/reference-master/Tax%20Type', { skipGlobalLoader: true }),
-          api.get('/api/reference-master/Quotation_Type', { skipGlobalLoader: true }),
-          api.get('/api/quotation-master/next-no', { skipGlobalLoader: true }),
-        ])
-
-        if (custRes.status === 'fulfilled') {
-          setCustomers(custRes.value.data?.data || [])
-        } else {
-          console.error('[QuotationEntry] customer-master fetch error:', custRes.reason)
-        }
-
-        if (currRes.status === 'fulfilled') {
-          setCurrencies(currRes.value.data?.data || [])
-        } else {
-          console.error('[QuotationEntry] Currency reference fetch error:', currRes.reason)
-        }
-
-        if (modelRes.status === 'fulfilled') {
-          setModelOptions(modelRes.value.data?.data || [])
-        } else {
-          console.error('[QuotationEntry] Vehicle_Type reference fetch error:', modelRes.reason)
-        }
-
-        if (taxRes.status === 'fulfilled') {
-          setTaxTypeOptions(taxRes.value.data?.data || [])
-        } else {
-          console.error('[QuotationEntry] Tax_Type reference fetch error:', taxRes.reason)
-        }
-
-        if (quotTypeRes.status === 'fulfilled') {
-          setQuotationTypeOptions(quotTypeRes.value.data?.data || [])
-        } else {
-          console.error('[QuotationEntry] Quotation_type reference fetch error:', quotTypeRes.reason)
-        }
-
-        if (nextNoRes.status === 'fulfilled') {
-          const { quotationNo, financialYear } = nextNoRes.value.data
-          setForm(f => ({ ...f, quotationNo, financialYear }))
-        } else {
-          console.error('[QuotationEntry] next-no fetch error:', nextNoRes.reason)
-        }
-      } finally {
-        setMasterLoading(false)
+        const res = await api.get('/api/quotation-master/next-no', { skipGlobalLoader: true })
+        const { quotationNo, financialYear } = res.data
+        setForm(f => ({ ...f, quotationNo, financialYear }))
+      } catch (err) {
+        console.error('[QuotationEntry] next-no fetch error:', err)
       }
     }
-    fetchAll()
+    fetchNextNo()
   }, [])
 
   /* ── pre-fill from revision/edit (triggered from QuotationDetails) ── */

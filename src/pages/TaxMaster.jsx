@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
+import { useTaxes } from '../hooks/useMasterData'
 import { X, Save, Edit, Trash2, Info, ChevronRight, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { TableSkeleton } from '../components/LocalLoader'
@@ -55,12 +56,18 @@ function DetailModal({ row, onClose }) {
         </div>
       </div>
     </div>
-  )
-}
-
+  )}
 export default function TaxMaster({ onNavigate }) {
   const toast = useToast()
+  const { data: taxesData = [], refetch: refetchTaxes, isLoading: isTaxesLoading } = useTaxes()
+
   const [rows, setRows] = useState([])
+  useEffect(() => {
+    if (taxesData) {
+      setRows(taxesData)
+    }
+  }, [taxesData])
+
   const [ledgers, setLedgers] = useState([])
   const [formData, setFormData] = useState(emptyForm)
   const [editId, setEditId] = useState(null)
@@ -69,20 +76,8 @@ export default function TaxMaster({ onNavigate }) {
   const [page, setPage] = useState(1)
   const [detailRow, setDetailRow] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [tableLoading, setTableLoading] = useState(false)
+  const tableLoading = isTaxesLoading
   const [deleteId, setDeleteId] = useState(null)
-
-  const fetchAll = async () => {
-    setTableLoading(true)
-    try {
-      const res = await api.get('/api/tax-master')
-      if (res.data.success) setRows(res.data.data)
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to load tax masters')
-    } finally {
-      setTableLoading(false)
-    }
-  }
 
   const fetchLedgers = async () => {
     try {
@@ -94,7 +89,6 @@ export default function TaxMaster({ onNavigate }) {
   }
 
   useEffect(() => {
-    fetchAll()
     fetchLedgers()
   }, [])
 
@@ -140,7 +134,7 @@ export default function TaxMaster({ onNavigate }) {
       setFormData(emptyForm)
       setEditId(null)
       setPage(1)
-      await fetchAll()
+      refetchTaxes()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Operation failed')
     } finally {
@@ -172,7 +166,7 @@ export default function TaxMaster({ onNavigate }) {
     try {
       await api.delete(`/api/tax-master/${id}`)
       toast.success('Deleted successfully')
-      await fetchAll()
+      refetchTaxes()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Delete failed')
     } finally {

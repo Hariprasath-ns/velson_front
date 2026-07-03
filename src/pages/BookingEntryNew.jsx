@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useCustomers, useVehicles, useServiceBookings, useReferenceMaster } from '../hooks/useMasterData'
 
 // ── Ultra-compact, premium UI primitives ──
 const Label = ({ children, required }) => (
@@ -206,10 +207,24 @@ export default function BookingEntryNew() {
     }
   }, [fetchedVehicleNo, location.state])
 
+  const { data: bookingsData = [], refetch: refetchBookings } = useServiceBookings()
+  const { data: customersData = [] } = useCustomers()
+  const { data: vehiclesData = [] } = useVehicles()
+  const { data: statusesData = [] } = useReferenceMaster('Booking_Status')
+
   const [bookings, setBookings] = useState([])
-  const [customers, setCustomers] = useState([])
-  const [vehicles, setVehicles] = useState([])
-  const [statuses, setStatuses] = useState(['Open', 'Close'])
+  useEffect(() => {
+    if (bookingsData) {
+      setBookings(bookingsData)
+    }
+  }, [bookingsData])
+
+  const customers = customersData
+  const vehicles = vehiclesData
+  const statuses = useMemo(() => {
+    const list = statusesData.map(r => r.description).filter(Boolean)
+    return list.length > 0 ? list : ['Open', 'Close']
+  }, [statusesData])
 
   const [editingId, setEditingId] = useState(null)
   const [isEditUnlocked, setIsEditUnlocked] = useState(false)
@@ -266,60 +281,21 @@ export default function BookingEntryNew() {
   const [filterBookingDate, setFilterBookingDate] = useState('')
 
   useEffect(() => {
-    const loadAllData = async () => {
-      try {
-        const [bookingsRes, customersRes, vehiclesRes, statusesRes] = await Promise.all([
-          api.get('/api/service-booking').catch(err => {
-            console.warn('Failed to fetch service bookings', err)
-            return { data: { data: [] } }
-          }),
-          api.get('/api/customer-master').catch(err => {
-            console.error('Failed to fetch customers', err)
-            return { data: { data: [] } }
-          }),
-          api.get('/api/vehicle-master').catch(err => {
-            console.error('Failed to fetch vehicles', err)
-            return { data: { data: [] } }
-          }),
-          api.get('/api/reference-master/Booking_Status').catch(err => {
-            console.error('Failed to fetch status options', err)
-            return { data: { data: [] } }
-          })
-        ])
+    if (bookingsData) {
+      const nextBookingId = bookingsData.length > 0
+        ? Math.max(...bookingsData.map(b => parseInt(b.bookingId, 10)).filter(num => !isNaN(num))) + 1
+        : 1
+      const todayStr = new Date().toISOString().split('T')[0]
+      const nextJobNo = generateJobNumber(todayStr, bookingsData)
 
-        const parsedBookings = bookingsRes.data?.data || []
-        setBookings(parsedBookings)
-
-        const parsedCustomers = customersRes.data?.data || []
-        setCustomers(parsedCustomers)
-
-        const parsedVehicles = vehiclesRes.data?.data || []
-        setVehicles(parsedVehicles)
-
-        // Connect status filter dropdown options to reference master (Booking_Status)
-        const loadedStatuses = (statusesRes.data?.data || []).map(r => r.description).filter(Boolean)
-        if (loadedStatuses.length > 0) {
-          setStatuses(loadedStatuses)
-        }
-
-        const nextBookingId = parsedBookings.length > 0
-          ? Math.max(...parsedBookings.map(b => parseInt(b.bookingId, 10)).filter(num => !isNaN(num))) + 1
-          : 1
-        const todayStr = new Date().toISOString().split('T')[0]
-        const nextJobNo = generateJobNumber(todayStr, parsedBookings)
-
-        setForm(f => ({
-          ...f,
-          bookingId: nextBookingId,
-          bookingDate: todayStr,
-          serviceJobNo: nextJobNo
-        }))
-      } catch (err) {
-        console.error('Failed to load initial data', err)
-      }
+      setForm(f => ({
+        ...f,
+        bookingId: nextBookingId,
+        bookingDate: todayStr,
+        serviceJobNo: nextJobNo
+      }))
     }
-    loadAllData()
-  }, [])
+  }, [bookingsData])
 
   // Dynamic reactive filtering whenever search queries or advanced filters change
   useEffect(() => {
@@ -514,6 +490,7 @@ export default function BookingEntryNew() {
 
       setBookings(updatedBookings)
       setFilteredBookings(updatedBookings)
+      refetchBookings()
       handleClear(updatedBookings)
     } catch (err) {
       console.error('Failed to save booking', err)
@@ -553,6 +530,7 @@ export default function BookingEntryNew() {
         const updated = bookings.filter(b => b.id !== id)
         setBookings(updated)
         setFilteredBookings(updated)
+        refetchBookings()
         toast.error('Booking deleted successfully.')
         handleClear(updated)
       } catch (err) {

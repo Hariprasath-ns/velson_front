@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronRight, Plus, Trash2, Send, X } from 'lucide-react'
+import { ChevronRight, Plus, Trash2, Send, X, Save } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
-import { SpinnerLoader } from '../components/LocalLoader'
 import { useModulePermission } from '../hooks/useModulePermission'
-
-const PO_TYPES = ['Purchase Order','Purchase Return','Job Work']
+import api from '../services/api'
+import {
+  useReferenceMaster,
+  useSuppliers,
+  usePurchaseRequests
+} from '../hooks/useMasterData'
+import { useQueryClient } from '@tanstack/react-query'
+import ItemSearchInput from '../components/ItemSearchInput'
 
 const FIELD_REF_TYPES = {
   freight:       'PO Freight',
@@ -45,8 +50,41 @@ const ComboInput = ({ id, value, onChange, className, placeholder, suggestions =
 
 export default function PurchaseOrderEntry() {
   const toast = useToast()
+  const queryClient = useQueryClient()
   const { show: showLoader, hide: hideLoader } = useLoading()
   const { canSave, canEdit } = useModulePermission('purchase-order')
+
+  // React Query hooks for Reference Master
+  const { data: suppliersRaw = [] } = useSuppliers()
+const { data: purchaseRequestsRaw = [] } = usePurchaseRequests()
+
+
+  const { data: poTypesRes = [] } = useReferenceMaster('PO Type')
+  const { data: poFreightRes = [] } = useReferenceMaster('PO Freight')
+  const { data: poDestinationRes = [] } = useReferenceMaster('PO Destination')
+  const { data: poPaymentTermsRes = [] } = useReferenceMaster('PO Payment Terms')
+  const { data: poTestReportRes = [] } = useReferenceMaster('PO Test Report')
+  const { data: poProjectRes = [] } = useReferenceMaster('PO Project')
+  const { data: poModeOfDespatchRes = [] } = useReferenceMaster('PO Mode Of Despatch')
+
+  // Map to simple description arrays
+  const poTypes = poTypesRes.map(r => r.description).filter(Boolean)
+  const poFreight = poFreightRes.map(r => r.description).filter(Boolean)
+  const poDestination = poDestinationRes.map(r => r.description).filter(Boolean)
+  const poPaymentTerms = poPaymentTermsRes.map(r => r.description).filter(Boolean)
+  const poTestReport = poTestReportRes.map(r => r.description).filter(Boolean)
+  const poProject = poProjectRes.map(r => r.description).filter(Boolean)
+  const poModeOfDespatch = poModeOfDespatchRes.map(r => r.description).filter(Boolean)
+
+  const fieldSuggestions = {
+    freight: poFreight,
+    destination: poDestination,
+    paymentTerms: poPaymentTerms,
+    testReport: poTestReport,
+    project: poProject,
+    modeOfDespatch: poModeOfDespatch
+  }
+
   const [form, setForm] = useState({
     supplierId: null,
     supplierName: '', supplierAddress: '', contactPerson: '', contactNumber: '',
@@ -55,24 +93,34 @@ export default function PurchaseOrderEntry() {
     discountType: 'Dis_Per',
   })
   const [items, setItems] = useState([emptyItem()])
-  const [suppliersData, setSuppliersData] = useState([])
-  const [suppliers, setSuppliers] = useState([])
-  const [itemsData, setItemsData] = useState([])
-  const [purchaseRequests, setPurchaseRequests] = useState([])
-  const [poTypes, setPoTypes] = useState(PO_TYPES)
-  const [loadingDropdowns, setLoadingDropdowns] = useState(true)
+  // const [suppliersData, setSuppliersData] = useState([])
+  // const [suppliers, setSuppliers] = useState([])
+  // const [purchaseRequests, setPurchaseRequests] = useState([])
+  const suppliersData = suppliersRaw
+const suppliers = suppliersRaw.map(s => s.supplierName)
+const purchaseRequests = purchaseRequestsRaw.map(pr => pr.prNo)
   const [submitting, setSubmitting] = useState(false)
-  const [fieldSuggestions, setFieldSuggestions] = useState({ freight: [], destination: [], paymentTerms: [], testReport: [], project: [], modeOfDespatch: [] })
   const [fromPRApproval, setFromPRApproval] = useState(false)
   const [editPoId, setEditPoId] = useState(null)
 
   const fetchNextPoNo = async () => {
     try {
-      const res = await fetch('/api/purchase-master/next-no')
-      const json = await res.json()
-      if (json.success) setField('poNumber', json.poNo)
+      const res = await api.get('/api/purchase-master/next-no')
+      if (res.data?.success) setField('poNumber', res.data.poNo)
     } catch (err) {
       console.error('Error fetching next PO number:', err)
+    }
+  }
+
+  const fetchItemMasterByCode = async (itemCode) => {
+    if (!itemCode) return null
+    try {
+      const res = await api.get(`/api/item-master?search=${encodeURIComponent(itemCode)}&limit=1`, { skipGlobalLoader: true })
+      const items = res.data?.data || []
+      return items.find(it => it.partNo === itemCode) || items[0] || null
+    } catch (err) {
+      console.error(`Failed to fetch master info for itemCode ${itemCode}:`, err)
+      return null
     }
   }
 
@@ -82,77 +130,38 @@ export default function PurchaseOrderEntry() {
     if (initDone.current) return
     initDone.current = true
 
-    const fetchDropdowns = async () => {
-      setLoadingDropdowns(true)
-      let loadedItems = []
+    const loadData = async () => {
+      // 1. Fetch suppliers
+      // try {
+      //   const resSuppliers = await api.get('/api/supplier-master')
+      //   if (resSuppliers.data?.success && resSuppliers.data?.data) {
+      //     setSuppliersData(resSuppliers.data.data)
+      //     setSuppliers(resSuppliers.data.data.map(s => s.supplierName))
+      //   }
+      // } catch (err) {
+      //   console.error('Error fetching suppliers:', err)
+      // }
 
-      try {
-        const resSuppliers = await fetch('/api/supplier-master')
-        const jsonSuppliers = await resSuppliers.json()
-        if (jsonSuppliers.success && jsonSuppliers.data.length > 0) {
-          setSuppliersData(jsonSuppliers.data)
-          setSuppliers(jsonSuppliers.data.map(s => s.supplierName))
-        }
-      } catch (err) {
-        console.error('Error fetching suppliers:', err)
-      }
+      // 2. Fetch purchase requests
+      // try {
+      //   const resPR = await api.get('/api/purchase-request')
+      //   if (resPR.data?.success && resPR.data?.data) {
+      //     setPurchaseRequests(resPR.data.data.map(pr => pr.prNo))
+      //   }
+      // } catch (err) {
+      //   console.error('Error fetching purchase requests:', err)
+      // }
 
-      try {
-        const resItems = await fetch('/api/item-master?limit=10000')
-        const jsonItems = await resItems.json()
-        if (jsonItems.success && jsonItems.data) {
-          loadedItems = jsonItems.data
-          setItemsData(jsonItems.data)
-        }
-      } catch (err) {
-        console.error('Error fetching items:', err)
-      }
-
-      try {
-        const resPR = await fetch('/api/purchase-request')
-        const jsonPR = await resPR.json()
-        if (jsonPR.success && jsonPR.data) {
-          setPurchaseRequests(jsonPR.data.map(pr => pr.prNo))
-        }
-      } catch (err) {
-        console.error('Error fetching purchase requests:', err)
-      }
-
-      try {
-        const resPoTypes = await fetch('/api/reference-master/PO%20Type')
-        const jsonPoTypes = await resPoTypes.json()
-        if (jsonPoTypes.success && jsonPoTypes.data.length > 0) {
-          setPoTypes(jsonPoTypes.data.map(item => item.description))
-        }
-      } catch (err) {
-        console.error('Error fetching PO types:', err)
-      }
-
-      try {
-        const entries = await Promise.all(
-          Object.entries(FIELD_REF_TYPES).map(async ([key, type]) => {
-            const res  = await fetch(`/api/reference-master/${encodeURIComponent(type)}`)
-            const json = await res.json()
-            return [key, json.success ? json.data.map(r => r.description) : []]
-          })
-        )
-        setFieldSuggestions(Object.fromEntries(entries))
-      } catch (err) {
-        console.error('Error fetching PO field suggestions:', err)
-      }
-
-      // Edit mode: load existing PO from PurchaseOrderDetails
+      // 3. Edit mode load or prefill/next-no
       const editRaw = localStorage.getItem('velson:po-edit')
       if (editRaw) {
         localStorage.removeItem('velson:po-edit')
         const poId = parseInt(editRaw, 10)
         setEditPoId(poId)
         try {
-          const poRes  = await fetch(`/api/purchase-master/${poId}`)
-          const poJson = await poRes.json()
-          if (poJson.success && poJson.data) {
-            const po = poJson.data
-            const sup = suppliersData.find(s => s.id === po.supplierId) || suppliersData.find(s => s.supplierName === po.supplier?.supplierName)
+          const poRes = await api.get(`/api/purchase-master/${poId}`)
+          if (poRes.data?.success && poRes.data?.data) {
+            const po = poRes.data.data
             setForm(f => ({
               ...f,
               supplierId:       po.supplierId      || null,
@@ -193,90 +202,154 @@ export default function PurchaseOrderEntry() {
         } catch (e) {
           console.error('PO edit load error:', e)
         }
-      // Pre-fill from PR pick or PR approval
       } else {
-        const raw = localStorage.getItem('velson:po-prefill')
         const prPickId = window.__velsonPrPickId ?? null
         if (prPickId) window.__velsonPrPickId = null
 
         if (prPickId) {
           try {
-            const prRes = await fetch(`/api/purchase-request/${prPickId}`)
-            const prJson = await prRes.json()
-            if (prJson && prJson.success && prJson.data) {
-              const pr = prJson.data
+            const prRes = await api.get(`/api/purchase-request/${prPickId}`)
+            if (prRes.data?.success && prRes.data?.data) {
+              const pr = prRes.data.data
               await fetchNextPoNo()
-              const prefillItems = pr.details?.length > 0
-                ? pr.details.map(d => {
-                    const master = loadedItems.find(it => it.partNo === d.itemCode)
-                    const qtyVal = parseFloat(d.qty) || 0
-                    const priceVal = master?.purchaseRate || 0
-                    const amtVal = qtyVal * priceVal
-                    return {
-                      ...emptyItem(),
-                      purchaseReqNo: pr.prNo,
-                      itemId:        master?.id             || null,
-                      itemCode:      d.itemCode             || '',
-                      itemName:      d.itemName             || master?.partName    || '',
-                      description:   d.specification        || master?.description || '',
-                      hsnCode:       master?.hsnCode        || '',
-                      uom:           d.uom                  || master?.uom        || '',
-                      supplierPartNo: master?.outsourcePartNo || '',
-                      qty:           String(d.qty ?? ''),
-                      unitPrice:     master?.purchaseRate != null ? String(master.purchaseRate) : '',
-                      amount:        amtVal > 0 ? amtVal.toFixed(2) : '',
-                      netAmt:        amtVal > 0 ? amtVal.toFixed(2) : '',
-                    }
-                  })
-                : [{ ...emptyItem(), purchaseReqNo: pr.prNo }]
-              setItems(prefillItems)
+              
+              // const prefillItems = []
+              // if (pr.details?.length > 0) {
+              //   for (const d of pr.details) {
+              //     const master = await fetchItemMasterByCode(d.itemCode)
+              //     const qtyVal = parseFloat(d.qty) || 0
+              //     const priceVal = master?.purchaseRate || 0
+              //     const amtVal = qtyVal * priceVal
+              //     prefillItems.push({
+              //       ...emptyItem(),
+              //       purchaseReqNo: pr.prNo,
+              //       itemId:        master?.id             || null,
+              //       itemCode:      d.itemCode             || '',
+              //       itemName:      d.itemName             || master?.partName    || '',
+              //       description:   d.specification        || master?.description || '',
+              //       hsnCode:       master?.hsnCode        || '',
+              //       uom:           d.uom                  || master?.uom        || '',
+              //       supplierPartNo: master?.outsourcePartNo || '',
+              //       qty:           String(d.qty ?? ''),
+              //       unitPrice:     master?.purchaseRate != null ? String(master.purchaseRate) : '',
+              //       amount:        amtVal > 0 ? amtVal.toFixed(2) : '',
+              //       netAmt:        amtVal > 0 ? amtVal.toFixed(2) : '',
+              //     })
+              //   }
+              // } else {
+              //   prefillItems.push({ ...emptyItem(), purchaseReqNo: pr.prNo })
+              // }
+              // setItems(prefillItems)
+              // BEFORE (sequential — blocks for each item):
+
+
+
+// AFTER (parallel — all at once):
+const masters = await Promise.all(
+  pr.details.map(d => fetchItemMasterByCode(d.itemCode))
+)
+const prefillItems = pr.details.map((d, i) => {
+  const master = masters[i]
+  const qtyVal   = parseFloat(d.qty) || 0
+  const priceVal = master?.purchaseRate || 0
+  const amtVal   = qtyVal * priceVal
+  return {
+    ...emptyItem(),
+    purchaseReqNo:  pr.prNo,
+    itemId:         master?.id              || null,
+    itemCode:       d.itemCode              || '',
+    itemName:       d.itemName              || master?.partName    || '',
+    description:    d.specification         || master?.description || '',
+    hsnCode:        master?.hsnCode         || '',
+    uom:            d.uom                   || master?.uom        || '',
+    supplierPartNo: master?.outsourcePartNo || '',
+    qty:            String(d.qty ?? ''),
+    unitPrice:      master?.purchaseRate != null ? String(master.purchaseRate) : '',
+    amount:         amtVal > 0 ? amtVal.toFixed(2) : '',
+    netAmt:         amtVal > 0 ? amtVal.toFixed(2) : '',
+  }
+})
+setItems(prefillItems)
             }
           } catch (e) {
             console.error('PO PR pick load error:', e)
           }
-        } else if (raw) {
-          localStorage.removeItem('velson:po-prefill')
-          try {
-            const prefill = JSON.parse(raw)
-            setFromPRApproval(true)
-            setForm(f => ({ ...f, poNumber: prefill.poNo, poDate: prefill.poDate }))
-            const prefillItems = prefill.items?.length > 0
-              ? prefill.items.map(d => {
-                  const master = loadedItems.find(it => it.partNo === d.itemCode)
-                  const qtyVal = parseFloat(d.qty) || 0
-                  const priceVal = master?.purchaseRate || 0
-                  const amtVal = qtyVal * priceVal
-                  return {
-                    ...emptyItem(),
-                    purchaseReqNo: prefill.prNo,
-                    itemId:        master?.id             || null,
-                    itemCode:      d.itemCode             || '',
-                    itemName:      d.itemName             || master?.partName    || '',
-                    description:   d.specification        || master?.description || '',
-                    hsnCode:       master?.hsnCode        || '',
-                    uom:           d.uom                  || master?.uom        || '',
-                    supplierPartNo: master?.outsourcePartNo || '',
-                    qty:           String(d.qty ?? ''),
-                    unitPrice:     master?.purchaseRate != null ? String(master.purchaseRate) : '',
-                    amount:        amtVal > 0 ? amtVal.toFixed(2) : '',
-                    netAmt:        amtVal > 0 ? amtVal.toFixed(2) : '',
-                  }
-                })
-              : [{ ...emptyItem(), purchaseReqNo: prefill.prNo }]
-            setItems(prefillItems)
-          } catch (e) {
-            console.error('PO prefill parse error:', e)
-          }
         } else {
-          // Normal new PO — fetch next number
-          await fetchNextPoNo()
+          const raw = localStorage.getItem('velson:po-prefill')
+          if (raw) {
+            localStorage.removeItem('velson:po-prefill')
+            try {
+              const prefill = JSON.parse(raw)
+              setFromPRApproval(true)
+              setForm(f => ({ ...f, poNumber: prefill.poNo, poDate: prefill.poDate }))
+              
+              // const prefillItems = []
+              // if (prefill.items?.length > 0) {
+              //   for (const d of prefill.items) {
+              //     const master = await fetchItemMasterByCode(d.itemCode)
+              //     const qtyVal = parseFloat(d.qty) || 0
+              //     const priceVal = master?.purchaseRate || 0
+              //     const amtVal = qtyVal * priceVal
+              //     prefillItems.push({
+              //       ...emptyItem(),
+              //       purchaseReqNo: prefill.prNo,
+              //       itemId:        master?.id             || null,
+              //       itemCode:      d.itemCode             || '',
+              //       itemName:      d.itemName             || master?.partName    || '',
+              //       description:   d.specification        || master?.description || '',
+              //       hsnCode:       master?.hsnCode        || '',
+              //       uom:           d.uom                  || master?.uom        || '',
+              //       supplierPartNo: master?.outsourcePartNo || '',
+              //       qty:           String(d.qty ?? ''),
+              //       unitPrice:     master?.purchaseRate != null ? String(master.purchaseRate) : '',
+              //       amount:        amtVal > 0 ? amtVal.toFixed(2) : '',
+              //       netAmt:        amtVal > 0 ? amtVal.toFixed(2) : '',
+              //     })
+              //   }
+              // } else {
+              //   prefillItems.push({ ...emptyItem(), purchaseReqNo: prefill.prNo })
+              // }
+              // setItems(prefillItems)
+              // BEFORE (sequential — blocks for each item):
+
+// AFTER (parallel — all at once):
+const masters = await Promise.all(
+  pr.details.map(d => fetchItemMasterByCode(d.itemCode))
+)
+const prefillItems = pr.details.map((d, i) => {
+  const master = masters[i]
+  const qtyVal   = parseFloat(d.qty) || 0
+  const priceVal = master?.purchaseRate || 0
+  const amtVal   = qtyVal * priceVal
+  return {
+    ...emptyItem(),
+    purchaseReqNo:  pr.prNo,
+    itemId:         master?.id              || null,
+    itemCode:       d.itemCode              || '',
+    itemName:       d.itemName              || master?.partName    || '',
+    description:    d.specification         || master?.description || '',
+    hsnCode:        master?.hsnCode         || '',
+    uom:            d.uom                   || master?.uom        || '',
+    supplierPartNo: master?.outsourcePartNo || '',
+    qty:            String(d.qty ?? ''),
+    unitPrice:      master?.purchaseRate != null ? String(master.purchaseRate) : '',
+    amount:         amtVal > 0 ? amtVal.toFixed(2) : '',
+    netAmt:         amtVal > 0 ? amtVal.toFixed(2) : '',
+  }
+})
+setItems(prefillItems)
+            } catch (e) {
+              console.error('PO prefill parse error:', e)
+            }
+          } else {
+            // Normal new PO — fetch next number
+            await fetchNextPoNo()
+          }
         }
       }
-
-      setLoadingDropdowns(false)
     }
 
-    fetchDropdowns()
+    loadData()
   }, [])
 
   // Bottom fields
@@ -325,26 +398,42 @@ export default function PurchaseOrderEntry() {
     }
   }
 
+  const handleItemSelect = (idx, val, item) => {
+    setItems(rows => rows.map((r, i) => {
+      if (i !== idx) return r
+      if (!item) {
+        return { ...r, itemCode: val }
+      }
+      let updated = {
+        ...r,
+        itemId: item.id,
+        itemCode: item.partNo || '',
+        itemName: item.partName || '',
+        description: item.description || '',
+        hsnCode: item.hsnCode || '',
+        uom: item.uom || '',
+        supplierPartNo: item.outsourcePartNo || '',
+        unitPrice: item.purchaseRate != null ? String(item.purchaseRate) : ''
+      }
+      const q = parseFloat(updated.qty) || 0
+      const p = parseFloat(updated.unitPrice) || 0
+      const rawAmt = q * p
+      const dp = parseFloat(updated.discPer) || 0
+      const da = rawAmt * dp / 100
+      updated.discAmt = da.toFixed(2)
+      updated.amount = (rawAmt - da).toFixed(2)
+      const gp = parseFloat(updated.gstPer) || 0
+      const ga = (rawAmt - da) * gp / 100
+      updated.gstAmt = ga.toFixed(2)
+      updated.netAmt = (rawAmt - da + ga).toFixed(2)
+      return updated
+    }))
+  }
+
   const setItemField = (idx, k, v) => {
     setItems(rows => rows.map((r, i) => {
       if (i !== idx) return r
       let updated = { ...r, [k]: v }
-      if (k === 'itemCode') {
-        const item = itemsData.find(it => it.partNo === v)
-        if (item) {
-          updated.itemId = item.id
-          updated.itemName = item.partName || ''
-          updated.description = item.description || ''
-          updated.hsnCode = item.hsnCode || ''
-          updated.uom = item.uom || ''
-          updated.supplierPartNo = item.outsourcePartNo || ''
-          updated.unitPrice = item.purchaseRate != null ? String(item.purchaseRate) : ''
-        } else {
-          updated.itemId = null
-          updated.supplierPartNo = ''
-          updated.unitPrice = ''
-        }
-      }
       const q = parseFloat(k === 'qty' ? v : updated.qty) || 0
       const p = parseFloat(k === 'unitPrice' ? v : updated.unitPrice) || 0
       const rawAmt = q * p
@@ -385,14 +474,12 @@ export default function PurchaseOrderEntry() {
       if (fieldSuggestions[key]?.includes(trimmed)) continue
       const type = FIELD_REF_TYPES[key]
       try {
-        const typeRes  = await fetch(`/api/reference-master/${encodeURIComponent(type)}`)
-        const typeJson = await typeRes.json()
-        await fetch('/api/reference-master', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ referenceType: type, code: typeJson.nextCode || '001', description: trimmed, updatedBy: form.createdBy || 'Admin' }),
-        })
-        setFieldSuggestions(prev => ({ ...prev, [key]: [...(prev[key] || []), trimmed] }))
+        const typeRes  = await api.get(`/api/reference-master/${encodeURIComponent(type)}`, { skipGlobalLoader: true })
+        const typeJson = typeRes.data
+        await api.post('/api/reference-master', { referenceType: type, code: typeJson.nextCode || '001', description: trimmed, updatedBy: form.createdBy || 'Admin' })
+        
+        // Invalidate query to refresh React Query cache
+        queryClient.invalidateQueries({ queryKey: ['reference-master', type] })
       } catch (err) {
         console.error(`Failed to save ref value for ${type}:`, err)
       }
@@ -426,25 +513,23 @@ export default function PurchaseOrderEntry() {
         createdBy: form.createdBy || 'Admin',
         items,
       }
-      const url    = editPoId ? `/api/purchase-master/${editPoId}` : '/api/purchase-master'
-      const method = editPoId ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const json = await res.json()
-      if (json.success) {
+      
+      const res = editPoId 
+        ? await api.put(`/api/purchase-master/${editPoId}`, payload) 
+        : await api.post('/api/purchase-master', payload)
+      
+      if (res.data?.success) {
         toast.success(editPoId ? 'Purchase Order updated!' : 'Purchase Order submitted successfully!')
         await saveNewRefValues()
-        const targetPage = (editPoId || fromPRApproval) ? 'PurchaseOrderDetails' : 'PurchaseOrderDetails'
+        const targetPage = 'PurchaseOrderDetails'
         handleCancel()
         window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: targetPage } }))
       } else {
-        toast.error(json.message || 'Submit failed')
+        toast.error(res.data?.message || 'Submit failed')
       }
     } catch (err) {
-      toast.error('Submit failed: ' + err.message)
+      console.error(err)
+      toast.error(err.response?.data?.message || 'Submit failed')
     } finally {
       setSubmitting(false)
       hideLoader()
@@ -465,30 +550,23 @@ export default function PurchaseOrderEntry() {
   }
 
   return (
-    <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-[12px] text-slate-400">
-        {/* <span className="hover:text-[#0097A7] cursor-pointer">Dashboard</span> */}
-        {/* <ChevronRight className="w-3 h-3"/> */}
-        <span className="hover:text-[#0097A7] cursor-pointer">Purchase</span>
-        <ChevronRight className="w-3 h-3"/>
-        <span className="text-[#0097A7] font-semibold">Purchase Order Entry</span>
+    <div className="h-[calc(100vh-46px)] w-full flex flex-col overflow-hidden bg-slate-50 text-slate-800">
+      {/* 1. Fixed top header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shrink-0 shadow-sm z-10">
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Purchase</span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+          <span className="text-[13px] font-bold text-slate-700 uppercase tracking-wide">
+            {editPoId ? 'Edit - Purchase Order Entry' : 'Create - Purchase Order Entry'}
+          </span>
+        </div>
+        <button className="px-3 py-1 bg-[#0097A7] text-white text-[12px] rounded hover:bg-[#007a87] transition-colors font-semibold">Draft</button>
       </div>
 
-      {/* Main form card */}
-      <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden relative">
-        {/* Loading overlay while dropdowns fetch */}
-        {loadingDropdowns && (
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] z-20 flex items-center justify-center">
-            <SpinnerLoader size={36} message="Loading…" />
-          </div>
-        )}
-        <div className="bg-[--color-main] px-4 py-2.5 flex items-center justify-between">
-          <h2 className="text-white font-semibold text-[14px]">{editPoId ? 'Edit - Purchase Order Entry' : 'Create - Purchase Order Entry'}</h2>
-          <button className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors">Draft</button>
-        </div>
-
-        <div className="p-4 space-y-3">
+      {/* 2. Scrollable content */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        {/* Main form card */}
+        <div className="bg-white rounded border border-slate-200 shadow-sm p-4 space-y-3">
           {/* Row 1: 3-column layout */}
           <div className="grid grid-cols-3 gap-4">
 
@@ -509,11 +587,6 @@ export default function PurchaseOrderEntry() {
                 <label className={`${lbl} w-[140px] shrink-0`}>Supplier Ref. Number:</label>
                 <input value={form.supplierRefNumber} onChange={e => setField('supplierRefNumber', e.target.value)} className={inp()} />
               </div>
-              {/* <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[140px] shrink-0`}>Show Totals Grid:</label>
-                <input type="checkbox" checked={form.showTotalsGrid} onChange={e => setField('showTotalsGrid', e.target.checked)} className="w-4 h-4 accent-[#0097A7]" />
-                <span className="text-[12px] text-slate-500">Show Totals Grid</span>
-              </div>  */}
             </div>
 
             {/* Column 2 — Contact Info */}
@@ -526,10 +599,6 @@ export default function PurchaseOrderEntry() {
                 <label className={`${lbl} w-[130px] shrink-0`}>Contact No. :</label>
                 <input value={form.contactNumber} onChange={e => setField('contactNumber', e.target.value)} className={inp()} />
               </div>
-              {/* <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[130px] shrink-0`}>Created By :</label>
-                <input value={form.createdBy} onChange={e => setField('createdBy', e.target.value)} className={inp()} />
-              </div> */}
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>GST NO. :</label>
                 <input value={form.gstNo} onChange={e => setField('gstNo', e.target.value)} className={inp()} />
@@ -546,10 +615,6 @@ export default function PurchaseOrderEntry() {
                   ))}
                 </div>
               </div>
-              {/* <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[130px] shrink-0`}>Column Visibility:</label>
-                <button className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[12px] rounded transition-colors whitespace-nowrap">Select Columns (All Visible) ▼</button>
-              </div> */}
             </div>
 
             {/* Column 3 — PO Info + Actions */}
@@ -560,7 +625,7 @@ export default function PurchaseOrderEntry() {
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[100px] shrink-0`}>PO Date:</label>
-                <input type="date" value={form.poDate} onChange={e => setField('poDate', e.target.value)} className={inp()} readOnly/>
+                <input type="date" value={form.poDate} className={inp()} readOnly/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[100px] shrink-0`}>ETA Date :</label>
@@ -572,7 +637,6 @@ export default function PurchaseOrderEntry() {
                   {poTypes.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
-              {/* Action buttons */}
               <div className="flex gap-2 pt-1 flex-wrap">
                 <button
                   onClick={() => {
@@ -602,7 +666,6 @@ export default function PurchaseOrderEntry() {
               <table className="min-w-full text-[12.5px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {/* <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8"><input type="checkbox" className="accent-[#0097A7]"/></th> */}
                     <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">S.NO</th>
                     {['Item Code','Purchase Req No','Item Name','Description','HSN Code','UOM','Qty','Unit Price','Disc %','Disc Amt','Amount','GST %','GST Amt','Net Amt','Action'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
@@ -612,13 +675,15 @@ export default function PurchaseOrderEntry() {
                 <tbody>
                   {items.map((row, idx) => (
                     <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''}`}>
-                      {/* <td className="px-2 py-1 text-center"><input type="checkbox" className="accent-[#0097A7]"/></td> */}
                       <td className="px-2 py-1 text-center text-slate-500">{idx+1}</td>
                       <td className="px-1 py-1">
-                        <select value={row.itemCode} onChange={e=>setItemField(idx,'itemCode',e.target.value)} className={inp()}>
-                          <option value="">Select Item</option>
-                          {itemsData.map(it => <option key={it.id} value={it.partNo}>{it.partNo} – {it.partName}</option>)}
-                        </select>
+                        <ItemSearchInput
+                          value={row.itemCode}
+                          displayField="partNo"
+                          placeholder="Search Item Code"
+                          className={inp()}
+                          onChange={(val, item) => handleItemSelect(idx, val, item)}
+                        />
                       </td>
                       <td className="px-1 py-1">
                         <select value={row.purchaseReqNo} onChange={e=>setItemField(idx,'purchaseReqNo',e.target.value)} className={inp()}>
@@ -626,7 +691,6 @@ export default function PurchaseOrderEntry() {
                           {purchaseRequests.map(pr => <option key={pr} value={pr}>{pr}</option>)}
                         </select>
                       </td>
-                      {/* <td className="px-1 py-1"><input value={row.supplierPartNo} onChange={e=>setItemField(idx,'supplierPartNo',e.target.value)} className={inp()} /></td> */}
                       <td className="px-1 py-1"><input value={row.itemName} onChange={e=>setItemField(idx,'itemName',e.target.value)} className={`${inp()} ${row.itemId?'bg-slate-50':''}`} /></td>
                       <td className="px-1 py-1"><input value={row.description} onChange={e=>setItemField(idx,'description',e.target.value)} className={`${inp()} min-w-[120px] ${row.itemId?'bg-slate-50':''}`} /></td>
                       <td className="px-1 py-1"><input value={row.hsnCode} onChange={e=>setItemField(idx,'hsnCode',e.target.value)} className={`${inp()} ${row.itemId?'bg-slate-50':''}`} /></td>
@@ -651,7 +715,6 @@ export default function PurchaseOrderEntry() {
 
           {/* Bottom section: 3 columns */}
           <div className="grid grid-cols-3 gap-4 pt-2">
-            {/* Left column: Freight, Destination, Payment Terms, Test Report, Project, Remarks */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Freight :</label>
@@ -679,7 +742,7 @@ export default function PurchaseOrderEntry() {
               </div>
             </div>
 
-            {/* Middle column: Mode of Despatch, Delivery Period, Tax Terms, Warranty Terms, Discount Terms + Submit/Cancel */}
+            {/* Middle column: Mode of Despatch, Delivery Period, Tax Terms, Warranty Terms, Discount Terms */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Mode Of Despatch :</label>
@@ -700,24 +763,6 @@ export default function PurchaseOrderEntry() {
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Discount Terms :</label>
                 <input value={discountTerms} onChange={e => setDiscountTerms(e.target.value)} className={inp()} />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting || !(editPoId ? canEdit : canSave)}
-                  title={!(editPoId ? canEdit : canSave) ? "You do not have permission to perform this action" : ""}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 text-white text-[12px] font-semibold rounded transition-colors shadow-sm disabled:opacity-70
-                    ${!(editPoId ? canEdit : canSave) ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0097A7] hover:bg-[#007a87]'}`}
-                >
-                  <Send className="w-3.5 h-3.5"/> {editPoId ? 'Update' : 'Submit'}
-                </button>
-                <button
-                  onClick={handleCancel}
-                  disabled={submitting}
-                  className="flex items-center gap-1 px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm disabled:opacity-40"
-                >
-                  <X className="w-3.5 h-3.5"/> Cancel
-                </button>
               </div>
             </div>
 
@@ -751,11 +796,40 @@ export default function PurchaseOrderEntry() {
                 <input value={igstPer} onChange={e => setIgstPer(e.target.value)} className={`${inp()} w-14`} />
                 <input value={igstAmt} onChange={e => setIgstAmt(e.target.value)} className={`${inp()} w-20`} />
               </div>
-              <div className="flex items-center gap-2 border-t border-slate-200 pt-2 mt-1">
-                <label className="text-[13px] font-bold text-slate-700">Grand Total :</label>
-                <span className="text-[14px] font-bold text-[#0097A7] ml-auto">{grandTotal.toFixed(2)}</span>
-              </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Fixed bottom action bar */}
+      <div className="bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between shrink-0 shadow-[0_-3px_12px_rgba(0,0,0,0.04)] z-10">
+        <div className="flex gap-2">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !(editPoId ? canEdit : canSave)}
+            title={!(editPoId ? canEdit : canSave) ? "You do not have permission to perform this action" : ""}
+            className={`flex items-center gap-1.5 px-6 py-2 text-white text-[13px] font-bold rounded shadow transition-all active:scale-95 disabled:opacity-70
+              ${!(editPoId ? canEdit : canSave) ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0097A7] hover:bg-[#007a87]'}`}
+          >
+            <Send className="w-3.5 h-3.5"/> {editPoId ? 'Update' : 'Submit'}
+          </button>
+          <button
+            onClick={handleCancel}
+            disabled={submitting}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-bold rounded text-[12px] transition-colors shadow-sm disabled:opacity-40"
+          >
+            <X className="w-3.5 h-3.5"/> Cancel
+          </button>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-slate-500">Sub Total:</span>
+            <span className="text-[14px] font-bold text-slate-700">{subTotal.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center gap-2 border-l border-slate-200 pl-6">
+            <span className="text-[13px] font-bold text-slate-700">Grand Total:</span>
+            <span className="text-[16px] font-bold text-[#0097A7]">{grandTotal.toFixed(2)}</span>
           </div>
         </div>
       </div>

@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
+import { useReferenceMaster, useItemGroups } from '../hooks/useMasterData'
 import { X, Save, ArrowLeft, Edit, Trash2, Info, ChevronRight, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -39,14 +41,23 @@ function DetailModal({ row, onClose }) {
 export default function ItemGroupMaster() {
   const toast = useToast()
 
-  // ── Dropdown options from API ──────────────────────────────
-  const [storeOptions, setStoreOptions] = useState([])
-  const [prefixOptions, setPrefixOptions] = useState([])
-  const [dropdownLoading, setDropdownLoading] = useState(true)
+  const { data: storesData = [] } = useReferenceMaster('Store')
+  const { data: groupsRes = [], refetch: refetchGroups, isLoading: isGroupsLoading } = useItemGroups()
 
-  // ── Table data ─────────────────────────────────────────────
+  const storeOptions = useMemo(() => storesData.map(r => r.description).filter(Boolean), [storesData])
   const [rows, setRows] = useState([])
-  const [tableLoading, setTableLoading] = useState(false)
+  useEffect(() => {
+    if (groupsRes) {
+      setRows(groupsRes)
+    }
+  }, [groupsRes])
+
+  const { data: prefixOptions = [], isLoading: dropdownLoading } = useQuery({
+    queryKey: ['prefixes'],
+    queryFn: () => api.get('/api/prefixes').then(res => (res.data.data || []).map(r => r.prefixCode)),
+  })
+
+  const tableLoading = isGroupsLoading
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -59,54 +70,7 @@ export default function ItemGroupMaster() {
   const [detailRow, setDetailRow] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
-  // ── Fetch Store options from ReferenceMaster (type = "Store") ──
-  const fetchStores = useCallback(async () => {
-    try {
-      const res = await api.get('/api/reference-master/Store')
-      const stores = (res.data.data || []).map(r => r.description)
-      setStoreOptions(stores)
-    } catch (err) {
-      console.error('[ItemGroupMaster] fetchStores error:', err)
-      toast.error('Failed to load store options')
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Fetch Prefix options from prefix table ─────────────────
-  const fetchPrefixes = useCallback(async () => {
-    try {
-      const res = await api.get('/api/prefixes')
-      const prefixes = (res.data.data || []).map(r => r.prefixCode)
-      setPrefixOptions(prefixes)
-    } catch (err) {
-      console.error('[ItemGroupMaster] fetchPrefixes error:', err)
-      toast.error('Failed to load prefix options')
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-
-  // ── Fetch all item groups ──────────────────────────────────
-  const fetchAll = useCallback(async () => {
-    setTableLoading(true)
-    try {
-      const res = await api.get('/api/item-group-master')
-      setRows(res.data.data || [])
-    } catch (err) {
-      console.error('[ItemGroupMaster] fetchAll error:', err)
-      toast.error('Failed to load item groups')
-    } finally {
-      setTableLoading(false)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const init = async () => {
-      setDropdownLoading(true)
-      await Promise.all([fetchStores(), fetchPrefixes()])
-      setDropdownLoading(false)
-      fetchAll()
-    }
-    init()
-  }, [fetchStores, fetchPrefixes, fetchAll])
 
   const setField = (k, v) => {
     setForm(f => ({ ...f, [k]: v }))
@@ -146,7 +110,7 @@ export default function ItemGroupMaster() {
       setErrors({})
       setEditId(null)
       setPage(1)
-      await fetchAll()
+      refetchGroups()
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to save item group.'
       toast.error(msg)
@@ -172,7 +136,7 @@ export default function ItemGroupMaster() {
       toast.success('Item group deleted.')
       setConfirmDelete(null)
       if (editId === confirmDelete) { setForm(emptyForm); setEditId(null) }
-      await fetchAll()
+      refetchGroups()
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to delete item group.'
       toast.error(msg)
@@ -207,13 +171,11 @@ export default function ItemGroupMaster() {
   }
 
   const selCls = (err) =>
-    `w-full border rounded px-2 py-1.5 text-[13px] focus:outline-none focus:ring-1 bg-white transition-colors ${
-      err ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
+    `w-full border rounded px-2 py-1.5 text-[13px] focus:outline-none focus:ring-1 bg-white transition-colors ${err ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
     }`
 
   const inpCls = (err) =>
-    `w-full border rounded px-2 py-1.5 text-[13px] focus:outline-none focus:ring-1 transition-colors ${
-      err ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
+    `w-full border rounded px-2 py-1.5 text-[13px] focus:outline-none focus:ring-1 transition-colors ${err ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
     }`
 
   return (
@@ -368,74 +330,74 @@ export default function ItemGroupMaster() {
         {tableLoading ? (
           <TableSkeleton rows={5} cols={['30%', '25%', '18%', '9%', '9%', '9%']} />
         ) : (
-        <div className="overflow-x-auto w-full">
-          <table className="min-w-full text-[13px]">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                {[
-                  { label: 'Group Name', sortable: true },
-                  { label: 'Store', sortable: true },
-                  { label: 'Prefix', sortable: true },
-                  { label: 'Edit', sortable: false },
-                  { label: 'Delete', sortable: false },
-                  { label: 'Details', sortable: false },
-                ].map(({ label, sortable }) => (
-                  <th key={label} className="text-center px-4 py-2.5 font-semibold text-slate-600 text-[12px] uppercase tracking-wide whitespace-nowrap">
-                    {label}
-                    {sortable && (
-                      <svg className="inline w-3 h-3 ml-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
-                      </svg>
-                    )}
-                  </th>
+          <div className="overflow-x-auto w-full">
+            <table className="min-w-full text-[13px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  {[
+                    { label: 'Group Name', sortable: true },
+                    { label: 'Store', sortable: true },
+                    { label: 'Prefix', sortable: true },
+                    { label: 'Edit', sortable: false },
+                    { label: 'Delete', sortable: false },
+                    { label: 'Details', sortable: false },
+                  ].map(({ label, sortable }) => (
+                    <th key={label} className="text-center px-4 py-2.5 font-semibold text-slate-600 text-[12px] uppercase tracking-wide whitespace-nowrap">
+                      {label}
+                      {sortable && (
+                        <svg className="inline w-3 h-3 ml-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
+                        </svg>
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {paged.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-slate-400 text-[13px]">No records found</td>
+                  </tr>
+                ) : paged.map((row, idx) => (
+                  <tr key={row.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                    <td className="px-4 py-2.5 text-center">{row.groupName}</td>
+                    <td className="px-4 py-2.5 text-center">{row.store}</td>
+                    <td className="px-4 py-2.5 text-center font-semibold text-[#0097A7]">{row.prefix}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <button
+                        onClick={() => handleEdit(row)}
+                        className="px-3 py-1.5 bg-[--color-main] hover:bg-[#3498db] text-white text-[12px] rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <button
+                        onClick={() => handleDeleteConfirm(row.id)}
+                        disabled={deleting}
+                        className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] rounded transition-colors disabled:opacity-60"
+                        title="Delete"
+                      >
+                        {deleting && confirmDelete === row.id
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <Trash2 className="w-4 h-4" />}
+                      </button>
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <button
+                        onClick={() => setDetailRow(row)}
+                        className="px-3 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] rounded transition-colors"
+                        title="Details"
+                      >
+                        <Info className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {paged.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-8 text-slate-400 text-[13px]">No records found</td>
-                </tr>
-              ) : paged.map((row, idx) => (
-                <tr key={row.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                  <td className="px-4 py-2.5 text-center">{row.groupName}</td>
-                  <td className="px-4 py-2.5 text-center">{row.store}</td>
-                  <td className="px-4 py-2.5 text-center font-semibold text-[#0097A7]">{row.prefix}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    <button
-                      onClick={() => handleEdit(row)}
-                      className="px-3 py-1.5 bg-[--color-main] hover:bg-[#3498db] text-white text-[12px] rounded transition-colors"
-                      title="Edit"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                  </td>
-                  <td className="px-4 py-2.5 text-center">
-                    <button
-                      onClick={() => handleDeleteConfirm(row.id)}
-                      disabled={deleting}
-                      className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] rounded transition-colors disabled:opacity-60"
-                      title="Delete"
-                    >
-                      {deleting && confirmDelete === row.id
-                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <Trash2 className="w-4 h-4" />}
-                    </button>
-                  </td>
-                  <td className="px-4 py-2.5 text-center">
-                    <button
-                      onClick={() => setDetailRow(row)}
-                      className="px-3 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] rounded transition-colors"
-                      title="Details"
-                    >
-                      <Info className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
         )}
 
         {/* Footer */}
@@ -459,11 +421,10 @@ export default function ItemGroupMaster() {
                 <button
                   key={n}
                   onClick={() => setPage(n)}
-                  className={`w-8 h-8 text-[12px] rounded border transition-colors ${
-                    page === n
+                  className={`w-8 h-8 text-[12px] rounded border transition-colors ${page === n
                       ? 'bg-[#0097A7] text-white border-[#0097A7]'
                       : 'border-slate-300 hover:bg-slate-100 text-slate-600'
-                  }`}
+                    }`}
                 >
                   {n}
                 </button>

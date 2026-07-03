@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import api from '../services/api'
+import { useCustomers, useReferenceMaster } from '../hooks/useMasterData'
 import { X, Save, RotateCcw, List, Edit, Trash2, Info, ChevronRight, Loader2 } from 'lucide-react'
 import { TableSkeleton } from '../components/LocalLoader'
 import { useToast } from '../components/Toast'
@@ -316,8 +317,18 @@ function ConfirmDeleteModal({ customerName, onConfirm, onCancel, loading }) {
 
 export default function CustomerMaster() {
   const toast = useToast()
+  const { data: customerList = [], refetch: refetchCustomers, isLoading: isCustomersLoading } = useCustomers()
+  const { data: customerTypesData = [] } = useReferenceMaster('Customer_Type')
+
   const [rows, setRows] = useState([])
-  const [customerTypes, setCustomerTypes] = useState([])
+  const customerTypes = useMemo(() => customerTypesData.map(r => r.description).filter(Boolean), [customerTypesData])
+
+  useEffect(() => {
+    if (customerList) {
+      setRows(customerList)
+    }
+  }, [customerList])
+
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
   const [editId, setEditId] = useState(null)
@@ -328,8 +339,8 @@ export default function CustomerMaster() {
   const [deleteTarget, setDeleteTarget] = useState(null)
 
   // Loading states
-  const [loadingList, setLoadingList] = useState(false)
-  const [loadingTypes, setLoadingTypes] = useState(false)
+  const loadingList = isCustomersLoading
+  const loadingTypes = false
   const [loadingSave, setLoadingSave] = useState(false)
   const [loadingDelete, setLoadingDelete] = useState(false)
   const [ifscLoading, setIfscLoading] = useState(false)
@@ -338,37 +349,6 @@ export default function CustomerMaster() {
 
   const cityOptions = STATE_CITIES[form.state] || []
   const branchOptions = BANK_BRANCHES[form.bankName] || []
-
-  // ── Fetch customer types from reference master ──
-
-  const fetchCustomerTypes = useCallback(async () => {
-    setLoadingTypes(true)
-    try {
-      const res = await api.get('/api/reference-master/Customer_Type')
-      const types = (res.data?.data || []).map(r => r.description).filter(Boolean)
-      setCustomerTypes(types)
-    } catch (err) {
-      console.error('[CustomerMaster] fetchCustomerTypes error:', err)
-      toast.error('Failed to load customer types from reference master.')
-    } finally {
-      setLoadingTypes(false)
-    }
-  }, [toast])
-
-  // ── Fetch all customers ──
-
-  const fetchCustomers = useCallback(async () => {
-    setLoadingList(true)
-    try {
-      const res = await api.get('/api/customer-master')
-      setRows(res.data?.data || [])
-    } catch (err) {
-      console.error('[CustomerMaster] fetchCustomers error:', err)
-      toast.error('Failed to load customer records.')
-    } finally {
-      setLoadingList(false)
-    }
-  }, [toast])
 
   const fetchNextCode = useCallback(async () => {
     try {
@@ -380,12 +360,8 @@ export default function CustomerMaster() {
   }, [])
 
   useEffect(() => {
-    const init = async () => {
-      await fetchCustomerTypes()
-      await Promise.all([fetchCustomers(), fetchNextCode()])
-    }
-    init()
-  }, [fetchCustomerTypes, fetchCustomers, fetchNextCode])
+    fetchNextCode()
+  }, [fetchNextCode])
 
   // ── Form helpers ──
 
@@ -612,11 +588,13 @@ export default function CustomerMaster() {
         const res = await api.put(`/api/customer-master/${editId}`, payload)
         setRows(r => r.map(x => x.id === editId ? res.data.data : x))
         setEditId(null)
+        refetchCustomers()
         toast.success('Customer updated successfully.')
       } else {
         const res = await api.post('/api/customer-master', payload)
         setRows(r => [...r, res.data.data])
         setPage(1)
+        refetchCustomers()
         toast.success('Customer created successfully.')
       }
       setForm(emptyForm)
@@ -640,6 +618,7 @@ export default function CustomerMaster() {
       await api.delete(`/api/customer-master/${deleteTarget.id}`)
       setRows(r => r.filter(x => x.id !== deleteTarget.id))
       setDeleteTarget(null)
+      refetchCustomers()
       toast.success('Customer deleted successfully.')
     } catch (err) {
       console.error('[CustomerMaster] delete error:', err)

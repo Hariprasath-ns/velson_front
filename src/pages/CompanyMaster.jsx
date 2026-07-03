@@ -3,6 +3,7 @@ import api from '../services/api'
 import { X, Save, RotateCcw, List, Edit, Trash2, Info, ChevronRight, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
+import AuthenticatedImage from '../components/AuthenticatedImage'
 import { TableSkeleton } from '../components/LocalLoader'
 import { useModulePermission } from '../hooks/useModulePermission'
 
@@ -95,7 +96,7 @@ function DetailModal({ row, onClose }) {
         <div className="p-5 max-h-[70vh] overflow-y-auto">
           {row.logoData && (
             <div className="flex justify-center mb-4 border border-slate-105 p-2 rounded bg-slate-50 w-fit mx-auto shadow-sm animate-fadeIn">
-              <img
+              <AuthenticatedImage
                 src={`/api/company-master/${row.id}/download-logo`}
                 alt={`${row.companyName} Logo`}
                 className="max-h-28 max-w-full object-contain rounded"
@@ -402,7 +403,7 @@ export default function CompanyMaster() {
               {/* Logo Preview */}
               {logoPreview && (
                 <div className="mt-2 border border-slate-200 rounded p-2 bg-slate-50 relative group w-fit shadow-sm animate-fadeIn">
-                  <img
+                  <AuthenticatedImage
                     src={logoPreview}
                     alt="Logo Preview"
                     className="max-h-24 max-w-full object-contain rounded"
@@ -496,7 +497,7 @@ export default function CompanyMaster() {
                   <td className="px-3 py-2 text-center font-medium text-[#0097A7]">{row.companyCode}</td>
                   <td className="px-3 py-2 text-center">
                     {row.logoData ? (
-                      <img
+                      <AuthenticatedImage
                         src={`/api/company-master/${row.id}/download-logo`}
                         alt="logo"
                         className="w-8 h-8 rounded-full border border-slate-200 object-cover mx-auto"

@@ -4,18 +4,20 @@ import {
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useCustomers } from '../hooks/useMasterData'
+import ItemSearchInput from '../components/ItemSearchInput'
 import { useLoading } from '../context/LoadingContext'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 const generatePDF = async (sale) => {
   const doc = new jsPDF()
-  
+
   // Page setup
   const margin = 15
   const pageWidth = doc.internal.pageSize.width
   const pageHeight = doc.internal.pageSize.height
-  
+
   // Helper to load image
   const loadImage = (url) => {
     return new Promise((resolve) => {
@@ -55,7 +57,7 @@ const generatePDF = async (sale) => {
   // Meta Info
   doc.setFontSize(9)
   doc.setTextColor(50, 50, 50)
-  
+
   // Left side metadata
   doc.setFont("helvetica", "bold")
   doc.text("INVOICE DETAILS", margin, 46)
@@ -82,7 +84,7 @@ const generatePDF = async (sale) => {
   doc.text("BILL TO (PARTY):", margin, 79)
   doc.setFont("helvetica", "normal")
   doc.text(sale.partyName || 'N/A', margin, 85)
-  
+
   const addressLines = doc.splitTextToSize(sale.address || 'N/A', 100)
   doc.text(addressLines, margin, 90)
 
@@ -160,14 +162,14 @@ const generatePDF = async (sale) => {
   addRow("Gross Amount:", Number(totals.grossAmt || 0).toFixed(2))
   addRow("Discount:", Number(totals.discAmt || 0).toFixed(2))
   addRow("Taxable Amount:", Number(totals.taxableAmt || 0).toFixed(2))
-  
+
   if (sale.taxType === 'Local') {
     addRow("CGST:", Number(totals.cgst || 0).toFixed(2))
     addRow("SGST:", Number(totals.sgst || 0).toFixed(2))
   } else {
     addRow("IGST:", Number(totals.igst || 0).toFixed(2))
   }
-  
+
   doc.setDrawColor(200, 200, 200)
   doc.line(summaryStartX + 2, currentY - 1, pageWidth - margin - 2, currentY - 1)
   currentY += 2
@@ -178,7 +180,7 @@ const generatePDF = async (sale) => {
   doc.setFont("helvetica", "bold")
   doc.setTextColor(50, 50, 50)
   doc.text(`Total Quantity: ${totals.totalQty || 0} PCS`, margin, finalY + 5)
-  
+
   doc.setFont("helvetica", "normal")
   doc.text("Remarks:", margin, finalY + 12)
   doc.setFontSize(8)
@@ -447,8 +449,9 @@ export default function CreditSales() {
     }
   }
 
-  const [customers, setCustomers] = useState([])
-  const [itemMasterList, setItemMasterList] = useState([])
+  const { data: custsRes = [] } = useCustomers()
+
+  const customers = custsRes
 
   useEffect(() => {
     const initialize = async () => {
@@ -487,17 +490,6 @@ export default function CreditSales() {
       }
     }
 
-    const fetchCustomers = async () => {
-      try {
-        const res = await api.get('/api/customer-master')
-        if (res.data?.success) {
-          setCustomers(res.data.data || [])
-        }
-      } catch (err) {
-        console.error("Failed to load customer list:", err)
-      }
-    }
-
     const fetchDCs = async () => {
       try {
         const res = await api.get('/api/delivery-challan')
@@ -509,19 +501,8 @@ export default function CreditSales() {
       }
     }
 
-    const fetchItems = async () => {
-      try {
-        const res = await api.get('/api/item-master?limit=10000')
-        setItemMasterList(res.data?.data || [])
-      } catch (err) {
-        console.error(err)
-      }
-    }
-
     initialize()
-    fetchCustomers()
     fetchDCs()
-    fetchItems()
   }, [])
 
   // Recalculate row amounts
@@ -586,34 +567,30 @@ export default function CreditSales() {
   const handleGridChange = (id, field, val) => {
     const updatedRows = gridRows.map(row => {
       if (row.id === id) {
-        let newRow = { ...row, [field]: val }
-        
-        // Auto-fetch logic
-        if ((field === 'partNo' || field === 'partName') && newRow.isManual) {
-          const searchVal = String(val || '').toLowerCase().trim()
-          const match = itemMasterList.find(i => 
-            (field === 'partNo' && String(i.partNo || '').toLowerCase().trim() === searchVal) || 
-            (field === 'partName' && String(i.partName || i.itemName || '').toLowerCase().trim() === searchVal)
-          )
-          if (match) {
-            newRow.partNo = match.partNo || newRow.partNo
-            newRow.partName = match.partName || match.itemName || newRow.partName
-            newRow.barcode = match.barcode || newRow.barcode
-            newRow.specification = match.description || match.specification || match.spec || newRow.specification
-            newRow.brand = match.brand || newRow.brand
-            newRow.uom = match.uom || newRow.uom
-            newRow.taxPercent = match.taxPercent || match.taxRate || newRow.taxPercent
-            newRow.rate = match.salesRate || match.rate || match.purchaseRate || newRow.rate
-          }
+        let newRow = { ...row }
+
+        // Auto-fetch logic using dynamic selected item
+        if (field === 'itemSelect' && val) {
+          const match = val
+          newRow.partNo = match.partNo || newRow.partNo
+          newRow.partName = match.partName || match.itemName || newRow.partName
+          newRow.barcode = match.barcode || newRow.barcode
+          newRow.specification = match.description || match.specification || match.spec || newRow.specification
+          newRow.brand = match.brand || newRow.brand
+          newRow.uom = match.uom || newRow.uom
+          newRow.taxPercent = match.taxPercent || match.taxRate || newRow.taxPercent
+          newRow.rate = match.salesRate || match.rate || match.purchaseRate || newRow.rate
+        } else {
+          newRow[field] = val
         }
-        
+
         // Manual Reverse Calculation
         if (field === 'grossAmt') {
-           const gAmt = Number(val) || 0
-           const qty = Number(newRow.qty) || 0
-           newRow.rate = qty > 0 ? String((gAmt / qty).toFixed(2)) : '0'
+          const gAmt = Number(val) || 0
+          const qty = Number(newRow.qty) || 0
+          newRow.rate = qty > 0 ? String((gAmt / qty).toFixed(2)) : '0'
         }
-        
+
         return calculateRow(newRow, taxType)
       }
       return row
@@ -681,7 +658,7 @@ export default function CreditSales() {
           const qty = Number(d.qty) || 0
           const rate = Number(d.rate) || 0
           const totalAmt = qty * rate
-          const taxPercent = 18 
+          const taxPercent = 18
 
           const rowData = {
             id: d.id || Date.now() + i,
@@ -753,14 +730,14 @@ export default function CreditSales() {
       toast.warning('Please select an item to delete')
       return
     }
-    
+
     // Completely remove the item from the fetched list
     setDcItemsList(prev => prev.filter(item => String(item.id) !== String(rowToDelete)))
     // Also remove from gridRows if it exists there
     const updatedRows = gridRows.filter(row => String(row.id) !== String(rowToDelete))
     setGridRows(updatedRows)
     recalculateSummaries(updatedRows)
-    
+
     setRowToDelete('')
     toast.info('Item completely removed from DC list')
   }
@@ -964,7 +941,7 @@ export default function CreditSales() {
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              
+
               {/* Column 1 – Invoice Information */}
               <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1063,7 +1040,7 @@ export default function CreditSales() {
                   <Label>Delete a row</Label>
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
-                      <Select 
+                      <Select
                         value={rowToDelete}
                         onChange={(e) => setRowToDelete(e.target.value)}
                         placeholder="-- Select Item --"
@@ -1089,89 +1066,103 @@ export default function CreditSales() {
 
 
 
-        {/* ITEM DETAILS GRID */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-4 mx-4 mb-4">
-          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
-            <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">Item Details</h2>
-            <button 
-              onClick={handleAddRow}
-              className="h-8 px-3 bg-[#0097A7] hover:bg-[#007f8c] text-white rounded-md text-[12px] font-bold shadow-sm transition-colors"
-            >
-              + Add Row
-            </button>
-          </div>
-          <div className="overflow-x-auto custom-scrollbar pb-[180px]">
-            <table className="w-full text-left border-collapse min-w-[1400px]">
-              <thead>
-                <tr className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
-                  <th className="p-2 font-bold w-[40px] text-center">S.No</th>
-                  <th className="p-2 font-bold min-w-[160px]">Item Name</th>
-                  <th className="p-2 font-bold min-w-[130px]">Part No</th>
-                  <th className="p-2 font-bold w-[100px]">Barcode</th>
-                  <th className="p-2 font-bold w-[100px]">Spec</th>
-                  <th className="p-2 font-bold w-[90px]">Brand</th>
-                  <th className="p-2 font-bold w-[70px]">UOM</th>
-                  <th className="p-2 font-bold w-[80px]">Qty</th>
-                  <th className="p-2 font-bold w-[90px]">Rate</th>
-                  <th className="p-2 font-bold w-[100px]">Gross Amt</th>
-                  <th className="p-2 font-bold w-[100px]">Disc Amt</th>
-                  <th className="p-2 font-bold w-[100px]">Taxable</th>
-                  <th className="p-2 font-bold w-[65px]">Tax%</th>
-                  <th className="p-2 font-bold w-[95px]">Net Rate</th>
-                  <th className="p-2 font-bold w-[100px]">Total Amt</th>
-                  <th className="p-2 font-bold w-[40px] text-center">Act</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gridRows.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50/50 text-[13px] transition-colors">
-                    <td className="p-2 text-center font-bold text-slate-400 text-[13px]">{idx + 1}</td>
-                    <td className="p-1">
-                      <Combobox
-                        value={row.partName}
-                        onChange={(val) => handleGridChange(row.id, 'partName', val)}
-                        options={Array.from(new Set(itemMasterList.map(i => i.partName || i.itemName).filter(Boolean))).map(opt => ({ value: opt, label: opt }))}
-                        placeholder="Select Item"
-                        readOnly={!row.isManual}
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Combobox
-                        value={row.partNo}
-                        onChange={(val) => handleGridChange(row.id, 'partNo', val)}
-                        options={Array.from(new Set(itemMasterList.map(i => i.partNo).filter(Boolean))).map(opt => ({ value: opt, label: opt }))}
-                        placeholder="Select Part"
-                        readOnly={!row.isManual}
-                      />
-                    </td>
-                    <td className="p-2"><Input value={row.barcode} onChange={e => handleGridChange(row.id, 'barcode', e.target.value)} className="!h-10 !text-[13px]" /></td>
-                    <td className="p-2"><Input value={row.specification} onChange={e => handleGridChange(row.id, 'specification', e.target.value)} className="!h-10 !text-[13px]" /></td>
-                    <td className="p-2"><Input value={row.brand} onChange={e => handleGridChange(row.id, 'brand', e.target.value)} className="!h-10 !text-[13px]" /></td>
-                    <td className="p-2 text-center font-medium text-slate-600 text-[13px]">{row.uom || '-'}</td>
-                    <td className="p-2"><Input type="number" value={row.qty} onChange={e => handleGridChange(row.id, 'qty', e.target.value)} className="text-center font-bold !text-[#0097A7] !h-10 !text-[13px]" /></td>
-                    <td className="p-2"><Input type="number" value={row.rate} onChange={e => handleGridChange(row.id, 'rate', e.target.value)} className="text-right !h-10 !text-[13px]" /></td>
-                    <td className="p-2"><Input type="number" value={row.grossAmt || ''} onChange={e => handleGridChange(row.id, 'grossAmt', e.target.value)} className="text-right font-bold !h-10 !text-[13px]" /></td>
-                    <td className="p-2"><Input type="number" value={row.discAmt || ''} onChange={e => handleGridChange(row.id, 'discAmt', e.target.value)} className="text-right !h-10 !text-[13px]" /></td>
-                    <td className="p-2 text-right font-bold text-slate-700 text-[13px]">₹{row.taxable || '0.00'}</td>
-                    <td className="p-2 text-center font-medium text-slate-500 text-[13px]">{row.taxPercent || '0'}%</td>
-                    <td className="p-2 text-right font-bold text-slate-700 text-[13px]">₹{row.netRate || '0.00'}</td>
-                    <td className="p-2 text-right font-bold text-emerald-600 bg-emerald-50/30 text-[13px]">₹{row.netAmt || '0.00'}</td>
-                    <td className="p-2 text-center">
-                      <button onClick={() => handleDeleteRow(row.id)} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"><X size={16} /></button>
-                    </td>
+          {/* ITEM DETAILS GRID */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-4 mx-4 mb-4">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+              <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">Item Details</h2>
+              <button
+                onClick={handleAddRow}
+                className="h-8 px-3 bg-[#0097A7] hover:bg-[#007f8c] text-white rounded-md text-[12px] font-bold shadow-sm transition-colors"
+              >
+                + Add Row
+              </button>
+            </div>
+            <div className="overflow-x-auto custom-scrollbar pb-[180px]">
+              <table className="w-full text-left border-collapse min-w-[1400px]">
+                <thead>
+                  <tr className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                    <th className="p-2 font-bold w-[40px] text-center">S.No</th>
+                    <th className="p-2 font-bold min-w-[160px]">Item Name</th>
+                    <th className="p-2 font-bold min-w-[130px]">Part No</th>
+                    <th className="p-2 font-bold w-[100px]">Barcode</th>
+                    <th className="p-2 font-bold w-[100px]">Spec</th>
+                    <th className="p-2 font-bold w-[90px]">Brand</th>
+                    <th className="p-2 font-bold w-[70px]">UOM</th>
+                    <th className="p-2 font-bold w-[80px]">Qty</th>
+                    <th className="p-2 font-bold w-[90px]">Rate</th>
+                    <th className="p-2 font-bold w-[100px]">Gross Amt</th>
+                    <th className="p-2 font-bold w-[100px]">Disc Amt</th>
+                    <th className="p-2 font-bold w-[100px]">Taxable</th>
+                    <th className="p-2 font-bold w-[65px]">Tax%</th>
+                    <th className="p-2 font-bold w-[95px]">Net Rate</th>
+                    <th className="p-2 font-bold w-[100px]">Total Amt</th>
+                    <th className="p-2 font-bold w-[40px] text-center">Act</th>
                   </tr>
-                ))}
-                {gridRows.length === 0 && (
-                  <tr>
-                    <td colSpan="16" className="p-8 text-center text-slate-400 italic text-[13px] bg-slate-50/50">
-                      No items added yet. Click <span className="font-bold text-[#0097A7]">"+ Add Row"</span> to start entering items or select a DC Number above.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {gridRows.map((row, idx) => (
+                    <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50/50 text-[13px] transition-colors">
+                      <td className="p-2 text-center font-bold text-slate-400 text-[13px]">{idx + 1}</td>
+                      <td className="p-1">
+                        <ItemSearchInput
+                          value={row.partName}
+                          onChange={(val, item) => {
+                            if (item) {
+                              handleGridChange(row.id, 'itemSelect', item)
+                            } else {
+                              handleGridChange(row.id, 'partName', val)
+                            }
+                          }}
+                          displayField="partName"
+                          placeholder="Select Item"
+                          disabled={!row.isManual}
+                          className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7] h-10"
+                        />
+                      </td>
+                      <td className="p-1">
+                        <ItemSearchInput
+                          value={row.partNo}
+                          onChange={(val, item) => {
+                            if (item) {
+                              handleGridChange(row.id, 'itemSelect', item)
+                            } else {
+                              handleGridChange(row.id, 'partNo', val)
+                            }
+                          }}
+                          displayField="partNo"
+                          placeholder="Select Part"
+                          disabled={!row.isManual}
+                          className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7] h-10"
+                        />
+                      </td>
+                      <td className="p-2"><Input value={row.barcode} onChange={e => handleGridChange(row.id, 'barcode', e.target.value)} className="!h-10 !text-[13px]" /></td>
+                      <td className="p-2"><Input value={row.specification} onChange={e => handleGridChange(row.id, 'specification', e.target.value)} className="!h-10 !text-[13px]" /></td>
+                      <td className="p-2"><Input value={row.brand} onChange={e => handleGridChange(row.id, 'brand', e.target.value)} className="!h-10 !text-[13px]" /></td>
+                      <td className="p-2 text-center font-medium text-slate-600 text-[13px]">{row.uom || '-'}</td>
+                      <td className="p-2"><Input type="number" value={row.qty} onChange={e => handleGridChange(row.id, 'qty', e.target.value)} className="text-center font-bold !text-[#0097A7] !h-10 !text-[13px]" /></td>
+                      <td className="p-2"><Input type="number" value={row.rate} onChange={e => handleGridChange(row.id, 'rate', e.target.value)} className="text-right !h-10 !text-[13px]" /></td>
+                      <td className="p-2"><Input type="number" value={row.grossAmt || ''} onChange={e => handleGridChange(row.id, 'grossAmt', e.target.value)} className="text-right font-bold !h-10 !text-[13px]" /></td>
+                      <td className="p-2"><Input type="number" value={row.discAmt || ''} onChange={e => handleGridChange(row.id, 'discAmt', e.target.value)} className="text-right !h-10 !text-[13px]" /></td>
+                      <td className="p-2 text-right font-bold text-slate-700 text-[13px]">₹{row.taxable || '0.00'}</td>
+                      <td className="p-2 text-center font-medium text-slate-500 text-[13px]">{row.taxPercent || '0'}%</td>
+                      <td className="p-2 text-right font-bold text-slate-700 text-[13px]">₹{row.netRate || '0.00'}</td>
+                      <td className="p-2 text-right font-bold text-emerald-600 bg-emerald-50/30 text-[13px]">₹{row.netAmt || '0.00'}</td>
+                      <td className="p-2 text-center">
+                        <button onClick={() => handleDeleteRow(row.id)} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"><X size={16} /></button>
+                      </td>
+                    </tr>
+                  ))}
+                  {gridRows.length === 0 && (
+                    <tr>
+                      <td colSpan="16" className="p-8 text-center text-slate-400 italic text-[13px] bg-slate-50/50">
+                        No items added yet. Click <span className="font-bold text-[#0097A7]">"+ Add Row"</span> to start entering items or select a DC Number above.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
         </div>
       </div>

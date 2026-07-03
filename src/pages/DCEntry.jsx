@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
+import { useCustomers, useReferenceMaster } from '../hooks/useMasterData'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -152,8 +153,41 @@ export default function DCEntry() {
   const toast = useToast()
   const fileInputRef = useRef(null)
 
-  // Master lists
-  const [parties, setParties] = useState([])
+  // React Query master data fetches
+  const { data: custsRes = [] } = useCustomers()
+  const { data: workTypesRes = [] } = useReferenceMaster('work_type')
+
+  const [suppliers, setSuppliers] = useState([])
+  const [suppliersLoading, setSuppliersLoading] = useState(true)
+
+  const parties = useMemo(() => {
+    const formattedCust = custsRes.map(c => ({
+      id: c.id,
+      type: 'Customer',
+      name: c.customerName,
+      code: c.cCode,
+      contactPerson: c.contactPerson || '',
+      contactNo: c.mobile || c.phone || '',
+      gstNo: c.gstNo || '',
+      address: [c.address, c.address2, c.address3, c.address4, c.city, c.pinCode].filter(Boolean).join(', ')
+    }))
+
+    const formattedSupp = suppliers.map(s => ({
+      id: s.id,
+      type: 'Supplier',
+      name: s.supplierName,
+      code: s.sCode,
+      contactPerson: s.contactPerson || '',
+      contactNo: s.mobile || s.phone || '',
+      gstNo: s.gstNo || '',
+      address: [s.address, s.address2, s.address3, s.address4, s.city, s.pinCode].filter(Boolean).join(', ')
+    }))
+
+    return [...formattedCust, ...formattedSupp]
+  }, [custsRes, suppliers])
+
+  const itemsList = itemsRes
+  const workTypes = useMemo(() => workTypesRes.map(item => item.description).filter(Boolean), [workTypesRes])
   const [selectedParty, setSelectedParty] = useState(null)
 
   const fetchNextDcNo = async () => {
@@ -168,7 +202,6 @@ export default function DCEntry() {
       setDcNo(getFinancialYearDC())
     }
   }
-  const [itemsList, setItemsList] = useState([])
   const [employees, setEmployees] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [recentVehicles, setRecentVehicles] = useState([])
@@ -224,7 +257,6 @@ export default function DCEntry() {
   const [weight, setWeight] = useState('')
   const [details, setDetails] = useState('')
   const [workType, setWorkType] = useState('')
-  const [workTypes, setWorkTypes] = useState([])
   const [rework, setRework] = useState('')
 
   // Barcode and Stock list for selection
@@ -257,40 +289,8 @@ export default function DCEntry() {
         setDate(todayStr)
         await fetchNextDcNo()
 
-        const [custRes, suppRes, itemsRes, workTypesRes] = await Promise.all([
-          api.get('/api/customer-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-          api.get('/api/supplier-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-          api.get('/api/item-master?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-          api.get('/api/reference-master/work_type', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
-        ])
-
-        const formattedCust = custRes.map(c => ({
-          id: c.id,
-          type: 'Customer',
-          name: c.customerName,
-          code: c.cCode,
-          contactPerson: c.contactPerson || '',
-          contactNo: c.mobile || c.phone || '',
-          gstNo: c.gstNo || '',
-          address: [c.address, c.address2, c.address3, c.address4, c.city, c.pinCode].filter(Boolean).join(', ')
-        }))
-
-        const formattedSupp = suppRes.map(s => ({
-          id: s.id,
-          type: 'Supplier',
-          name: s.supplierName,
-          code: s.sCode,
-          contactPerson: s.contactPerson || '',
-          contactNo: s.mobile || s.phone || '',
-          gstNo: s.gstNo || '',
-          address: [s.address, s.address2, s.address3, s.address4, s.city, s.pinCode].filter(Boolean).join(', ')
-        }))
-
-        setParties([...formattedCust, ...formattedSupp])
-        setItemsList(itemsRes)
-
-        const fetchedTypes = workTypesRes.map(item => item.description).filter(Boolean)
-        setWorkTypes(fetchedTypes)
+        const suppRes = await api.get('/api/supplier-master', { skipGlobalLoader: true })
+        setSuppliers(suppRes.data?.data || [])
 
         await fetchRecentValues()
       } catch (err) {
