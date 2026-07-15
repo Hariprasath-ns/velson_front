@@ -1,0 +1,2282 @@
+{
+  "velson_frontend\\src\\config\\nav.js": [
+    {
+      "file": "velson_frontend\\src\\config\\nav.js",
+      "line": 2,
+      "column": 27,
+      "message": "'UserCog' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\context\\LoadingContext.jsx": [
+    {
+      "file": "velson_frontend\\src\\context\\LoadingContext.jsx",
+      "line": 2,
+      "column": 10,
+      "message": "'Loader2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\AutoJobEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 3,
+      "column": 38,
+      "message": "'LayoutGrid' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 3,
+      "column": 68,
+      "message": "'CheckCircle2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 3,
+      "column": 82,
+      "message": "'Play' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 4,
+      "column": 3,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 4,
+      "column": 9,
+      "message": "'RotateCcw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 4,
+      "column": 20,
+      "message": "'Package' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 4,
+      "column": 29,
+      "message": "'ClipboardList' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\AutoJobEntry.jsx",
+      "line": 4,
+      "column": 44,
+      "message": "'Database' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\BOMCreationReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\BOMCreationReport.jsx",
+      "line": 1,
+      "column": 31,
+      "message": "'useMemo' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BOMCreationReport.jsx",
+      "line": 4,
+      "column": 20,
+      "message": "'FileJson' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BOMCreationReport.jsx",
+      "line": 4,
+      "column": 30,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BOMCreationReport.jsx",
+      "line": 4,
+      "column": 38,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BOMCreationReport.jsx",
+      "line": 4,
+      "column": 79,
+      "message": "'List' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BOMCreationReport.jsx",
+      "line": 572,
+      "column": 11,
+      "message": "'headers' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BOMCreationReport.jsx",
+      "line": 950,
+      "column": 75,
+      "message": "'key' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\BarcodeDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\BarcodeDetails.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BarcodeDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BarcodeDetails.jsx",
+      "line": 3,
+      "column": 37,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BarcodeDetails.jsx",
+      "line": 3,
+      "column": 64,
+      "message": "'FileJson' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BarcodeDetails.jsx",
+      "line": 3,
+      "column": 92,
+      "message": "'Barcode' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BarcodeDetails.jsx",
+      "line": 3,
+      "column": 101,
+      "message": "'LayoutGrid' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BarcodeDetails.jsx",
+      "line": 3,
+      "column": 113,
+      "message": "'RotateCcw' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\BookingEntryNew.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 7,
+      "column": 34,
+      "message": "'X' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 8,
+      "column": 20,
+      "message": "'FileJson' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 8,
+      "column": 38,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 9,
+      "column": 3,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 9,
+      "column": 21,
+      "message": "'Check' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 9,
+      "column": 28,
+      "message": "'List' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 9,
+      "column": 34,
+      "message": "'Barcode' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 355,
+      "column": 9,
+      "message": "'handleDateChange' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BookingEntryNew.jsx",
+      "line": 611,
+      "column": 9,
+      "message": "'generateBarcodeSVG' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\BreakDownAcceptance.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownAcceptance.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownAcceptance.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownAcceptance.jsx",
+      "line": 3,
+      "column": 65,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownAcceptance.jsx",
+      "line": 3,
+      "column": 83,
+      "message": "'CheckCircle2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownAcceptance.jsx",
+      "line": 3,
+      "column": 97,
+      "message": "'RotateCcw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownAcceptance.jsx",
+      "line": 11,
+      "column": 7,
+      "message": "'Label' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownAcceptance.jsx",
+      "line": 19,
+      "column": 10,
+      "message": "'data' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\BreakDownApprovalList.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownApprovalList.jsx",
+      "line": 3,
+      "column": 55,
+      "message": "'FileJson' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownApprovalList.jsx",
+      "line": 3,
+      "column": 65,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownApprovalList.jsx",
+      "line": 3,
+      "column": 73,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownApprovalList.jsx",
+      "line": 3,
+      "column": 83,
+      "message": "'Wrench' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownApprovalList.jsx",
+      "line": 3,
+      "column": 91,
+      "message": "'Calendar' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownApprovalList.jsx",
+      "line": 3,
+      "column": 112,
+      "message": "'CheckCircle2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\BreakDownClearence.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownClearence.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownClearence.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownClearence.jsx",
+      "line": 3,
+      "column": 65,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownClearence.jsx",
+      "line": 3,
+      "column": 83,
+      "message": "'CheckCircle2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownClearence.jsx",
+      "line": 3,
+      "column": 97,
+      "message": "'RotateCcw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownClearence.jsx",
+      "line": 11,
+      "column": 7,
+      "message": "'Label' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\BreakDownClearence.jsx",
+      "line": 19,
+      "column": 10,
+      "message": "'data' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\CCMSEntryDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\CCMSEntryDetails.jsx",
+      "line": 1,
+      "column": 31,
+      "message": "'useRef' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CCMSEntryDetails.jsx",
+      "line": 2,
+      "column": 76,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CCMSEntryDetails.jsx",
+      "line": 2,
+      "column": 89,
+      "message": "'Trash2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CCMSEntryDetails.jsx",
+      "line": 2,
+      "column": 105,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CCMSEntryDetails.jsx",
+      "line": 2,
+      "column": 119,
+      "message": "'Eye' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CCMSEntryDetails.jsx",
+      "line": 2,
+      "column": 124,
+      "message": "'Loader2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\CompletedJobList.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\CompletedJobList.jsx",
+      "line": 1,
+      "column": 10,
+      "message": "'useState' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ConformationList.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ConformationList.jsx",
+      "line": 4,
+      "column": 3,
+      "message": "'FileSpreadsheet' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ConformationList.jsx",
+      "line": 4,
+      "column": 32,
+      "message": "'CheckCircle2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\CurrentStock.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\CurrentStock.jsx",
+      "line": 1,
+      "column": 10,
+      "message": "'useState' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CurrentStock.jsx",
+      "line": 3,
+      "column": 34,
+      "message": "'Play' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 10,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 33,
+      "message": "'Camera' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 41,
+      "message": "'Send' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 61,
+      "message": "'User' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 67,
+      "message": "'Phone' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 74,
+      "message": "'MapPin' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 82,
+      "message": "'ClipboardList' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 97,
+      "message": "'RotateCcw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 108,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 124,
+      "message": "'Mail' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 130,
+      "message": "'Map' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\CustomerComplaintEntry.jsx",
+      "line": 2,
+      "column": 152,
+      "message": "'Loader2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\DCDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetails.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetails.jsx",
+      "line": 3,
+      "column": 28,
+      "message": "'FileBarChart' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetails.jsx",
+      "line": 3,
+      "column": 42,
+      "message": "'Play' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetails.jsx",
+      "line": 4,
+      "column": 48,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetails.jsx",
+      "line": 4,
+      "column": 58,
+      "message": "'Camera' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetails.jsx",
+      "line": 4,
+      "column": 66,
+      "message": "'FileDown' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\DCDetailsReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetailsReport.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetailsReport.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetailsReport.jsx",
+      "line": 3,
+      "column": 28,
+      "message": "'FileBarChart' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetailsReport.jsx",
+      "line": 3,
+      "column": 42,
+      "message": "'Play' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetailsReport.jsx",
+      "line": 4,
+      "column": 48,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetailsReport.jsx",
+      "line": 4,
+      "column": 58,
+      "message": "'Camera' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCDetailsReport.jsx",
+      "line": 4,
+      "column": 66,
+      "message": "'FileDown' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\DCEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 4,
+      "column": 28,
+      "message": "'Package' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 4,
+      "column": 37,
+      "message": "'ChevronUp' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 4,
+      "column": 48,
+      "message": "'CheckCircle2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 5,
+      "column": 3,
+      "message": "'ClipboardList' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 5,
+      "column": 18,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 5,
+      "column": 24,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 5,
+      "column": 34,
+      "message": "'Printer' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 5,
+      "column": 43,
+      "message": "'Eye' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 5,
+      "column": 48,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 5,
+      "column": 58,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 5,
+      "column": 68,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DCEntry.jsx",
+      "line": 109,
+      "column": 9,
+      "message": "'handleReset' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\DCSales.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\DCSales.jsx",
+      "line": 4,
+      "column": 10,
+      "message": "'LayoutGrid' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\DayBook.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\DayBook.jsx",
+      "line": 2,
+      "column": 44,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DayBook.jsx",
+      "line": 2,
+      "column": 54,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DayBook.jsx",
+      "line": 2,
+      "column": 91,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DayBook.jsx",
+      "line": 2,
+      "column": 99,
+      "message": "'Settings' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\DayReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\DayReport.jsx",
+      "line": 4,
+      "column": 3,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DayReport.jsx",
+      "line": 4,
+      "column": 11,
+      "message": "'Settings' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\DropDownListMaster.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\DropDownListMaster.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\DropDownListMaster.jsx",
+      "line": 146,
+      "column": 9,
+      "message": "'inputCls' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\FileUploads.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\FileUploads.jsx",
+      "line": 2,
+      "column": 24,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\FileUploads.jsx",
+      "line": 27,
+      "column": 7,
+      "message": "'now' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\GRNEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\GRNEntry.jsx",
+      "line": 40,
+      "column": 10,
+      "message": "'qcTypes' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\GRNEntry.jsx",
+      "line": 352,
+      "column": 9,
+      "message": "'openPoSearch' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\GRNEntry.jsx",
+      "line": 462,
+      "column": 9,
+      "message": "'removeRow' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\GateEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\GateEntry.jsx",
+      "line": 2,
+      "column": 41,
+      "message": "'Loader2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\IPRApproval.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\IPRApproval.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\IPRApproval.jsx",
+      "line": 478,
+      "column": 42,
+      "message": "'i' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\IndexCreation.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\IndexCreation.jsx",
+      "line": 2,
+      "column": 101,
+      "message": "'Save' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\IndexCreationReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\IndexCreationReport.jsx",
+      "line": 3,
+      "column": 17,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\IndexCreationReport.jsx",
+      "line": 4,
+      "column": 30,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\IndexCreationReport.jsx",
+      "line": 4,
+      "column": 38,
+      "message": "'Settings' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\InwardReports.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\InwardReports.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ItemMaster.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ItemMaster.jsx",
+      "line": 5,
+      "column": 53,
+      "message": "'X' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ItemMaster.jsx",
+      "line": 379,
+      "column": 7,
+      "message": "'MOCK_UPLOADS' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ItemMaster.jsx",
+      "line": 798,
+      "column": 70,
+      "message": "'refetchDropdowns' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\JobCardEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\JobCardEntry.jsx",
+      "line": 2,
+      "column": 66,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobCardEntry.jsx",
+      "line": 28,
+      "column": 7,
+      "message": "'parseNoteMetadata' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobCardEntry.jsx",
+      "line": 63,
+      "column": 10,
+      "message": "'loading' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobCardEntry.jsx",
+      "line": 78,
+      "column": 10,
+      "message": "'nextJobNo' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\JobList.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 51,
+      "message": "'Calendar' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 61,
+      "message": "'CheckCircle2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 75,
+      "message": "'LayoutGrid' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 87,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 97,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 105,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 115,
+      "message": "'FileJson' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 133,
+      "message": "'RotateCcw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 3,
+      "column": 153,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 57,
+      "column": 10,
+      "message": "'data' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JobList.jsx",
+      "line": 161,
+      "column": 44,
+      "message": "'idx' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\JournalEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\JournalEntry.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JournalEntry.jsx",
+      "line": 2,
+      "column": 52,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\JournalEntry.jsx",
+      "line": 70,
+      "column": 9,
+      "message": "'addRow' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\LedgerBalance.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\LedgerBalance.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\LedgerBalance.jsx",
+      "line": 2,
+      "column": 95,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\LedgerBalance.jsx",
+      "line": 2,
+      "column": 103,
+      "message": "'Settings' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MRApproval.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MRApproval.jsx",
+      "line": 101,
+      "column": 9,
+      "message": "'pendingCount' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MRApproval.jsx",
+      "line": 102,
+      "column": 9,
+      "message": "'approvedCount' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MRApproval.jsx",
+      "line": 103,
+      "column": 9,
+      "message": "'rejectedCount' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MachineBreakDown.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 3,
+      "column": 48,
+      "message": "'Eraser' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 4,
+      "column": 20,
+      "message": "'ChevronUp' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 4,
+      "column": 31,
+      "message": "'Wrench' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 4,
+      "column": 39,
+      "message": "'AlertTriangle' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 4,
+      "column": 54,
+      "message": "'User' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 5,
+      "column": 3,
+      "message": "'RotateCcw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 5,
+      "column": 14,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 5,
+      "column": 20,
+      "message": "'Activity' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 5,
+      "column": 30,
+      "message": "'RefreshCw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 191,
+      "column": 9,
+      "message": "'handleEditSelected' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 202,
+      "column": 9,
+      "message": "'handleDeleteSelected' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MachineBreakDown.jsx",
+      "line": 600,
+      "column": 43,
+      "message": "'idx' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MainIndex.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndex.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndex.jsx",
+      "line": 2,
+      "column": 43,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndex.jsx",
+      "line": 2,
+      "column": 64,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndex.jsx",
+      "line": 2,
+      "column": 72,
+      "message": "'Plus' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MainIndexReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndexReport.jsx",
+      "line": 4,
+      "column": 30,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndexReport.jsx",
+      "line": 4,
+      "column": 38,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndexReport.jsx",
+      "line": 4,
+      "column": 73,
+      "message": "'RotateCcw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndexReport.jsx",
+      "line": 53,
+      "column": 10,
+      "message": "'searching' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MainIndexReport.jsx",
+      "line": 79,
+      "column": 9,
+      "message": "'handleDelete' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MarketingLog.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MarketingLog.jsx",
+      "line": 2,
+      "column": 83,
+      "message": "'FileUp' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MaterialIssue.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssue.jsx",
+      "line": 101,
+      "column": 10,
+      "message": "'customers' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MaterialIssueCorrection.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssueCorrection.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssueCorrection.jsx",
+      "line": 3,
+      "column": 42,
+      "message": "'Play' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MaterialIssuedDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssuedDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssuedDetails.jsx",
+      "line": 3,
+      "column": 48,
+      "message": "'Trash2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssuedDetails.jsx",
+      "line": 4,
+      "column": 20,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssuedDetails.jsx",
+      "line": 4,
+      "column": 30,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssuedDetails.jsx",
+      "line": 4,
+      "column": 38,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialIssuedDetails.jsx",
+      "line": 4,
+      "column": 48,
+      "message": "'Download' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MaterialRequestEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MaterialRequestEntry.jsx",
+      "line": 62,
+      "column": 10,
+      "message": "'vehicleNames' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MinStock.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MinStock.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MinStock.jsx",
+      "line": 3,
+      "column": 42,
+      "message": "'Play' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\MonthlyLedgerBalance.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\MonthlyLedgerBalance.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\MonthlyLedgerBalance.jsx",
+      "line": 2,
+      "column": 64,
+      "message": "'FileSpreadsheet' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\NCApproval.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\NCApproval.jsx",
+      "line": 6,
+      "column": 7,
+      "message": "'fmt' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCApproval.jsx",
+      "line": 12,
+      "column": 7,
+      "message": "'toISO' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCApproval.jsx",
+      "line": 155,
+      "column": 9,
+      "message": "'statusBadge' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\NCDCDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCDetails.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCDetails.jsx",
+      "line": 3,
+      "column": 17,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCDetails.jsx",
+      "line": 3,
+      "column": 45,
+      "message": "'Download' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCDetails.jsx",
+      "line": 4,
+      "column": 48,
+      "message": "'ShieldAlert' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCDetails.jsx",
+      "line": 4,
+      "column": 61,
+      "message": "'RotateCcw' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\NCDCEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 3,
+      "column": 3,
+      "message": "'ChevronRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 3,
+      "column": 34,
+      "message": "'RefreshCw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 4,
+      "column": 28,
+      "message": "'Truck' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 4,
+      "column": 35,
+      "message": "'ChevronUp' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 4,
+      "column": 46,
+      "message": "'CheckCircle2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 4,
+      "column": 60,
+      "message": "'ShieldAlert' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 5,
+      "column": 3,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 5,
+      "column": 9,
+      "message": "'RotateCcw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 5,
+      "column": 20,
+      "message": "'Package' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 5,
+      "column": 29,
+      "message": "'ClipboardList' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 103,
+      "column": 10,
+      "message": "'items' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\NCDCEntry.jsx",
+      "line": 106,
+      "column": 9,
+      "message": "'handleReset' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\OtherPages.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 2,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 5,
+      "column": 35,
+      "message": "'Hash' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 5,
+      "column": 41,
+      "message": "'FolderOpen' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 5,
+      "column": 53,
+      "message": "'Factory' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 6,
+      "column": 3,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 6,
+      "column": 57,
+      "message": "'PlayCircle' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 7,
+      "column": 12,
+      "message": "'ArrowUpRight' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 7,
+      "column": 53,
+      "message": "'Calendar' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 8,
+      "column": 25,
+      "message": "'CheckCircle' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 8,
+      "column": 38,
+      "message": "'RefreshCw' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 8,
+      "column": 54,
+      "message": "'Info' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 15,
+      "column": 3,
+      "message": "'Legend' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 16,
+      "column": 3,
+      "message": "'LegendItemComponent' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 17,
+      "column": 3,
+      "message": "'LegendMarker' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 18,
+      "column": 3,
+      "message": "'LegendLabel' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 98,
+      "column": 10,
+      "message": "'CustomLegendValue' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 108,
+      "column": 47,
+      "message": "'timeframe' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 364,
+      "column": 10,
+      "message": "'processMasters' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 365,
+      "column": 10,
+      "message": "'machines' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OtherPages.jsx",
+      "line": 583,
+      "column": 9,
+      "message": "'legendItems' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\OutstandingReceiptReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\OutstandingReceiptReport.jsx",
+      "line": 4,
+      "column": 13,
+      "message": "'Filter' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OutstandingReceiptReport.jsx",
+      "line": 4,
+      "column": 21,
+      "message": "'Settings' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\OutwardDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\OutwardDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\OutwardDetails.jsx",
+      "line": 3,
+      "column": 42,
+      "message": "'Play' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\PaymentDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\PaymentDetails.jsx",
+      "line": 3,
+      "column": 17,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\PaymentEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\PaymentEntry.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\PoApproval.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\PoApproval.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\PoApproval.jsx",
+      "line": 2,
+      "column": 98,
+      "message": "'Eye' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\PoApproval.jsx",
+      "line": 461,
+      "column": 43,
+      "message": "'i' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\PrintPurchaseRequest.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\PrintPurchaseRequest.jsx",
+      "line": 2,
+      "column": 76,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\PrintPurchaseRequest.jsx",
+      "line": 2,
+      "column": 106,
+      "message": "'Eye' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\PrintPurchaseRequest.jsx",
+      "line": 141,
+      "column": 22,
+      "message": "'setFilterOpen' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ProcessCard.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessCard.jsx",
+      "line": 3,
+      "column": 79,
+      "message": "'ChevronUp' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ProcessCompleted.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessCompleted.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessCompleted.jsx",
+      "line": 10,
+      "column": 7,
+      "message": "'PROCESSES' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessCompleted.jsx",
+      "line": 16,
+      "column": 7,
+      "message": "'OPERATORS' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessCompleted.jsx",
+      "line": 79,
+      "column": 16,
+      "message": "'setRows' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ProcessMaster.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 2,
+      "column": 30,
+      "message": "'List' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 2,
+      "column": 50,
+      "message": "'Info' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 6,
+      "column": 7,
+      "message": "'PAGE_SIZES' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 15,
+      "column": 7,
+      "message": "'today' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 17,
+      "column": 7,
+      "message": "'COLUMN_WIDTHS' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 49,
+      "column": 20,
+      "message": "'setPageSize' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 225,
+      "column": 13,
+      "message": "'res' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 268,
+      "column": 9,
+      "message": "'handleAdd' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 356,
+      "column": 9,
+      "message": "'lbl' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMaster.jsx",
+      "line": 357,
+      "column": 9,
+      "message": "'isPartNameLocked' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ProcessMenu.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMenu.jsx",
+      "line": 117,
+      "column": 10,
+      "message": "'savedRecords' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ProcessMenu.jsx",
+      "line": 136,
+      "column": 10,
+      "message": "'processMasters' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\PurchaseOrderDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\PurchaseOrderDetails.jsx",
+      "line": 2,
+      "column": 24,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\PurchaseOrderDetails.jsx",
+      "line": 2,
+      "column": 49,
+      "message": "'Eye' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\PurchaseOrderDetails.jsx",
+      "line": 263,
+      "column": 9,
+      "message": "'headerDelete' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\PurchaseOrderEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\PurchaseOrderEntry.jsx",
+      "line": 155,
+      "column": 19,
+      "message": "'sup' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\PurchaseOrderOverallReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\PurchaseOrderOverallReport.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\PurchaseOrderReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\PurchaseOrderReport.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\QCCompletedList.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\QCCompletedList.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\QCEntryReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\QCEntryReport.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\QCRejectionDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\QCRejectionDetails.jsx",
+      "line": 3,
+      "column": 96,
+      "message": "'CheckCircle2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\QuotationSales.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\QuotationSales.jsx",
+      "line": 4,
+      "column": 3,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\QuotationSales.jsx",
+      "line": 4,
+      "column": 29,
+      "message": "'LayoutGrid' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\RawMaterialIssue.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\RawMaterialIssue.jsx",
+      "line": 3,
+      "column": 70,
+      "message": "'CheckCircle2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\RawMaterialIssuedDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\RawMaterialIssuedDetails.jsx",
+      "line": 3,
+      "column": 83,
+      "message": "'LayoutGrid' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ReceiptDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ReceiptDetails.jsx",
+      "line": 3,
+      "column": 17,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ReceiptEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ReceiptEntry.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ReceiptEntry.jsx",
+      "line": 2,
+      "column": 33,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ReceiptEntry.jsx",
+      "line": 77,
+      "column": 9,
+      "message": "'addRow' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\SalesDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\SalesDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\SalesDetails.jsx",
+      "line": 3,
+      "column": 42,
+      "message": "'Play' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceBillDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBillDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBillDetails.jsx",
+      "line": 3,
+      "column": 42,
+      "message": "'Play' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceBillEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBillEntry.jsx",
+      "line": 4,
+      "column": 26,
+      "message": "'LayoutGrid' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceBookingDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBookingDetails.jsx",
+      "line": 5,
+      "column": 17,
+      "message": "'X' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBookingDetails.jsx",
+      "line": 5,
+      "column": 20,
+      "message": "'Trash2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBookingDetails.jsx",
+      "line": 5,
+      "column": 28,
+      "message": "'Edit' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBookingDetails.jsx",
+      "line": 5,
+      "column": 51,
+      "message": "'List' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBookingDetails.jsx",
+      "line": 19,
+      "column": 7,
+      "message": "'Input' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBookingDetails.jsx",
+      "line": 48,
+      "column": 7,
+      "message": "'LEGACY_SEED_BOOKINGS' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceBookingDetails.jsx",
+      "line": 193,
+      "column": 9,
+      "message": "'handleDelete' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceDetailsReport.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceDetailsReport.jsx",
+      "line": 1,
+      "column": 31,
+      "message": "'useRef' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceDetailsReport.jsx",
+      "line": 6,
+      "column": 17,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceDetailsReport.jsx",
+      "line": 85,
+      "column": 9,
+      "message": "'monthAgo' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceJobEntryDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceJobEntryDetails.jsx",
+      "line": 3,
+      "column": 28,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceJobEntryDetails.jsx",
+      "line": 3,
+      "column": 105,
+      "message": "'CheckCircle2' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceLabourBillDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceLabourBillDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceLabourBillDetails.jsx",
+      "line": 3,
+      "column": 42,
+      "message": "'Play' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceQuotation.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceQuotation.jsx",
+      "line": 3,
+      "column": 17,
+      "message": "'X' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceQuotation.jsx",
+      "line": 209,
+      "column": 11,
+      "message": "'invalidRow' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceQuotation.jsx",
+      "line": 288,
+      "column": 9,
+      "message": "'handlePrintQuotation' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceQuotationDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceQuotationDetails.jsx",
+      "line": 5,
+      "column": 17,
+      "message": "'X' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceQuotationDetails.jsx",
+      "line": 5,
+      "column": 51,
+      "message": "'List' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceQuotationDetails.jsx",
+      "line": 48,
+      "column": 7,
+      "message": "'SEED_QUOTATIONS' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ServiceSpareEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceSpareEntry.jsx",
+      "line": 1,
+      "column": 48,
+      "message": "'Fragment' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceSpareEntry.jsx",
+      "line": 129,
+      "column": 30,
+      "message": "'index' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceSpareEntry.jsx",
+      "line": 275,
+      "column": 7,
+      "message": "'BOM_PARTS' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceSpareEntry.jsx",
+      "line": 277,
+      "column": 7,
+      "message": "'STANDARD_ASSEMBLIES' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ServiceSpareEntry.jsx",
+      "line": 1265,
+      "column": 9,
+      "message": "'totalAmount' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\StockDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\StockDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\StockManagement.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 3,
+      "column": 45,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 3,
+      "column": 63,
+      "message": "'Settings' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 4,
+      "column": 3,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 5,
+      "column": 14,
+      "message": "'Info' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 5,
+      "column": 26,
+      "message": "'Edit' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 5,
+      "column": 32,
+      "message": "'Eye' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 48,
+      "column": 7,
+      "message": "'inp' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 53,
+      "column": 7,
+      "message": "'lbl' is assigned a value but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\StockManagement.jsx",
+      "line": 578,
+      "column": 9,
+      "message": "'renderStatusBadge' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\TaxMaster.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\TaxMaster.jsx",
+      "line": 91,
+      "column": 14,
+      "message": "'err' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\TempServiceBillDetails.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\TempServiceBillDetails.jsx",
+      "line": 3,
+      "column": 20,
+      "message": "'Search' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\UploadBOM.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\UploadBOM.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\UploadBOM.jsx",
+      "line": 2,
+      "column": 40,
+      "message": "'Download' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\Users.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\Users.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\Users.jsx",
+      "line": 138,
+      "column": 13,
+      "message": "'prev' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\components\\UserActions.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\components\\UserActions.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\components\\UserFilters.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\components\\UserFilters.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\components\\UserForm.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\components\\UserForm.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\components\\UserModal.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\components\\UserModal.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\components\\UserPermissions.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\components\\UserPermissions.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\components\\UserRoleBadge.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\components\\UserRoleBadge.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\components\\UserStatusBadge.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\components\\UserStatusBadge.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\components\\UserTable.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\components\\UserTable.jsx",
+      "line": 1,
+      "column": 8,
+      "message": "'React' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\Users\\utils\\userHelpers.js": [
+    {
+      "file": "velson_frontend\\src\\pages\\Users\\utils\\userHelpers.js",
+      "line": 13,
+      "column": 12,
+      "message": "'err' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\ViewModel.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\ViewModel.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ViewModel.jsx",
+      "line": 2,
+      "column": 32,
+      "message": "'FileText' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ViewModel.jsx",
+      "line": 2,
+      "column": 62,
+      "message": "'FileDown' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\ViewModel.jsx",
+      "line": 12,
+      "column": 7,
+      "message": "'Input' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\VoucherEntry.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\VoucherEntry.jsx",
+      "line": 1,
+      "column": 20,
+      "message": "'useEffect' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\VoucherEntry.jsx",
+      "line": 2,
+      "column": 52,
+      "message": "'Plus' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\VoucherEntry.jsx",
+      "line": 71,
+      "column": 9,
+      "message": "'addRow' is assigned a value but never used."
+    }
+  ],
+  "velson_frontend\\src\\pages\\WaitingForApproval.jsx": [
+    {
+      "file": "velson_frontend\\src\\pages\\WaitingForApproval.jsx",
+      "line": 2,
+      "column": 78,
+      "message": "'Eye' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\WaitingForApproval.jsx",
+      "line": 2,
+      "column": 88,
+      "message": "'Loader2' is defined but never used."
+    },
+    {
+      "file": "velson_frontend\\src\\pages\\WaitingForApproval.jsx",
+      "line": 16,
+      "column": 12,
+      "message": "'e' is defined but never used."
+    }
+  ],
+  "velson_frontend\\src\\services\\api.js": [
+    {
+      "file": "velson_frontend\\src\\services\\api.js",
+      "line": 32,
+      "column": 14,
+      "message": "'err' is defined but never used."
+    }
+  ]
+}
