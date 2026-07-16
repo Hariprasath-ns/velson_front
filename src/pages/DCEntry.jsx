@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ChevronRight, Save, X, Search, RotateCcw,
-  FileSpreadsheet, Camera, Plus, Loader2, Send, FileText, Trash2
+  FileSpreadsheet, Camera, Plus, Loader2, Send, FileText, Trash2, Download
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
-import { useCustomers, useReferenceMaster } from '../hooks/useMasterData'
+import { useCustomers, useReferenceMaster, useItemMaster } from '../hooks/useMasterData'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -152,10 +153,14 @@ const getFinancialYearDC = () => {
 export default function DCEntry() {
   const toast = useToast()
   const fileInputRef = useRef(null)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const editId = location.state?.editId
 
   // React Query master data fetches
   const { data: custsRes = [] } = useCustomers()
   const { data: workTypesRes = [] } = useReferenceMaster('work_type')
+  const { data: itemsRes = [] } = useItemMaster()
 
   const [suppliers, setSuppliers] = useState([])
   const [suppliersLoading, setSuppliersLoading] = useState(true)
@@ -191,6 +196,7 @@ export default function DCEntry() {
   const [selectedParty, setSelectedParty] = useState(null)
 
   const fetchNextDcNo = async () => {
+    if (editId) return
     try {
       const res = await api.get('/api/delivery-challan/next-number', { skipGlobalLoader: true })
       if (res.data?.dcNo) {
@@ -302,6 +308,67 @@ export default function DCEntry() {
     }
     fetchMasters()
   }, [])
+
+  // Load existing DC for edit if editId is provided
+  useEffect(() => {
+    if (!editId || parties.length === 0) return
+
+    const loadEditRecord = async () => {
+      try {
+        const res = await api.get(`/api/delivery-challan/${editId}`)
+        if (res.data?.success && res.data.data) {
+          const dc = res.data.data
+          setDcNo(dc.dcNo)
+          setDate(dc.date ? dc.date.split('T')[0] : '')
+          setCustomerName(dc.partyName)
+          setCustomerDetails(dc.address || '')
+          setContPerson(dc.contPerson || '')
+          setContactNo(dc.contactNo || '')
+          setGstNo(dc.gstNo || '')
+          setDcType(dc.dcType)
+          setVehicleNo(dc.vehicleNo || '')
+          setDriverName(dc.driverName || '')
+          setDesThrough(dc.desThrough || '')
+          setTermsOfDelivery(dc.termsOfDelivery || '')
+
+          // Match the party
+          const match = parties.find(p => p.name === dc.partyName)
+          if (match) {
+            setSelectedParty(match)
+          }
+
+          // Load items
+          if (dc.details) {
+            setItems(dc.details.map((item, idx) => ({
+              id: item.id || idx + 1,
+              barcode: item.barcode || 'N/A',
+              partNo: item.partNo,
+              partName: item.partName,
+              spec: item.spec || '',
+              brand: item.brand || '',
+              qty: item.qty,
+              uom: item.uom || '',
+              rate: item.rate,
+              amount: item.amount,
+              heatTreatment: item.heatTreatment || '',
+              mGrade: item.mGrade || '',
+              rework: item.rework || 'NO',
+              hrc: item.hrc || '',
+              weight: item.weight || '',
+              workType: item.workType || '',
+              details: item.details || '',
+              source: item.source || null,
+              sourceId: item.sourceId || null
+            })))
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load DC for edit:', err)
+        toast.error('Failed to load Delivery Challan details for editing.')
+      }
+    }
+    loadEditRecord()
+  }, [editId, parties])
 
   // Derived arrays for inputs
   const partyNames = useMemo(() => parties.map(p => p.name).filter(Boolean), [parties])
@@ -719,7 +786,7 @@ export default function DCEntry() {
     }
   }
 
-  const generateChallanPDF = async (payload) => {
+  const generateChallanPDF = async (payload, download = false) => {
     try {
       // Fetch logo as base64
       let logoBase64 = null
@@ -1080,7 +1147,11 @@ export default function DCEntry() {
       doc.setTextColor(...grey)
       doc.text('This is a computer-generated document.', pageW / 2, 285, { align: 'center' })
 
-      doc.save(`DC_${payload.dcNo}.pdf`)
+      if (download) {
+        doc.save(`DC_${payload.dcNo}.pdf`)
+      } else {
+        window.open(doc.output('bloburl'), '_blank')
+      }
     } catch (err) {
       console.error('PDF generation error:', err)
       toast.error(`Failed to generate PDF: ${err.message}`)
@@ -1088,7 +1159,7 @@ export default function DCEntry() {
   }
 
   // Submit complete DC Entry
-  const handleSubmit = async (generatePdf = false) => {
+  const handleSubmit = async (generatePdf = false, downloadPdf = false) => {
     if (!customerName) {
       toast.error('Customer Name is required')
       return
@@ -1186,18 +1257,27 @@ export default function DCEntry() {
         items: finalItems
       }
 
-      await api.post('/api/delivery-challan', payload, { loadingMessage: 'Submitting Delivery Challan...' })
-      toast.success(`Delivery Challan ${dcNo} submitted successfully!`)
+      if (editId) {
+        await api.put(`/api/delivery-challan/${editId}`, payload, { loadingMessage: 'Updating Delivery Challan...' })
+        toast.success(`Delivery Challan ${dcNo} updated successfully!`)
+      } else {
+        await api.post('/api/delivery-challan', payload, { loadingMessage: 'Submitting Delivery Challan...' })
+        toast.success(`Delivery Challan ${dcNo} submitted successfully!`)
+      }
       await fetchRecentValues()
 
       if (generatePdf === true) {
-        await generateChallanPDF(payload)
+        await generateChallanPDF(payload, downloadPdf)
       }
 
-      handleClearAll()
+      if (editId) {
+        navigate(-1)
+      } else {
+        handleClearAll()
+      }
     } catch (err) {
       console.error(err)
-      toast.error(err.response?.data?.message || 'Failed to submit Delivery Challan')
+      toast.error(err.response?.data?.message || 'Failed to submit/update Delivery Challan')
     } finally {
       setSubmitting(false)
     }
@@ -1658,16 +1738,27 @@ export default function DCEntry() {
           </button>
           <button
             type="button"
-            onClick={() => handleSubmit(true)}
+            onClick={() => handleSubmit(true, false)}
             disabled={submitting}
             className="flex items-center justify-center gap-2 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded text-[13px] shadow disabled:opacity-60 transition-colors active:scale-95"
+            title="Save & View PDF"
           >
             {submitting ? <Loader2 size={14} className="animate-spin" /> : <FileText size={15} />}
-            Save & PDF
+            Save & PDF (View)
           </button>
           <button
             type="button"
-            onClick={() => handleSubmit(false)}
+            onClick={() => handleSubmit(true, true)}
+            disabled={submitting}
+            className="flex items-center justify-center gap-2 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded text-[13px] shadow disabled:opacity-60 transition-colors active:scale-95"
+            title="Save & Download PDF"
+          >
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : <Download size={15} />}
+            Save & PDF (Download)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSubmit(false, false)}
             disabled={submitting}
             className="flex items-center justify-center gap-2 px-6 py-2 bg-[#0097A7] hover:bg-[#007a87] text-white font-bold rounded text-[13px] shadow disabled:opacity-60 transition-colors active:scale-95"
           >

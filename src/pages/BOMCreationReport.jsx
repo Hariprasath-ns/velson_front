@@ -220,7 +220,7 @@ export default function BOMCreationReport() {
 
   // --- Export Actions ---
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = async (download = false) => {
     if (filteredData.length === 0) {
       toast.warning('No data available to export.')
       return
@@ -264,10 +264,15 @@ export default function BOMCreationReport() {
 
       const buffer = await workbook.xlsx.writeBuffer()
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `bom_creation_report_${new Date().toISOString().split('T')[0]}.xlsx`
-      link.click()
+      const url = URL.createObjectURL(blob)
+      if (download) {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `bom_creation_report_${new Date().toISOString().split('T')[0]}.xlsx`
+        link.click()
+      } else {
+        window.open(url, '_blank')
+      }
     } catch (err) {
       console.error(err)
       toast.error('Error exporting to Excel')
@@ -345,7 +350,7 @@ export default function BOMCreationReport() {
     link.click()
   }
 
-  const handleExportPdf = () => {
+  const handleExportPdf = (download = false) => {
     if (filteredData.length === 0) {
       toast.warning('No data available to export.')
       return
@@ -445,7 +450,11 @@ export default function BOMCreationReport() {
       }
     })
 
-    doc.save(`bom_creation_report_${new Date().toISOString().split('T')[0]}.pdf`)
+    if (download) {
+      doc.save(`bom_creation_report_${new Date().toISOString().split('T')[0]}.pdf`)
+    } else {
+      window.open(doc.output('bloburl'), '_blank')
+    }
   }
 
   const handlePrintReport = () => {
@@ -531,7 +540,7 @@ export default function BOMCreationReport() {
     printWindow.document.close()
   }
 
-  const handleExportChildExcel = async (bomRecord) => {
+  const handleExportChildExcel = async (bomRecord, download = false) => {
     if (!bomRecord || !bomRecord.excelRows || bomRecord.excelRows.length === 0) return
     try {
       const workbook = new ExcelJS.Workbook()
@@ -556,10 +565,15 @@ export default function BOMCreationReport() {
 
       const buffer = await workbook.xlsx.writeBuffer()
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `BOM_${bomRecord.bomNo}_Child_Entries_${new Date().toISOString().split('T')[0]}.xlsx`
-      link.click()
+      const url = URL.createObjectURL(blob)
+      if (download) {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `BOM_${bomRecord.bomNo}_Child_Entries_${new Date().toISOString().split('T')[0]}.xlsx`
+        link.click()
+      } else {
+        window.open(url, '_blank')
+      }
     } catch (err) {
       console.error(err)
       toast.error('Error exporting child entries to Excel')
@@ -771,32 +785,25 @@ export default function BOMCreationReport() {
                 <RotateCcw size={14} className="text-slate-500" />
                 Reset Filter
               </button>
-
-              {/* <button
-                onClick={handleSearch}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-[12px] font-bold rounded-lg transition-all shadow-sm active:scale-95 whitespace-nowrap"
-              >
-                {searching ? <RotateCcw size={14} className="animate-spin" /> : <Search size={14} className="text-[#0097A7]" />}
-                Search Details
-              </button> */}
               <div className="flex justify-items-end my-3 pl-[10%]">
                 <div className="flex items-center gap-2">
                   {[
-                    // { icon: <List size={14} />, l: 'LS' },
                     { icon: <Printer size={14} />, l: 'DOS' },
                     { icon: <FileText size={14} className="text-blue-500" />, l: 'DOC' },
-                    { icon: <FileSpreadsheet size={14} className="text-green-600" />, l: 'xls' },
-                    { icon: <Download size={14} className="text-red-500" />, l: 'PDF' },
-                    // { icon: <Filter size={14} className="text-[#0097A7]" />, l: 'Clear Filter' },
-                    // { icon: <Settings size={14} className="text-slate-500" />, l: 'Setting' },
+                    { icon: <FileSpreadsheet size={14} className="text-green-600" />, l: 'XLS (View)' },
+                    { icon: <Download size={14} className="text-green-600" />, l: 'XLS (Download)' },
+                    { icon: <FileText size={14} className="text-red-500" />, l: 'PDF (View)' },
+                    { icon: <Download size={14} className="text-red-500" />, l: 'PDF (Download)' },
                   ].map(tool => (
                     <button
                       key={tool.l}
                       onClick={() => {
                         if (tool.l === 'DOS') handlePrintReport();
                         else if (tool.l === 'DOC') handleExportDoc();
-                        else if (tool.l === 'xls') handleExportExcel();
-                        else if (tool.l === 'PDF') handleExportPdf();
+                        else if (tool.l === 'XLS (View)') handleExportExcel(false);
+                        else if (tool.l === 'XLS (Download)') handleExportExcel(true);
+                        else if (tool.l === 'PDF (View)') handleExportPdf(false);
+                        else if (tool.l === 'PDF (Download)') handleExportPdf(true);
                         else if (tool.l === 'Clear Filter') handleClearFilters();
                         else toast.info(`${tool.l} clicked!`);
                       }}
@@ -899,12 +906,22 @@ export default function BOMCreationReport() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        handleExportChildExcel(row)
+                                        handleExportChildExcel(row, false)
                                       }}
                                       className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold rounded shadow-sm transition-all"
-                                      title="Export Excel"
+                                      title="Export Excel (View)"
                                     >
-                                      <FileSpreadsheet size={12} className="text-green-600" /> Export Excel
+                                      <FileSpreadsheet size={12} className="text-green-600" /> Excel (View)
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleExportChildExcel(row, true)
+                                      }}
+                                      className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold rounded shadow-sm transition-all"
+                                      title="Export Excel (Download)"
+                                    >
+                                      <Download size={12} className="text-green-600" /> Excel (Download)
                                     </button>
                                     <button
                                       onClick={(e) => {

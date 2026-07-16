@@ -5,7 +5,7 @@ import { jsPDF } from 'jspdf'
 import BarcodeGenerator from './BarcodeGenerator'
 import {
   ChevronRight, Search, Printer, X, Trash2, Download,
-  FileSpreadsheet, FileJson, Filter, Settings, RotateCcw,
+  FileSpreadsheet, FileJson, Filter, Settings, RotateCcw, FileText,
   Plus, Save, Edit, Check, List, Barcode
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
@@ -774,7 +774,7 @@ export default function BookingEntryNew() {
     toast.success(`Triggered barcode print flow for Job: ${form.serviceJobNo}`)
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (filteredBookings.length === 0) {
       toast.warning('No bookings data available to export.')
       return
@@ -803,9 +803,15 @@ export default function BookingEntryNew() {
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Bookings')
 
-    // Download as a real binary Excel spreadsheet
-    XLSX.writeFile(workbook, `bookings_list_${new Date().toISOString().split('T')[0]}.xlsx`)
-    toast.success('Successfully downloaded Bookings Excel spreadsheet!')
+    if (download) {
+      XLSX.writeFile(workbook, `bookings_list_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Successfully downloaded Bookings Excel spreadsheet!')
+    } else {
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
   }
 
   const handlePrintBookingList = () => {
@@ -909,7 +915,7 @@ export default function BookingEntryNew() {
     toast.success('Successfully loaded Bookings registry print-out.')
   }
 
-  const handleExportPdf = () => {
+  const handleExportPdf = (download = false) => {
     if (filteredBookings.length === 0) {
       toast.warning('No bookings to export.')
       return
@@ -1028,8 +1034,12 @@ export default function BookingEntryNew() {
       }
     })
 
-    doc.save(`bookings_list_${new Date().toISOString().split('T')[0]}.pdf`)
-    toast.success('Successfully downloaded Bookings PDF registry!')
+    if (download) {
+      doc.save(`bookings_list_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('Successfully downloaded Bookings PDF registry!')
+    } else {
+      window.open(doc.output('bloburl'), '_blank')
+    }
   }
 
   return (
@@ -1433,16 +1443,15 @@ export default function BookingEntryNew() {
                 {[
                   { icon: <Printer size={12} />, l: 'Dos' },
                   { icon: <FileSpreadsheet size={12} className="text-green-600" />, l: 'Excel' },
-                  { icon: <Download size={12} className="text-red-500" />, l: 'Pdf' },
+                  { icon: <FileText size={12} className="text-red-500" />, l: 'Pdf' },
                   { icon: <Filter size={12} className="text-[#0097A7]" />, l: 'Filter' },
-                  //   { icon: <Settings size={12} className="text-slate-500" />, l: 'Setting' },
                 ].map(tool => (
                   <button
                     key={tool.l}
                     onClick={() => {
                       if (tool.l === 'Dos') handlePrintBookingList();
-                      else if (tool.l === 'Excel') handleExportExcel();
-                      else if (tool.l === 'Pdf') handleExportPdf();
+                      else if (tool.l === 'Excel') handleExportExcel(false);
+                      else if (tool.l === 'Pdf') handleExportPdf(false);
                       else if (tool.l === 'Filter') setShowFilterPanel(prev => !prev);
                       else toast.success(`${tool.l} tool activated.`);
                     }}

@@ -312,7 +312,7 @@ function NavigationEventBridge() {
       const pageKey = e.detail?.page ?? e.detail
       const path = PAGE_TO_PATH[pageKey]
       if (!path) return
-      navigate(path)
+      navigate(path, { state: e.detail?.state })
     }
     window.addEventListener('velson:navigate', handler)
     return () => window.removeEventListener('velson:navigate', handler)

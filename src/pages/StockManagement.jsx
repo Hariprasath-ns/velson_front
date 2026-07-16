@@ -2,7 +2,7 @@
 import {
   ChevronRight, X, Search, FileSpreadsheet, Filter,
   RotateCcw, AlertTriangle, ArrowUpRight, ArrowDownRight,
-  Warehouse, Save,ShieldAlert, CheckCircle, PackageOpen, Barcode} from 'lucide-react'
+  Warehouse, Save,ShieldAlert, CheckCircle, PackageOpen, Barcode, Download} from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
@@ -719,7 +719,7 @@ function StockManagementContent() {
 
 
   // Handle Excel Export
-  const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (flattenedLedger.length === 0) {
       toast.error('No stock records to export')
       return
@@ -738,8 +738,15 @@ function StockManagementContent() {
     const ws = XLSX.utils.json_to_sheet(dataToExport)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Current Stock Ledger')
-    XLSX.writeFile(wb, 'Stock_Management_Ledger.xlsx')
-    toast.success('Excel export completed!')
+    if (download) {
+      XLSX.writeFile(wb, 'Stock_Management_Ledger.xlsx')
+      toast.success('Excel export completed!')
+    } else {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
   }
 
   // Render Status Badge
@@ -880,7 +887,7 @@ function StockManagementContent() {
     })
   }, [adjustments, stockSearch])
 
-  const handleExportStockReportExcel = () => {
+  const handleExportStockReportExcel = (download = false) => {
     if (filteredStockReport.length === 0) {
       toast.warning('No stock adjustments available to export')
       return
@@ -925,8 +932,15 @@ function StockManagementContent() {
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Stock Entry Report')
-    XLSX.writeFile(wb, `Stock_Entry_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
-    toast.success('Stock entry report exported to Excel!')
+    if (download) {
+      XLSX.writeFile(wb, `Stock_Entry_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Stock entry report exported to Excel!')
+    } else {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
   }
 
   return (
@@ -977,12 +991,40 @@ function StockManagementContent() {
             {(activeTab === 'stock-entry' || activeTab === 'stock-report') && (
               <div className="flex items-center gap-2.5">
                 {activeTab === 'stock-report' && (
-                  <button
-                    onClick={handleExportStockReportExcel}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 text-[12px] font-bold rounded-lg shadow-sm transition-all"
-                  >
-                    <FileSpreadsheet size={14} /> Export Excel
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleExportStockReportExcel(false)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 text-[12px] font-bold rounded-lg shadow-sm transition-all"
+                      title="Export Report (View)"
+                    >
+                      <FileSpreadsheet size={14} /> Export (View)
+                    </button>
+                    <button
+                      onClick={() => handleExportStockReportExcel(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 text-[12px] font-bold rounded-lg shadow-sm transition-all"
+                      title="Export Report (Download)"
+                    >
+                      <Download size={14} /> Export (Download)
+                    </button>
+                  </>
+                )}
+                {activeTab === 'stock-entry' && (
+                  <>
+                    <button
+                      onClick={() => handleExportExcel(false)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 text-[12px] font-bold rounded-lg shadow-sm transition-all"
+                      title="Export Ledger (View)"
+                    >
+                      <FileSpreadsheet size={14} /> Export (View)
+                    </button>
+                    <button
+                      onClick={() => handleExportExcel(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 text-[12px] font-bold rounded-lg shadow-sm transition-all"
+                      title="Export Ledger (Download)"
+                    >
+                      <Download size={14} /> Export (Download)
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={fetchAllData}

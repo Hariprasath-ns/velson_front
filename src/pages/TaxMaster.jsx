@@ -24,6 +24,12 @@ const emptyForm = {
 }
 
 function DetailModal({ row, onClose }) {
+  const createdStr = row.createdAt
+    ? new Date(row.createdAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
+  const updatedStr = row.updatedAt
+    ? new Date(row.updatedAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -44,10 +50,12 @@ function DetailModal({ row, onClose }) {
             ['Sales CGST Tax %',     pct(row.salesCgstTax)],
             ['Sales SGST Tax %',     pct(row.salesSgstTax)],
             ['Sales IGST Tax %',     pct(row.salesIgstTax)],
+            ['Created Date/Time',    createdStr],
+            ['Updated Date/Time',    updatedStr],
           ].map(([lbl, val]) => (
             <div key={lbl} className="flex justify-between py-1.5 border-b border-slate-100 last:border-0">
               <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">{lbl}</span>
-              <span className="text-[13px] text-slate-800 font-medium">{val}</span>
+              <span className="text-[13px] text-slate-800 font-medium">{val || '—'}</span>
             </div>
           ))}
         </div>

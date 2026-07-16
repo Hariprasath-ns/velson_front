@@ -103,12 +103,13 @@ export default function PurchaseRequestEntry() {
         const nj = nRes
 
         if (mrPickId) {
-          if (nj.success) setForm(f => ({ ...f, requestNo: nj.prNo, financialYear: nj.financialYear }))
           if (mr) {
             const deptRec = dj.success ? dj.data.find(d => d.description === mr.departmentTo) : null
             const rfRec = rj.success ? rj.data.find(r => r.description === mr.requestingFor) : null
             setForm(f => ({
               ...f,
+              requestNo: mr.mrNo || '',
+              financialYear: mr.financialYear || f.financialYear,
               department: mr.departmentTo || '',
               departmentId: deptRec?.id ?? null,
               requestingUser: mr.requestingUser || f.requestingUser,
@@ -137,6 +138,8 @@ export default function PurchaseRequestEntry() {
                 }
               }))
             }
+          } else {
+            if (nj.success) setForm(f => ({ ...f, requestNo: nj.prNo, financialYear: nj.financialYear }))
           }
         } else if (editIdVal) {
           setEditId(editIdVal)

@@ -196,7 +196,10 @@ export default function BOMCreation() {
       }))
       return
     }
-    const customerVehicles = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+    const customerVehicles = vehicles.filter(v => 
+      Number(v.customerId) === Number(cust.id) &&
+      bookings.some(b => (b.vehicleSerialNo === v.serialNumber || b.serialNo === v.serialNumber) && b.tempStatus === 'Open')
+    )
     setForm(f => ({
       ...f,
       customerName: customerNameVal,
@@ -213,7 +216,10 @@ export default function BOMCreation() {
     const idx = parseInt(vehicleIndexStr, 10) - 1
     const vehicle = customerVehicles[idx]
     if (vehicle) {
-      const matchingBooking = bookings.find(b => b.vehicleSerialNo === vehicle.serialNumber)
+      const matchingBooking = bookings.find(b => 
+        (b.vehicleSerialNo === vehicle.serialNumber || b.serialNo === vehicle.serialNumber) && 
+        b.tempStatus === 'Open'
+      )
       setForm(f => ({
         ...f,
         vehicleSerialNo: vehicle.serialNumber || '',
@@ -482,8 +488,12 @@ export default function BOMCreation() {
   // Memoized options for select elements
   const customerVehicles = useMemo(() => {
     const custObj = customers.find(c => c.customerName === form.customerName)
-    return custObj ? vehicles.filter(v => Number(v.customerId) === Number(custObj.id)) : []
-  }, [customers, vehicles, form.customerName])
+    if (!custObj) return []
+    return vehicles.filter(v => 
+      Number(v.customerId) === Number(custObj.id) &&
+      bookings.some(b => (b.vehicleSerialNo === v.serialNumber || b.serialNo === v.serialNumber) && b.tempStatus === 'Open')
+    )
+  }, [customers, vehicles, form.customerName, bookings])
 
   const vehicleOptions = useMemo(() => {
     const count = customerVehicles.length
@@ -501,7 +511,7 @@ export default function BOMCreation() {
   }, [customerVehicles, form.vehicleSerialNo])
 
   const bookingServiceJobNoOptions = useMemo(() => {
-    return bookings.map(b => b.serviceJobNo).filter(Boolean)
+    return bookings.filter(b => b.tempStatus === 'Open').map(b => b.serviceJobNo).filter(Boolean)
   }, [bookings])
 
   const modelOptions = useMemo(() => {
@@ -580,9 +590,6 @@ export default function BOMCreation() {
               <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">BOM Creation Interface</h2>
             </div>
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 text-[12px] font-bold rounded-lg border border-slate-200 transition-all shadow-sm">
-                <FileSpreadsheet size={14} className="text-green-600" /> Sample Upload File
-              </button>
               <button onClick={() => window.history.back()} className="text-slate-400 hover:text-red-600 transition-colors ml-2">
                 <X size={20} strokeWidth={2.5} />
               </button>

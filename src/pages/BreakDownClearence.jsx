@@ -83,7 +83,7 @@ export default function BreakDownClearence() {
     toast.success('DOS text file downloaded successfully.')
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (displayRows.length === 0) {
       toast.warning('No records to export.')
       return
@@ -101,11 +101,18 @@ export default function BreakDownClearence() {
     const ws = XLSX.utils.json_to_sheet(exportData)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Clearance Queue')
-    XLSX.writeFile(wb, `breakdown_clearance_${new Date().toISOString().split('T')[0]}.xlsx`)
-    toast.success('Excel spreadsheet downloaded successfully.')
+    if (download) {
+      XLSX.writeFile(wb, `breakdown_clearance_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel spreadsheet downloaded successfully.')
+    } else {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
   }
 
-  const handleExportPdf = () => {
+  const handleExportPdf = (download = false) => {
     if (displayRows.length === 0) {
       toast.warning('No records to export.')
       return
@@ -195,8 +202,12 @@ export default function BreakDownClearence() {
       }
     })
 
-    doc.save(`breakdown_clearance_${new Date().toISOString().split('T')[0]}.pdf`)
-    toast.success('PDF downloaded successfully.')
+    if (download) {
+      doc.save(`breakdown_clearance_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('PDF downloaded successfully.')
+    } else {
+      window.open(doc.output('bloburl'), '_blank')
+    }
   }
 
   const getLocalDateTimeString = () => {
@@ -306,11 +317,17 @@ export default function BreakDownClearence() {
               <button onClick={handleExportDOS} className="hover:text-slate-800 flex items-center gap-1 text-[11px] font-bold transition-colors">
                 <Printer size={14} className="text-slate-400" /> Dos
               </button>
-              <button onClick={handleExportExcel} className="hover:text-emerald-600 flex items-center gap-1 text-[11px] font-bold transition-colors">
-                <FileSpreadsheet size={14} className="text-emerald-500" /> Excel
+              <button onClick={() => handleExportExcel(false)} className="hover:text-emerald-600 flex items-center gap-1 text-[11px] font-bold transition-colors" title="Excel View">
+                <FileSpreadsheet size={14} className="text-emerald-500" /> Excel (View)
               </button>
-              <button onClick={handleExportPdf} className="hover:text-rose-600 flex items-center gap-1 text-[11px] font-bold transition-colors">
-                <FileText size={14} className="text-rose-500" /> Pdf
+              <button onClick={() => handleExportExcel(true)} className="hover:text-emerald-600 flex items-center gap-1 text-[11px] font-bold transition-colors" title="Excel Download">
+                <Download size={14} className="text-emerald-500" /> Excel (Download)
+              </button>
+              <button onClick={() => handleExportPdf(false)} className="hover:text-rose-600 flex items-center gap-1 text-[11px] font-bold transition-colors" title="Pdf View">
+                <FileText size={14} className="text-rose-500" /> Pdf (View)
+              </button>
+              <button onClick={() => handleExportPdf(true)} className="hover:text-rose-600 flex items-center gap-1 text-[11px] font-bold transition-colors" title="Pdf Download">
+                <Download size={14} className="text-rose-500" /> Pdf (Download)
               </button>
               <button onClick={() => { setFilterOpen(!filterOpen); if (filterOpen) setFilterText(''); }} className={`hover:text-[#0097A7] flex items-center gap-1 text-[11px] font-bold transition-colors ${filterOpen ? 'text-[#0097A7]' : ''}`}>
                 <Filter size={14} /> Filter

@@ -605,7 +605,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                   displayItems.map((item, idx) => (
                     <tr
                       key={item.id}
-                      className={idx % 2 === 0 ? 'bg-white hover:bg-[#f0fdfe] transition-colors' : 'bg-slate-50 hover:bg-[#f0fdfe] transition-colors'}
+                      className={idx % 2 === 0 ? 'bg-white hover:bg-[#b2ebf2] transition-colors' : 'bg-slate-50 hover:bg-[#b2ebf2] transition-colors'}
                     >
                       {/* <td className={tdCls + ' font-medium text-slate-800'}>{item.id}</td> */}
                       <td className={tdCls}>{from + idx}</td>
@@ -1076,10 +1076,9 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
                   </div>
                 ) : (
                   <Input
-                    placeholder="Enter Part Number"
+                    placeholder="Auto-Generated Part Number"
                     value={form.partNo}
-                    onChange={partNoAutoGen && !editItem ? undefined : u('partNo')}
-                    readOnly={partNoAutoGen && !editItem}
+                    readOnly={true}
                   />
                 )}
                 {partNoAutoGen && !editItem && !partNoGenerating && (

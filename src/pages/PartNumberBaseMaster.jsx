@@ -201,6 +201,12 @@ function SubCategoryCreateModal({ categories, defaultCategoryId, onClose, onCrea
 
 // ── DetailModal ────────────────────────────────────────────────────
 function DetailModal({ row, onClose }) {
+  const createdStr = row.createdAt
+    ? new Date(row.createdAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
+  const updatedStr = row.updatedAt
+    ? new Date(row.updatedAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
   const fields = [
     ['Category',        row.category?.categoryName || row.categoryId],
     ['Sub Category',    row.subCategory?.subCategoryName || row.subCategoryId],
@@ -211,6 +217,8 @@ function DetailModal({ row, onClose }) {
     ['Total Numbers',   row.totalNumbers],
     ['Current Running', row.currentRunningNumber],
     ['Status',          row.isActive ? 'Active' : 'Inactive'],
+    ['Created Date/Time', createdStr],
+    ['Updated Date/Time', updatedStr],
   ]
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">

@@ -8,6 +8,13 @@ import App from './App.jsx'
 import { ToastProvider } from './components/Toast.jsx'
 import { LoadingProvider } from './context/LoadingContext.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
+import { viewFileBeforeDownload, initializeDownloadInterceptor } from './utils/fileViewer.js'
+import { initializeKeyboardShortcuts } from './utils/keyboardShortcuts.js'
+
+window.viewFileBeforeDownload = viewFileBeforeDownload
+initializeDownloadInterceptor()
+initializeKeyboardShortcuts()
+
 
 const queryClient = new QueryClient({
   defaultOptions: {

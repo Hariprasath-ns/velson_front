@@ -86,6 +86,12 @@ function Panel({ children }) {
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
 function DetailModal({ row, onClose }) {
+  const createdStr = row.createdAt
+    ? new Date(row.createdAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
+  const updatedStr = row.updatedAt
+    ? new Date(row.updatedAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
@@ -113,6 +119,8 @@ function DetailModal({ row, onClose }) {
               ['Company Email', row.companyEmail], ['Bank Name', row.bankName],
               ['Bank Branch', row.bankBranch], ['Account Number', row.bankAccountNumber],
               ['IFSC Code', row.bankIfscCode], ['MICR Code', row.bankMicrCode],
+              ['Created Date/Time', createdStr],
+              ['Updated Date/Time', updatedStr],
             ].map(([l, v]) => (
               <div key={l} className="flex flex-col py-1 border-b border-slate-100">
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{l}</span>

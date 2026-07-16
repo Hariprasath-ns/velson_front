@@ -164,7 +164,7 @@ export default function PrintPurchaseRequest() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const res  = await fetch('/api/purchase-request')
+        const res  = await fetch('/api/purchase-request?limit=10000')
         const json = await res.json()
         if (json.success && json.data) {
           setAllData(json.data)

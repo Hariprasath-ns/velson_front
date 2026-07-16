@@ -26,7 +26,7 @@ export default function MRApproval() {
   const fetchRequests = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/api/material-request', { skipGlobalLoader: true })
+      const res = await api.get('/api/material-request?limit=10000', { skipGlobalLoader: true })
       setRows(res.data?.data || [])
     } catch {
       toast.error('Failed to load material requests')

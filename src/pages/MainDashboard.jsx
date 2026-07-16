@@ -211,14 +211,14 @@ export default function MainDashboard() {
     setLoading(true)
     try {
       const [jobsRes, machRes, breakRes, quotRes, qcRes, compRes, prRes, poRes] = await Promise.all([
-        api.get('/api/job-card', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/machine-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/machine-breakdown', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/quotation-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/qc-check-method', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/customer-complaint', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/purchase-request', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/purchase-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
+        api.get('/api/job-card?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/machine-master?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/machine-breakdown?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/quotation-master?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/qc-check-method?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/customer-complaint?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/purchase-request?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/purchase-master?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
       ])
 
       setJobCards(jobsRes)

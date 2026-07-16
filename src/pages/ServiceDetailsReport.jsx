@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 // PDF table rendered with raw jsPDF canvas (no autotable needed)
 import {
-  ChevronRight, Search, Edit, Trash2, Printer, FileSpreadsheet, FileDown, Filter, Settings
+  ChevronRight, Search, Edit, Trash2, Printer, FileSpreadsheet, FileDown, Filter, Settings, Download, FileText
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
@@ -159,7 +159,7 @@ export default function ServiceDetailsReport() {
   }, [fromDate, toDate, customerFilter, bookingCodeFilter, allRows])
 
   // Excel export
-  const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (filteredRows.length === 0) {
       toast.warning('No data to export.')
       return
@@ -181,12 +181,19 @@ export default function ServiceDetailsReport() {
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'ServiceDetailsReport')
-    XLSX.writeFile(wb, `service_details_report_${new Date().toISOString().split('T')[0]}.xlsx`)
-    toast.success('Excel downloaded!')
+    if (download) {
+      XLSX.writeFile(wb, `service_details_report_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel downloaded!')
+    } else {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
   }
 
   // PDF export (landscape) — manual jsPDF canvas, no external autotable dependency
-  const handleExportPDF = () => {
+  const handleExportPDF = (download = false) => {
     if (filteredRows.length === 0) {
       toast.warning('No data to export.')
       return
@@ -244,8 +251,12 @@ export default function ServiceDetailsReport() {
     doc.setFontSize(8)
     doc.setTextColor(100)
     doc.text(`Total Rows: ${filteredRows.length}`, mx, curY + 8)
-    doc.save(`service_details_report_${new Date().toISOString().split('T')[0]}.pdf`)
-    toast.success('PDF downloaded!')
+    if (download) {
+      doc.save(`service_details_report_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('PDF downloaded!')
+    } else {
+      window.open(doc.output('bloburl'), '_blank')
+    }
   }
 
   // DOS Print
@@ -428,16 +439,18 @@ export default function ServiceDetailsReport() {
                 <Printer size={12} /> Dos
               </button>
               <button
-                onClick={handleExportExcel}
+                onClick={() => handleExportExcel(false)}
                 className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold rounded h-[28px] transition-all active:scale-95"
+                title="Excel Preview"
               >
                 <FileSpreadsheet size={12} /> Excel
               </button>
               <button
-                onClick={handleExportPDF}
+                onClick={() => handleExportPDF(false)}
                 className="flex items-center gap-1 px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold rounded h-[28px] transition-all active:scale-95"
+                title="Pdf Preview"
               >
-                <FileDown size={12} /> Pdf
+                <FileText size={12} /> Pdf
               </button>
               <button className="flex items-center gap-1 px-3 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[12px] font-bold rounded h-[28px] transition-all">
                 <Filter size={12} className="text-[#0097A7]" /> Filter

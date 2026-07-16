@@ -150,7 +150,7 @@ export default function PRApproval() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/api/purchase-request', { skipGlobalLoader: true })
+      const res = await api.get('/api/purchase-request?limit=10000', { skipGlobalLoader: true })
       const list = res.data?.data || []
       setAllData(list)
       setData(applyFilter(list, fromDate, toDate))

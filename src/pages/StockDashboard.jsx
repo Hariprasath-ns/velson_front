@@ -82,12 +82,12 @@ const Sparkline = ({ points, color }) => {
     try {
       const [itemsRes, groupsRes, adjustmentsRes, mrRes, grnRes, prRes, dcRes] = await Promise.all([
         api.get('/api/item-master?limit=100000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/item-group-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/stock-adjustment', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/material-request', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/grn-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/purchase-request', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
-        api.get('/api/delivery-challan', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
+        api.get('/api/item-group-master?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/stock-adjustment?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/material-request?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/grn-master?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/purchase-request?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/delivery-challan?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
       ])
 
       setItems(itemsRes)

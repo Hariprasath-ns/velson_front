@@ -314,16 +314,16 @@ setItems(prefillItems)
 
 // AFTER (parallel — all at once):
 const masters = await Promise.all(
-  pr.details.map(d => fetchItemMasterByCode(d.itemCode))
+  prefill.items.map(d => fetchItemMasterByCode(d.itemCode))
 )
-const prefillItems = pr.details.map((d, i) => {
+const prefillItems = prefill.items.map((d, i) => {
   const master = masters[i]
   const qtyVal   = parseFloat(d.qty) || 0
   const priceVal = master?.purchaseRate || 0
   const amtVal   = qtyVal * priceVal
   return {
     ...emptyItem(),
-    purchaseReqNo:  pr.prNo,
+    purchaseReqNo:  prefill.prNo,
     itemId:         master?.id              || null,
     itemCode:       d.itemCode              || '',
     itemName:       d.itemName              || master?.partName    || '',
