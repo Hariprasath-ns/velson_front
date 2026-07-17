@@ -21,6 +21,21 @@ const getDaysDiff = (requiredDate, requestDate) => {
   return isNaN(diffDays) ? '' : String(diffDays)
 }
 
+const getRequiredDateFromDays = (requestDate, days) => {
+  if (!requestDate || days === '' || isNaN(days)) return ''
+  const parts = requestDate.split('-')
+  if (parts.length !== 3) return ''
+  const year = parseInt(parts[0], 10)
+  const month = parseInt(parts[1], 10) - 1
+  const day = parseInt(parts[2], 10)
+  const date = new Date(year, month, day)
+  date.setDate(date.getDate() + parseInt(days, 10))
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 const emptyItem = () => ({
   modelName: '', itemCode: '', itemName: '', requestedQty: '', materialGrade: '', unit: '', remarks: '',
 })
@@ -342,11 +357,20 @@ export default function MaterialRequestEntry() {
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Required Day's :</label>
                 <input
+                  type="text"
                   value={form.requiredDays}
-                  onChange={e => setField('requiredDays', e.target.value)}
+                  onChange={e => {
+                    const days = e.target.value
+                    if (days === '' || /^\d+$/.test(days)) {
+                      setForm(f => ({
+                        ...f,
+                        requiredDays: days,
+                        requiredDate: getRequiredDateFromDays(f.requestDate, days),
+                      }))
+                    }
+                  }}
                   placeholder="Required Days"
                   className={inp()}
-                  readOnly
                 />
               </div>
               {/* <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-﻿/* eslint-disable */
+/* eslint-disable */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -622,7 +622,6 @@ export default function ServiceDetailsEntry() {
 
   // ── SheetJS Excel sheets binary downloads (.xlsx) ──
   const handleExportExcel = () => {
-  const handleExportExcel = (download = false) => {
     if (filteredServiceList.length === 0) {
       toast.warning('No service entries details available to export.')
       return
@@ -650,17 +649,10 @@ export default function ServiceDetailsEntry() {
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'ServiceDetails')
 
-    XLSX.writeFile(workbook, `service_details_entries_${new Date().toISOString().split('T')[0]}.xlsx`)
+    const workbookBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const workbookBlob = new Blob([workbookBuffer], { type: 'application/octet-stream' })
+    openExcelPreview(data, workbookBlob, `service_details_entries_${new Date().toISOString().split('T')[0]}.xlsx`, 'Service Details Entries Preview')
     toast.success('Successfully downloaded Service Details Excel spreadsheet!')
-    if (download) {
-      XLSX.writeFile(workbook, `service_details_entries_${new Date().toISOString().split('T')[0]}.xlsx`)
-      toast.success('Successfully downloaded Service Details Excel spreadsheet!')
-    } else {
-      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-    }
   }
 
   return (
@@ -688,18 +680,6 @@ export default function ServiceDetailsEntry() {
                 className="bg-[#007a87] hover:bg-[#006873] border border-white/20 text-[12px] px-3 py-1 rounded transition-colors font-bold uppercase tracking-wider flex items-center gap-1 h-[28px]"
               >
                 <FileSpreadsheet size={12} className="text-green-300" /> Excel
-                onClick={() => handleExportExcel(false)}
-                className="bg-[#007a87] hover:bg-[#006873] border border-white/20 text-[12px] px-3 py-1 rounded transition-colors font-bold uppercase tracking-wider flex items-center gap-1 h-[28px]"
-                title="Excel View"
-              >
-                <FileSpreadsheet size={12} className="text-green-300" /> Excel (View)
-              </button>
-              <button
-                onClick={() => handleExportExcel(true)}
-                className="bg-[#007a87] hover:bg-[#006873] border border-white/20 text-[12px] px-3 py-1 rounded transition-colors font-bold uppercase tracking-wider flex items-center gap-1 h-[28px]"
-                title="Excel Download"
-              >
-                <Download size={12} className="text-green-300" /> Excel (Download)
               </button>
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('velson:navigate', { detail: 'Dashboard' }))}

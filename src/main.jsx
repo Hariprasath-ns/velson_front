@@ -1,4 +1,4 @@
-﻿import { StrictMode } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -8,13 +8,6 @@ import App from './App.jsx'
 import { ToastProvider } from './components/Toast.jsx'
 import { LoadingProvider } from './context/LoadingContext.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
-import { viewFileBeforeDownload, initializeDownloadInterceptor } from './utils/fileViewer.js'
-import { initializeKeyboardShortcuts } from './utils/keyboardShortcuts.js'
-
-window.viewFileBeforeDownload = viewFileBeforeDownload
-initializeDownloadInterceptor()
-initializeKeyboardShortcuts()
-
 
 const queryClient = new QueryClient({
   defaultOptions: {

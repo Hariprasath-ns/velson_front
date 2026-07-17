@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   ChevronRight, Package, Store, Settings, Paperclip,
   Pencil, Trash2, Eye, Download, Image as ImageIcon,
@@ -567,7 +567,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto relative">
+          <div className="overflow-auto max-h-[650px] relative">
             {(loading || filterLoading) && (
               <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
                 <SpinnerLoader size={24} />
@@ -575,7 +575,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
             )}
             <table className="w-full border-collapse min-w-[1000px]">
               <thead>
-                <tr className="bg-gradient-to-r from-[#0097A7] to-[#00ACC1]">
+                <tr className="bg-gradient-to-r from-[#0097A7] to-[#00ACC1] sticky top-0 z-10">
                   {/* <th className={thCls} style={{ width: 52  }}>ID</th> */}
                   <th className={thCls} style={{ width: 44 }}>S.No</th>
                   <th className={thCls} style={{ width: 90 }}>Part No</th>
@@ -606,7 +606,6 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                     <tr
                       key={item.id}
                       className={idx % 2 === 0 ? 'bg-white hover:bg-[#f0fdfe] transition-colors' : 'bg-slate-50 hover:bg-[#f0fdfe] transition-colors'}
-                      className={idx % 2 === 0 ? 'bg-white hover:bg-[#b2ebf2] transition-colors' : 'bg-slate-50 hover:bg-[#b2ebf2] transition-colors'}
                     >
                       {/* <td className={tdCls + ' font-medium text-slate-800'}>{item.id}</td> */}
                       <td className={tdCls}>{from + idx}</td>
@@ -1081,9 +1080,6 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
                     value={form.partNo}
                     onChange={partNoAutoGen && !editItem ? undefined : u('partNo')}
                     readOnly={partNoAutoGen && !editItem}
-                    placeholder="Auto-Generated Part Number"
-                    value={form.partNo}
-                    readOnly={true}
                   />
                 )}
                 {partNoAutoGen && !editItem && !partNoGenerating && (
@@ -1536,7 +1532,7 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
             <div className="text-white text-[13px] text-center py-2.5 font-bold border-b border-white/20">
               Item Basic Information
             </div>
-            <div className="text-white p-4 flex-1 text-[12px] max-h-[500px] overflow-y-auto">
+            <div className="text-white p-4 flex-1 text-[12px] max-h-[500px] overflow-y-auto scrollbar-white">
               <div className="grid grid-cols-[40%_5%_55%] gap-y-[3px]">
                 {infoRows.map((row, idx) => (
                   <div key={idx} className="contents">

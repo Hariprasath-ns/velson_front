@@ -39,6 +39,40 @@ export default function Layout({ children }) {
     logout()
   }
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Trigger on Alt key (without Ctrl or Meta to avoid conflicts)
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        let pressedKey = null;
+        // Use e.code (keyboard-layout independent) instead of e.key
+        if (e.code === 'KeyS') pressedKey = 's';
+        else if (e.code === 'KeyC') pressedKey = 'c';
+        else if (e.code === 'KeyU') pressedKey = 'u';
+        else if (e.code === 'KeyE') pressedKey = 'e';
+        else if (e.code === 'KeyD') pressedKey = 'd';
+
+        if (pressedKey) {
+          const buttons = document.querySelectorAll(`button[data-shortcut-key="${pressedKey}"]`);
+          const target = Array.from(buttons).find((btn) => {
+            if (btn.disabled) return false;
+            return btn.offsetWidth > 0 || btn.offsetHeight > 0;
+          });
+          if (target) {
+            e.preventDefault();
+            e.stopPropagation();
+            target.click();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, []);
+
   const HIDDEN_FOR_STAFF = [
     "users",
     "reference-master",
@@ -67,7 +101,7 @@ export default function Layout({ children }) {
     "purchase-order", "purchase-order-details", "purchase-request", "print-purchase-request",
     "material-request", "print-material-request", "gate-entry", "gate-entry-report", "grn-entry", "grn-entry-report",
     "bom-creation", "customerwise-bom-report", "index-creation", "index-creation-report", "upload-bom", "main-index", "main-index-report", "view-model",
-    "customer-complaint-entry", "ccms-entry-details", "dc-entry", "dc-details-report",
+    "customer-complaint-entry", "ccms-entry-details", "dc-details-report",
     "breakdown-approval-list", "nc-approval", "nc-job-created", "nc-dc-entry", "nc-dc-details",
     "barcode-details", "auto-job-entry", "service-job-entry-details", "conformation-list", "conformation-entry-details",
     "job-card-entry", "process-menu", "tech-auto-job", "view-job-status", "waiting-for-approval", "update-route-details", "process-completed", "mr-approval", "nc-job-created", "nc-approval", "ipr-approval", "job-qty-mismatch", "process-card-close", "job-qc-entry",

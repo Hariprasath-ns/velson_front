@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -19,7 +19,29 @@
 body { background-color: #f8fafc; color: #1e293b; 
 }
 ::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.scrollbar-white::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+.scrollbar-white::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.6);
+}
+.scrollbar-white::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .form-input {
@@ -117,11 +139,7 @@ body { background-color: #f8fafc; color: #1e293b;
   animation: gaugeEntrance 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Global Table Row Hover Highlight */
-table tbody tr {
-  transition: background-color 150ms ease-in-out;
-}
-table tbody tr:hover {
-  background-color: #b2ebf2 !important;
+u {
+  text-decoration: underline !important;
 }
 

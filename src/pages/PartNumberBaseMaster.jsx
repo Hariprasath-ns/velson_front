@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { Plus, X, Save, Edit, Trash2, Info, ChevronRight, Loader2, ArrowLeft } from 'lucide-react'
 import { useToast } from '../components/Toast'
@@ -201,12 +201,6 @@ function SubCategoryCreateModal({ categories, defaultCategoryId, onClose, onCrea
 
 // ── DetailModal ────────────────────────────────────────────────────
 function DetailModal({ row, onClose }) {
-  const createdStr = row.createdAt
-    ? new Date(row.createdAt).toLocaleString('en-GB', { hour12: true })
-    : '—'
-  const updatedStr = row.updatedAt
-    ? new Date(row.updatedAt).toLocaleString('en-GB', { hour12: true })
-    : '—'
   const fields = [
     ['Category',        row.category?.categoryName || row.categoryId],
     ['Sub Category',    row.subCategory?.subCategoryName || row.subCategoryId],
@@ -217,8 +211,6 @@ function DetailModal({ row, onClose }) {
     ['Total Numbers',   row.totalNumbers],
     ['Current Running', row.currentRunningNumber],
     ['Status',          row.isActive ? 'Active' : 'Inactive'],
-    ['Created Date/Time', createdStr],
-    ['Updated Date/Time', updatedStr],
   ]
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -659,14 +651,6 @@ export default function PartNumberBaseMaster() {
 
         {/* Controls */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <div className="flex items-center gap-2 text-[13px] text-slate-600">
-            Search:
-            <input
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="border border-slate-300 rounded px-3 py-1 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-44"
-            />
-          </div>
           <div className="flex items-center gap-2 text-[13px] text-slate-600">
             Show
             <select

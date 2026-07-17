@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "velson-ERP",
   "private": true,
   "version": "0.0.0",
@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.2",
-    "axios": "^1.18.1",
     "axios": "^1.16.1",
     "exceljs": "^4.4.0",
     "jsbarcode": "^3.12.3",

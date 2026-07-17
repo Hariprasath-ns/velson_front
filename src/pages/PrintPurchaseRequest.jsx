@@ -1,5 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
-import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Trash2, Printer, Pencil } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, X, Trash2, Printer, Pencil } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useModulePermission } from '../hooks/useModulePermission'
@@ -37,7 +36,6 @@ const buildRows = (data) =>
   data.map(pr => ({
     'Request No':    pr.prNo || '',
     'Request Date':  fmtDate(pr.prDate),
-    'Department':    pr.departmentRef?.description || pr.department || '',
     'Department':    pr.department || '',
     'Job No':        pr.details?.map(d => d.jobNo).filter(Boolean).join('; ') || '',
     'Request User':  pr.requestingUser || '',
@@ -167,7 +165,6 @@ export default function PrintPurchaseRequest() {
       setLoading(true)
       try {
         const res  = await fetch('/api/purchase-request')
-        const res  = await fetch('/api/purchase-request?limit=10000')
         const json = await res.json()
         if (json.success && json.data) {
           setAllData(json.data)
@@ -196,7 +193,6 @@ export default function PrintPurchaseRequest() {
         const jobNo = pr.details?.map(d => d.jobNo).filter(Boolean).join(' ') || ''
         return (
           (pr.prNo || '').toLowerCase().includes(q) ||
-          ((pr.departmentRef?.description || pr.department) || '').toLowerCase().includes(q) ||
           (pr.department || '').toLowerCase().includes(q) ||
           (pr.requestingUser || '').toLowerCase().includes(q) ||
           (pr.status || '').toLowerCase().includes(q) ||
@@ -292,7 +288,6 @@ export default function PrintPurchaseRequest() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prDate: pr.prDate, requiredDate: pr.requiredDate,
-          department: pr.departmentRef?.description || pr.department, departmentId: pr.departmentId,
           department: pr.department, departmentId: pr.departmentId,
           requestingUser: pr.requestingUser,
           team: pr.team, teamId: pr.teamId,
@@ -333,7 +328,6 @@ export default function PrintPurchaseRequest() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prDate: pr.prDate, requiredDate: pr.requiredDate,
-          department: pr.departmentRef?.description || pr.department, departmentId: pr.departmentId,
           department: pr.department, departmentId: pr.departmentId,
           requestingUser: pr.requestingUser,
           team: pr.team, teamId: pr.teamId,
@@ -360,7 +354,6 @@ export default function PrintPurchaseRequest() {
     switch (col) {
       case 'Request No':    return <td key={col} className="p-1.5 border-x border-slate-200 font-medium text-[#0097A7]">{pr.prNo}</td>
       case 'Request Date':  return <td key={col} className="p-1.5 border-x border-slate-200">{fmtDate(pr.prDate)}</td>
-      case 'Department Name': return <td key={col} className="p-1.5 border-x border-slate-200">{pr.departmentRef?.description || pr.department || ''}</td>
       case 'Department Name': return <td key={col} className="p-1.5 border-x border-slate-200">{pr.department || ''}</td>
       case 'Job No':        return <td key={col} className="p-1.5 border-x border-slate-200">{jobNo}</td>
       case 'Request User':  return <td key={col} className="p-1.5 border-x border-slate-200">{pr.requestingUser || ''}</td>
@@ -424,24 +417,6 @@ export default function PrintPurchaseRequest() {
 
         {/* Filter Bar */}
         <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50 shrink-0">
-          {/* Left: Search text box */}
-          <div className="flex items-center gap-2 flex-1 max-w-xs">
-            <Filter className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <input
-              type="text"
-              value={filterText}
-              onChange={e => setFilterText(e.target.value)}
-              placeholder="Search Request No, Dept, User, Status, PO No…"
-              className="flex-1 border border-blue-200 rounded px-3 py-1 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white"
-            />
-            {filterText && (
-              <button onClick={() => setFilterText('')} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Right: Date filters + Export + utility controls */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <label className={lbl}>From Date :</label>
@@ -457,7 +432,6 @@ export default function PrintPurchaseRequest() {
             >
               <span className="w-2 h-2 rounded-full bg-red-500"></span> Search
             </button>
-            <div className="h-4 w-px bg-slate-300" />
           </div>
 
           {/* Export + utility controls */}
@@ -476,8 +450,6 @@ export default function PrintPurchaseRequest() {
             <button onClick={handlePrint} disabled={!canPrint} className={`${iconBtn} disabled:opacity-40 disabled:cursor-not-allowed`} title={!canPrint ? "No permission to print" : "Export as PDF / Print"}>
               <FilePdf className="w-4 h-4 text-red-500" /> Pdf
             </button>
-            <div className="relative" ref={settingsRef}>
-              <button
             {/* <button
               onClick={() => { setFilterOpen(o => !o); if (filterOpen) setFilterText('') }}
               className={`${iconBtn} ${filterOpen ? 'text-[#0097A7]' : ''}`}
@@ -492,7 +464,6 @@ export default function PrintPurchaseRequest() {
                 title="Column visibility settings"
               >
                 <Settings className="w-4 h-4 text-slate-700" /> Setting
-              </button>
               </button> */}
               {settingsOpen && (
                 <div className="absolute right-0 top-7 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-3 min-w-[180px]">

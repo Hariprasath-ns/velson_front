@@ -1,13 +1,10 @@
-﻿import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import {
   ChevronRight, X, Search, FileBarChart, Play, Edit2, Trash2, Printer, 
   FileSpreadsheet, FileText, Filter, Settings, Download, Camera, FileDown
 } from 'lucide-react'
 import api from '../services/api'
 import { useToast } from '../components/Toast'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 
 // ── Shared UI primitives ──
@@ -80,52 +77,184 @@ const parseCustomDate = (str) => {
 };
 
 export default function DCDetailsReport() {
-  const toast = useToast()
-  const navigate = useNavigate()
   const [dcs, setDcs] = useState([])
   const [dates, setDates] = useState([])
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [filteredDcs, setFilteredDcs] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedDcId, setSelectedDcId] = useState(null)
+  const toast = useToast()
+
+  const getSelectedRow = () => dcs.find(row => String(row.id || row.dcNo) === String(selectedDcId))
+
+  const downloadFile = (content, filename, type = 'text/plain') => {
+    const blob = new Blob([content], { type })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(link.href)
+  }
 
   const handleEdit = () => {
-    if (!selectedId) {
-      toast.warning('Please select a Delivery Challan first')
+    const selectedRow = getSelectedRow()
+    if (!selectedRow) {
+      toast.warning('Select a DC row first to edit.')
       return
     }
-    navigate('/production/dc-entry', { state: { editId: selectedId } })
+    toast.info(`Editing is not available in this view yet for DC #${selectedRow.dcNo}.`)
   }
 
-  const handleDelete = async () => {
-    if (!selectedId) {
-      toast.warning('Please select a Delivery Challan first')
+  const handleDelete = () => {
+    const selectedRow = getSelectedRow()
+    if (!selectedRow) {
+      toast.warning('Select a DC row first to delete.')
       return
     }
-    if (window.confirm('Are you sure you want to delete this Delivery Challan? This will restore any associated inventory quantities.')) {
-      try {
-        await api.delete(`/api/delivery-challan/${selectedId}`, { loadingMessage: 'Deleting Delivery Challan...' })
-        toast.error('Delivery Challan deleted successfully')
-        setDcs(prev => prev.filter(dc => dc.id !== selectedId))
-        setFilteredDcs(prev => prev.filter(dc => dc.id !== selectedId))
-        setSelectedId(null)
-      } catch (err) {
-        console.error(err)
-        toast.error('Failed to delete Delivery Challan')
-      }
-    }
+    toast.info(`Delete is not available in this view yet for DC #${selectedRow.dcNo}.`)
   }
 
-  const handlePrintSelected = () => {
-    if (!selectedId) {
-      toast.warning('Please select a Delivery Challan first')
+  const handlePrintImage = () => {
+    window.print()
+  }
+
+  const handleViewDetails = () => {
+    const selectedRow = getSelectedRow()
+    if (!selectedRow) {
+      toast.warning('Select a DC row first to view details.')
       return
     }
-    const row = dcs.find(d => d.id === selectedId)
-    if (row) {
-      handlePrintRecord(row)
+    handlePrintRecord(selectedRow)
+  }
+
+  const handlePdfTemplate = (template) => {
+    const selectedRow = getSelectedRow()
+    if (!selectedRow) {
+      toast.warning(`Select a DC row first to open PDF ${template}.`)
+      return
     }
+    toast.info(`Preparing PDF ${template} for DC #${selectedRow.dcNo}.`)
+    handlePrintRecord(selectedRow)
+  }
+
+  const handleExportExcel = () => {
+    if (filteredDcs.length === 0) {
+      toast.warning('No records to export.')
+      return
+    }
+
+    const exportData = filteredDcs.map((row, index) => ({
+      'S.No': index + 1,
+      'DC No': row.dcNo || '',
+      'DC Date': formatDate(row.date),
+      'DC Type': row.dcType || '',
+      'Customer Name': row.partyName || '',
+      'Contact Person': row.contPerson || '',
+      'Contact No': row.contactNo || '',
+      'Total Qty': row.totalQty || 0,
+      'Total Amount': row.totalAmount || 0,
+      'Vehicle No': row.vehicleNo || '',
+      'Driver Name': row.driverName || '',
+      'Despatch Through': row.desThrough || ''
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(exportData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'DC Details')
+    const workbookBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const workbookBlob = new Blob([workbookBuffer], { type: 'application/octet-stream' })
+    const downloadUrl = URL.createObjectURL(workbookBlob)
+    const filename = `dc_details_${new Date().toISOString().split('T')[0]}.xlsx`
+
+    const previewWindow = window.open('', '_blank', 'width=1100,height=750')
+    if (!previewWindow) {
+      toast.error('Unable to open preview tab. Please allow popups for this site.')
+      URL.revokeObjectURL(downloadUrl)
+      return
+    }
+
+    const previewRowsHtml = exportData.map((row) => `
+      <tr>
+        ${Object.values(row).map(value => `<td>${String(value)}</td>`).join('')}
+      </tr>
+    `).join('')
+
+    const previewHeadersHtml = Object.keys(exportData[0]).map(header => `<th class="px-3 py-2 border bg-slate-100 text-left text-xs text-slate-600">${header}</th>`).join('')
+
+    previewWindow.document.write(`
+      <html>
+        <head>
+          <title>DC Details Excel Preview</title>
+          <style>
+            body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1f2937; margin: 0; padding: 24px; background: #f8fafc; }
+            .preview-shell { max-width: 1440px; margin: 0 auto; }
+            .preview-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+            .preview-title { font-size: 1.1rem; font-weight: 800; color: #0f172a; }
+            .preview-note { color: #475569; font-size: 0.92rem; }
+            .download-button { display: inline-flex; align-items: center; justify-content: center; padding: 0.75rem 1.2rem; background: #059669; color: white; border-radius: 0.75rem; text-decoration: none; font-weight: 700; box-shadow: 0 6px 16px rgba(5, 150, 105, 0.12); }
+            .download-button:hover { background: #047857; }
+            .preview-table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
+            .preview-table th, .preview-table td { border: 1px solid #e2e8f0; padding: 10px 12px; font-size: 0.92rem; }
+            .preview-table th { background: #f8fafc; color: #475569; text-transform: uppercase; letter-spacing: 0.02em; }
+            .preview-table tr:nth-child(even) { background: #f8fafc; }
+          </style>
+        </head>
+        <body>
+          <div class="preview-shell">
+            <div class="preview-header">
+              <div>
+                <div class="preview-title">Delivery Challan Excel Preview</div>
+                <div class="preview-note">Preview the data first, then click Download Excel to save the file.</div>
+              </div>
+              <a class="download-button" href="${downloadUrl}" download="${filename}">Download Excel</a>
+            </div>
+            <table class="preview-table">
+              <thead>
+                <tr>${previewHeadersHtml}</tr>
+              </thead>
+              <tbody>
+                ${previewRowsHtml}
+              </tbody>
+            </table>
+          </div>
+          <script>
+            window.addEventListener('unload', function() {
+              try { URL.revokeObjectURL('${downloadUrl}') } catch (e) { }
+            })
+          </script>
+        </body>
+      </html>
+    `)
+    previewWindow.document.close()
+    toast.success('Excel preview opened in a new tab.')
+  }
+
+  const handleExportPdf = () => {
+    if (filteredDcs.length === 0) {
+      toast.warning('No records to print.')
+      return
+    }
+    window.print()
+  }
+
+  const handleDos = () => {
+    toast.info('DOS export is not available in this version.')
+  }
+
+  const handleFilter = () => {
+    toast.info('Use the From Date and To Date dropdowns above to filter results.')
+  }
+
+  const handleSettings = () => {
+    toast.info('No additional settings are available in this view.')
+  }
+
+  const handleRowSelect = (row) => {
+    const key = String(row.id || row.dcNo || '')
+    setSelectedDcId(prev => (prev === key ? null : key))
   }
 
   useEffect(() => {
@@ -283,175 +412,6 @@ export default function DCDetailsReport() {
     `)
     printWindow.document.close()
   }
-  
-  const generatePDFReport = async (row, download = false) => {
-    if (!row) return
-    const doc = new jsPDF('p', 'mm', 'a4')
-    const pageW = doc.internal.pageSize.getWidth()
-    const margin = 14
-    const contentW = pageW - margin * 2
-    let y = 15
-
-    const teal = [0, 151, 167]
-    const dark = [30, 41, 59]
-    const grey = [100, 116, 139]
-    const borderColor = [203, 213, 225]
-
-    // Header
-    doc.setFontSize(18)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...teal)
-    doc.text('DELIVERY CHALLAN', pageW - margin, y + 2, { align: 'right' })
-
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...grey)
-    doc.text(`DC No: #${row.dcNo}`, pageW - margin, y + 8, { align: 'right' })
-
-    // Company Info
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...dark)
-    doc.text('Velson Valley', margin, y)
-
-    y += 5
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...grey)
-    doc.text('SF NO 98/3A, Velson valley Nagichettypatti, Sankari, Tamil Nadu 637302', margin, y)
-
-    y += 10
-    doc.setDrawColor(...borderColor)
-    doc.setLineWidth(0.3)
-    doc.line(margin, y, pageW - margin, y)
-    y += 5
-
-    // Details Grid
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...teal)
-    doc.text('Challan Details:', margin, y)
-    doc.text('Party Details:', margin + contentW / 2, y)
-
-    y += 5
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...dark)
-    doc.text(`Date: ${formatDate(row.date)}`, margin, y)
-    doc.text(`Name: ${row.partyName}`, margin + contentW / 2, y)
-
-    y += 5
-    doc.text(`DC Type: ${row.dcType}`, margin, y)
-    doc.text(`Contact: ${row.contactNo || '—'}`, margin + contentW / 2, y)
-
-    y += 5
-    doc.text(`Vehicle No: ${row.vehicleNo || '—'}`, margin, y)
-    doc.text(`GST No: ${row.gstNo || '—'}`, margin + contentW / 2, y)
-
-    y += 5
-    doc.text(`Driver: ${row.driverName || '—'}`, margin, y)
-    doc.text(`Address: ${row.address || '—'}`, margin + contentW / 2, y)
-
-    y += 10
-
-    // Table
-    const tableHeaders = [['S.No', 'Part No', 'Part Name', 'UOM', 'Qty', 'Rate', 'Amount', 'Work Type']]
-    const tableData = (row.details || []).map((item, index) => [
-      index + 1,
-      item.partNo,
-      item.partName,
-      item.uom || 'PCS',
-      item.qty,
-      Number(item.rate || 0).toFixed(2),
-      Number(item.amount || 0).toFixed(2),
-      item.workType || '—'
-    ])
-
-    autoTable(doc, {
-      startY: y,
-      head: tableHeaders,
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: teal, textColor: [255, 255, 255], fontStyle: 'bold' },
-      styles: { fontSize: 8.5, cellPadding: 2.5 },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 10 },
-        4: { halign: 'right' },
-        5: { halign: 'right' },
-        6: { halign: 'right' }
-      }
-    })
-
-    const finalY = doc.previousAutoTable.finalY + 15
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Terms of Delivery:', margin, finalY)
-    doc.setFont('helvetica', 'normal')
-    doc.text(row.termsOfDelivery || 'N/A', margin + 35, finalY)
-
-    // Signatures
-    const signY = finalY + 25
-    doc.line(margin, signY, margin + 40, signY)
-    doc.line(pageW - margin - 40, signY, pageW - margin, signY)
-    doc.setFontSize(8.5)
-    doc.text('Receiver\'s Signature', margin + 5, signY + 4)
-    doc.text('Authorized Signatory', pageW - margin - 38, signY + 4)
-
-    if (download) {
-      doc.save(`DC_${row.dcNo}.pdf`)
-    } else {
-      window.open(doc.output('bloburl'), '_blank')
-    }
-  }
-
-  const handlePDFFormat = (formatType) => {
-    if (!selectedId) {
-      toast.warning('Please select a Delivery Challan first')
-      return
-    }
-    const row = dcs.find(d => d.id === selectedId)
-    if (!row) return
-
-    if (formatType === 1) {
-      generatePDFReport(row, false)
-    } else if (formatType === 2) {
-      generatePDFReport(row, true)
-    } else if (formatType === 3) {
-      handlePrintRecord(row)
-    }
-  }
-
-  const handleExportExcelList = (download = false) => {
-    if (filteredDcs.length === 0) {
-      toast.warning('No records available to export')
-      return
-    }
-    const dataToExport = filteredDcs.map(row => ({
-      'DC No': row.dcNo,
-      'Date': formatDate(row.date),
-      'DC Type': row.dcType,
-      'Party Name': row.partyName,
-      'Contact Person': row.contPerson || '—',
-      'Contact No': row.contactNo || '—',
-      'Total Qty': row.totalQty || 0,
-      'Total Amount': row.totalAmount || 0,
-      'Vehicle No': row.vehicleNo || '—',
-      'Driver Name': row.driverName || '—',
-      'Despatch Through': row.desThrough || '—'
-    }))
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Delivery Challans')
-    if (download) {
-      XLSX.writeFile(wb, 'Delivery_Challan_Report.xlsx')
-      toast.success('Excel downloaded successfully!')
-    } else {
-      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-    }
-  }
 
   return (
     <div className="bg-[#f1f5f9] min-h-screen">
@@ -465,14 +425,10 @@ export default function DCDetailsReport() {
             </div>
             
             <div className="flex items-center gap-1.5">
-              <HeaderButton color="emerald"><Edit2 size={14} className="text-emerald-600" /> Edit</HeaderButton>
-              <HeaderButton color="rose"><Trash2 size={14} className="text-rose-600" /> Delete</HeaderButton>
-              <div className="w-[1px] h-4 bg-slate-300 mx-1" />
-              <HeaderButton><Printer size={14} /> Print Image</HeaderButton>
               <HeaderButton onClick={handleEdit} color="emerald"><Edit2 size={14} className="text-emerald-600" /> Edit</HeaderButton>
               <HeaderButton onClick={handleDelete} color="rose"><Trash2 size={14} className="text-rose-600" /> Delete</HeaderButton>
               <div className="w-[1px] h-4 bg-slate-300 mx-1" />
-              <HeaderButton onClick={handlePrintSelected}><Printer size={14} /> Print Image</HeaderButton>
+              <HeaderButton onClick={handlePrintImage}><Printer size={14} /> Print Image</HeaderButton>
               <HeaderButton onClick={() => window.history.back()} color="rose"><X size={16} strokeWidth={3} /> Close</HeaderButton>
             </div>
           </div>
@@ -491,15 +447,13 @@ export default function DCDetailsReport() {
             <div className="w-[1px] h-6 bg-slate-200 mx-1" />
             
             <FilterButton onClick={handleSearch} icon="dot">Search</FilterButton>
-            <FilterButton icon="dot">DC Details</FilterButton>
+            <FilterButton onClick={handleViewDetails} icon="dot">DC Details</FilterButton>
             
             <div className="w-[1px] h-6 bg-slate-200 mx-1" />
             
-            <FilterButton icon="printer">PDF M1</FilterButton>
-            <FilterButton icon="printer">PDF M2</FilterButton>
-            <FilterButton icon="printer">PDF M3</FilterButton>
-            <FilterButton onClick={() => handlePDFFormat(1)} icon="printer">PDF M1</FilterButton>
-            <FilterButton onClick={() => handlePDFFormat(3)} icon="printer">PDF M3</FilterButton>
+            <FilterButton onClick={() => handlePdfTemplate('M1')} icon="printer">PDF M1</FilterButton>
+            <FilterButton onClick={() => handlePdfTemplate('M2')} icon="printer">PDF M2</FilterButton>
+            <FilterButton onClick={() => handlePdfTemplate('M3')} icon="printer">PDF M3</FilterButton>
 
             <div className="ml-auto flex items-center gap-4 text-slate-500">
                <div className="flex items-center gap-1 text-[11px] font-bold">
@@ -507,14 +461,11 @@ export default function DCDetailsReport() {
                   <input type="text" value="1" readOnly className="w-8 px-1 py-0.5 border border-slate-300 rounded text-center text-[#0097A7] font-black" />
                </div>
                <div className="flex items-center gap-3">
-                  <button className="hover:text-slate-800 flex items-center gap-0.5 text-[11px] font-bold transition-colors"><Printer size={14} className="text-slate-400" /> Dos</button>
-                  <button className="hover:text-emerald-600 flex items-center gap-0.5 text-[11px] font-bold transition-colors"><FileSpreadsheet size={14} className="text-emerald-500" /> Excel</button>
-                  <button className="hover:text-rose-600 flex items-center gap-0.5 text-[11px] font-bold transition-colors"><FileText size={14} className="text-rose-500" /> Pdf</button>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => handlePDFFormat(3)} className="hover:text-slate-800 flex items-center gap-0.5 text-[11px] font-bold transition-colors" title="Dos (Print)"><Printer size={14} className="text-slate-400" /> Dos</button>
-                  <button onClick={() => handleExportExcelList(false)} className="hover:text-emerald-600 flex items-center gap-0.5 text-[11px] font-bold transition-colors" title="Export Excel"><FileSpreadsheet size={14} className="text-emerald-500" /> Excel</button>
-                  <button className="hover:text-[#0097A7] flex items-center gap-0.5 text-[11px] font-bold transition-colors"><Filter size={14} /> Filter</button>
-                  <button className="hover:text-[#0097A7] flex items-center gap-0.5 text-[11px] font-bold transition-colors"><Settings size={14} /> Setting</button>
+                  <button onClick={handleDos} className="hover:text-slate-800 flex items-center gap-0.5 text-[11px] font-bold transition-colors"><Printer size={14} className="text-slate-400" /> Dos</button>
+                  <button onClick={handleExportExcel} className="hover:text-emerald-600 flex items-center gap-0.5 text-[11px] font-bold transition-colors"><FileSpreadsheet size={14} className="text-emerald-500" /> Excel</button>
+                  <button onClick={handleExportPdf} className="hover:text-rose-600 flex items-center gap-0.5 text-[11px] font-bold transition-colors"><FileText size={14} className="text-rose-500" /> Pdf</button>
+                  <button onClick={handleFilter} className="hover:text-[#0097A7] flex items-center gap-0.5 text-[11px] font-bold transition-colors"><Filter size={14} /> Filter</button>
+                  <button onClick={handleSettings} className="hover:text-[#0097A7] flex items-center gap-0.5 text-[11px] font-bold transition-colors"><Settings size={14} /> Setting</button>
                </div>
             </div>
           </div>
@@ -553,39 +504,42 @@ export default function DCDetailsReport() {
                     </td>
                   </tr>
                 ) : (
-                  filteredDcs.map((row, i) => (
-                    <tr key={row.id || i} className="h-14 hover:bg-[#0097A7]/5 transition-colors divide-x divide-slate-100 group">
-                    <tr
-                      key={row.id || i}
-                      onClick={() => setSelectedId(row.id)}
-                      className={`h-14 hover:bg-[#0097A7]/5 cursor-pointer transition-colors divide-x divide-slate-100 group ${selectedId === row.id ? 'bg-[#0097A7]/10' : ''}`}
-                    >
-                      <td className="px-2 py-1 text-center text-slate-300 font-bold">{i + 1}</td>
-                      <td className="px-5 py-2 border-r border-slate-50 font-black text-[#0097A7]">#{row.dcNo}</td>
-                      <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-400">{formatDate(row.date)}</td>
-                      <td className="px-5 py-2 border-r border-slate-50 font-semibold text-slate-600">{row.dcType}</td>
-                      <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-700">{row.partyName}</td>
-                      <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium">{row.contPerson || '—'}</td>
-                      <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium">{row.contactNo || '—'}</td>
-                      <td className="px-5 py-2 border-r border-slate-50 text-right font-bold text-[#0097A7]">{row.totalQty || 0}</td>
-                      <td className="px-5 py-2 border-r border-slate-50 text-right font-bold text-slate-800">₹{Number(row.totalAmount || 0).toFixed(2)}</td>
-                      <td className="px-5 py-2 border-r border-slate-50">{row.vehicleNo || '—'}</td>
-                      <td className="px-5 py-2 border-r border-slate-50">{row.driverName || '—'}</td>
-                      <td className="px-5 py-2 border-r border-slate-50">{row.desThrough || '—'}</td>
-                      <td className="px-5 py-2 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handlePrintRecord(row)
-                          }}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0097A7]/10 hover:bg-[#0097A7]/20 text-[#0097A7] transition-colors shadow-sm border border-[#0097A7]/20"
-                          title="Print DC Record"
-                        >
-                          <Printer size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  filteredDcs.map((row, i) => {
+                    const rowKey = String(row.id || row.dcNo || i)
+                    const isSelected = selectedDcId === rowKey
+                    return (
+                      <tr
+                        key={rowKey}
+                        onClick={() => handleRowSelect(row)}
+                        className={`h-14 transition-colors divide-x divide-slate-100 group cursor-pointer ${isSelected ? 'bg-[#0097A7]/10' : 'hover:bg-[#0097A7]/5'}`}
+                      >
+                        <td className="px-2 py-1 text-center text-slate-300 font-bold">{i + 1}</td>
+                        <td className="px-5 py-2 border-r border-slate-50 font-black text-[#0097A7]">#{row.dcNo}</td>
+                        <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-400">{formatDate(row.date)}</td>
+                        <td className="px-5 py-2 border-r border-slate-50 font-semibold text-slate-600">{row.dcType}</td>
+                        <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-700">{row.partyName}</td>
+                        <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium">{row.contPerson || '—'}</td>
+                        <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium">{row.contactNo || '—'}</td>
+                        <td className="px-5 py-2 border-r border-slate-50 text-right font-bold text-[#0097A7]">{row.totalQty || 0}</td>
+                        <td className="px-5 py-2 border-r border-slate-50 text-right font-bold text-slate-800">₹{Number(row.totalAmount || 0).toFixed(2)}</td>
+                        <td className="px-5 py-2 border-r border-slate-50">{row.vehicleNo || '—'}</td>
+                        <td className="px-5 py-2 border-r border-slate-50">{row.driverName || '—'}</td>
+                        <td className="px-5 py-2 border-r border-slate-50">{row.desThrough || '—'}</td>
+                        <td className="px-5 py-2 text-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handlePrintRecord(row)
+                            }}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0097A7]/10 hover:bg-[#0097A7]/20 text-[#0097A7] transition-colors shadow-sm border border-[#0097A7]/20"
+                            title="Print DC Record"
+                          >
+                            <Printer size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

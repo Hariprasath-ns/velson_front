@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import api from '../services/api'
 import { useCustomers, useReferenceMaster } from '../hooks/useMasterData'
 import { X, Save, RotateCcw, List, Edit, Trash2, Info, ChevronRight, Loader2 } from 'lucide-react'
@@ -250,12 +250,6 @@ const emptyForm = {
 // ── Detail Modal ─────────────────────────────────────────────────────────────
 
 function DetailModal({ row, onClose }) {
-  const createdStr = row.createdAt
-    ? new Date(row.createdAt).toLocaleString('en-GB', { hour12: true })
-    : '—'
-  const updatedStr = row.updatedAt
-    ? new Date(row.updatedAt).toLocaleString('en-GB', { hour12: true })
-    : '—'
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
@@ -277,8 +271,6 @@ function DetailModal({ row, onClose }) {
             ['Account Name', row.accountName], ['Account Number', row.accountNumber],
             ['IFSC Code', row.ifscCode], ['MICR Code', row.micrCode],
             ['Remarks', row.remarks],
-            ['Created Date/Time', createdStr],
-            ['Updated Date/Time', updatedStr],
           ].map(([l, v]) => (
             <div key={l} className="flex flex-col py-1 border-b border-slate-100">
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{l}</span>
@@ -329,7 +321,7 @@ export default function CustomerMaster() {
   const { data: customerTypesData = [] } = useReferenceMaster('Customer_Type')
 
   const [rows, setRows] = useState([])
-  const customerTypes = useMemo(() => customerTypesData.map(r => r.description).filter(Boolean), [customerTypesData])
+  const customerTypes = useMemo(() => Array.from(new Set(customerTypesData.map(r => r.description).filter(Boolean))), [customerTypesData])
 
   useEffect(() => {
     if (customerList) {
@@ -345,6 +337,28 @@ export default function CustomerMaster() {
   const [page, setPage] = useState(1)
   const [detailRow, setDetailRow] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const suggestionsRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const nameInput = form.customerName || ''
+  const nameMatches = nameInput.trim().length >= 2
+    ? rows.filter(r =>
+        r.id !== editId &&
+        r.customerName &&
+        r.customerName.toLowerCase().includes(nameInput.toLowerCase())
+      )
+    : []
 
   // Loading states
   const loadingList = isCustomersLoading
@@ -743,11 +757,43 @@ export default function CustomerMaster() {
                 <label className={`${lbl} w-28 shrink-0`}>Customer Code :</label>
                 <input value={form.cCode} onChange={e => setField('cCode', e.target.value)} className={`${inp(false)} bg-slate-50`} placeholder="Auto-generated" readOnly />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" ref={suggestionsRef}>
                 <label className={`${lbl} w-28 shrink-0`}><span className="text-red-500">*</span> Customer Name :</label>
-                <div className="flex-1">
-                  <input value={form.customerName} onChange={e => setField('customerName', e.target.value)} className={inp(errors.customerName)} />
+                <div className="flex-1 relative">
+                  <input
+                    value={form.customerName}
+                    onChange={e => {
+                      setField('customerName', e.target.value)
+                      setShowSuggestions(true)
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    className={inp(errors.customerName)}
+                    placeholder="Enter Customer Name"
+                  />
                   {errors.customerName && <p className="text-[11px] text-red-500 mt-0.5">{errors.customerName}</p>}
+
+                  {showSuggestions && nameMatches.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded shadow-lg max-h-60 overflow-y-auto">
+                      <div className="px-3 py-1.5 bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        Existing Customers (Click to load details)
+                      </div>
+                      {nameMatches.map(cust => (
+                        <div
+                          key={cust.id}
+                          onClick={() => {
+                            handleEdit(cust)
+                            setShowSuggestions(false)
+                          }}
+                          className="px-3 py-2 text-[13px] text-slate-700 hover:bg-[#0097A7]/10 hover:text-[#0097A7] cursor-pointer transition-colors border-b border-slate-50 last:border-0"
+                        >
+                          <div className="font-semibold">{cust.customerName}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {cust.cCode} | {cust.city || 'No City'} | {cust.mobile || 'No Mobile'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">

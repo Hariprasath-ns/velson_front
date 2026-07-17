@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import api from '../services/api'
 import * as XLSX from 'xlsx'
 import ExcelJS from 'exceljs'
@@ -301,7 +301,6 @@ export default function IndexCreation() {
   }
 
   const handleDownloadFixedExcel = async () => {
-  const handleDownloadFixedExcel = async (download = false) => {
     try {
       let workbook = new ExcelJS.Workbook();
       let worksheet;
@@ -379,16 +378,6 @@ export default function IndexCreation() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      if (download) {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = form.fileName ? `Fixed_${form.fileName}` : "Fixed_Excel_Data.xlsx"
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-      } else {
-        window.open(url, '_blank')
-      }
     } catch (err) {
       console.error(err)
       toast.error('Failed to generate fixed Excel file')
@@ -781,16 +770,6 @@ export default function IndexCreation() {
                       <button 
                         onClick={handleDownloadFixedExcel}
                         className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm"
-                        onClick={() => handleDownloadFixedExcel(false)}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm"
-                        title="View Excel"
-                      >
-                        <FileSpreadsheet size={14} /> View Excel
-                      </button>
-                      <button 
-                        onClick={() => handleDownloadFixedExcel(true)}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm"
-                        title="Download Excel"
                       >
                         <Download size={14} /> Download Excel
                       </button>

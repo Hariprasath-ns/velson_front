@@ -28,7 +28,7 @@ const HIDDEN_FOR_USER = [
   "purchase-order", "purchase-order-details", "purchase-request", "print-purchase-request",
   "material-request", "print-material-request", "gate-entry", "gate-entry-report", "grn-entry", "grn-entry-report",
   "bom-creation", "customerwise-bom-report", "index-creation", "index-creation-report", "upload-bom", "main-index", "main-index-report", "view-model",
-  "customer-complaint-entry", "ccms-entry-details", "dc-entry", "dc-details-report",
+  "customer-complaint-entry", "ccms-entry-details", "dc-details-report",
   "breakdown-approval-list", "nc-approval", "nc-job-created", "nc-dc-entry", "nc-dc-details",
   "barcode-details", "auto-job-entry", "service-job-entry-details", "conformation-list", "conformation-entry-details",
   "job-card-entry", "process-menu", "tech-auto-job", "view-job-status", "waiting-for-approval", "update-route-details", "process-completed", "mr-approval", "nc-job-created", "nc-approval", "ipr-approval", "job-qty-mismatch", "process-card-close", "job-qc-entry",

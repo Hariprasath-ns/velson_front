@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   ChevronRight, Save, X, Search, RotateCcw,
   FileSpreadsheet, Camera, Plus, Loader2, Send, FileText, Trash2
@@ -6,14 +6,6 @@ import {
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useCustomers, useReferenceMaster } from '../hooks/useMasterData'
-import { useLocation, useNavigate } from 'react-router-dom'
-import {
-  ChevronRight, Save, X, Search, RotateCcw,
-  FileSpreadsheet, Camera, Plus, Loader2, Send, FileText, Trash2, Download
-} from 'lucide-react'
-import { useToast } from '../components/Toast'
-import api from '../services/api'
-import { useCustomers, useReferenceMaster, useItemMaster } from '../hooks/useMasterData'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -160,17 +152,52 @@ const getFinancialYearDC = () => {
 export default function DCEntry() {
   const toast = useToast()
   const fileInputRef = useRef(null)
-  const location = useLocation()
-  const navigate = useNavigate()
-  const editId = location.state?.editId
 
   // React Query master data fetches
   const { data: custsRes = [] } = useCustomers()
   const { data: workTypesRes = [] } = useReferenceMaster('work_type')
-  const { data: itemsRes = [] } = useItemMaster()
 
   const [suppliers, setSuppliers] = useState([])
   const [suppliersLoading, setSuppliersLoading] = useState(true)
+
+  // Item master list (was previously referenced as `itemsRes`)
+  const [itemsList, setItemsList] = useState([])
+
+  // Populate page with example data for quick verification when ?sample=1 is present
+  const populateSampleData = (loadedItems = []) => {
+    const sampleItem = (loadedItems && loadedItems.length > 0) ? loadedItems[0] : { partNo: 'P-900', partName: 'Sample Part', uom: 'PCS', rate: 100 }
+
+    setDcNo(prev => prev || getFinancialYearDC())
+    setDate(new Date().toISOString().split('T')[0])
+    setCustomerName((parties && parties[0] && parties[0].name) || 'Sample Customer')
+    setCustomerDetails((parties && parties[0] && parties[0].address) || '123 Sample Street')
+    setDcType('Sales')
+    setVehicleNo('MH12AB1234')
+    setDriverName('Demo Driver')
+    setContPerson('Demo Contact')
+    setContactNo('9999999999')
+    setGstNo('27AAAAA0000A1Z5')
+    setTermsOfDelivery('Ex-Works')
+
+    const sampleRow = {
+      id: Date.now(),
+      barcode: 'N/A',
+      partNo: sampleItem.partNo || 'P-900',
+      partName: sampleItem.partName || 'Sample Part',
+      spec: sampleItem.spec || null,
+      brand: sampleItem.brand || null,
+      qty: 1,
+      uom: sampleItem.uom || 'PCS',
+      rate: sampleItem.rate || 100,
+      amount: (sampleItem.rate || 100) * 1,
+      availableStock: sampleItem.stockQty || 10,
+      source: sampleItem.source || null,
+      sourceId: sampleItem.id || null,
+    }
+
+    setItems([sampleRow])
+    toast.info('DC Entry populated with sample data (query param ?sample=1)')
+  }
 
   const parties = useMemo(() => {
     const formattedCust = custsRes.map(c => ({
@@ -198,12 +225,10 @@ export default function DCEntry() {
     return [...formattedCust, ...formattedSupp]
   }, [custsRes, suppliers])
 
-  const itemsList = itemsRes
   const workTypes = useMemo(() => workTypesRes.map(item => item.description).filter(Boolean), [workTypesRes])
   const [selectedParty, setSelectedParty] = useState(null)
 
   const fetchNextDcNo = async () => {
-    if (editId) return
     try {
       const res = await api.get('/api/delivery-challan/next-number', { skipGlobalLoader: true })
       if (res.data?.dcNo) {
@@ -305,7 +330,28 @@ export default function DCEntry() {
         const suppRes = await api.get('/api/supplier-master', { skipGlobalLoader: true })
         setSuppliers(suppRes.data?.data || [])
 
+        // Load item master list used across the DC entry page
+        let loadedItems = []
+        try {
+          const itemRes = await api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
+          loadedItems = itemRes.data?.data || []
+          setItemsList(loadedItems)
+        } catch (ie) {
+          console.error('Failed to load item master list', ie)
+          setItemsList([])
+        }
+
         await fetchRecentValues()
+
+        // If developer wants a quick check, append ?sample=1 to the URL to auto-fill fields
+        try {
+          const qp = new URLSearchParams(window.location.search)
+          if (qp.get('sample') === '1') {
+            populateSampleData(loadedItems)
+          }
+        } catch (e) {
+          // ignore in non-browser contexts
+        }
       } catch (err) {
         console.error(err)
         toast.error('Failed to load master lists')
@@ -315,67 +361,6 @@ export default function DCEntry() {
     }
     fetchMasters()
   }, [])
-
-  // Load existing DC for edit if editId is provided
-  useEffect(() => {
-    if (!editId || parties.length === 0) return
-
-    const loadEditRecord = async () => {
-      try {
-        const res = await api.get(`/api/delivery-challan/${editId}`)
-        if (res.data?.success && res.data.data) {
-          const dc = res.data.data
-          setDcNo(dc.dcNo)
-          setDate(dc.date ? dc.date.split('T')[0] : '')
-          setCustomerName(dc.partyName)
-          setCustomerDetails(dc.address || '')
-          setContPerson(dc.contPerson || '')
-          setContactNo(dc.contactNo || '')
-          setGstNo(dc.gstNo || '')
-          setDcType(dc.dcType)
-          setVehicleNo(dc.vehicleNo || '')
-          setDriverName(dc.driverName || '')
-          setDesThrough(dc.desThrough || '')
-          setTermsOfDelivery(dc.termsOfDelivery || '')
-
-          // Match the party
-          const match = parties.find(p => p.name === dc.partyName)
-          if (match) {
-            setSelectedParty(match)
-          }
-
-          // Load items
-          if (dc.details) {
-            setItems(dc.details.map((item, idx) => ({
-              id: item.id || idx + 1,
-              barcode: item.barcode || 'N/A',
-              partNo: item.partNo,
-              partName: item.partName,
-              spec: item.spec || '',
-              brand: item.brand || '',
-              qty: item.qty,
-              uom: item.uom || '',
-              rate: item.rate,
-              amount: item.amount,
-              heatTreatment: item.heatTreatment || '',
-              mGrade: item.mGrade || '',
-              rework: item.rework || 'NO',
-              hrc: item.hrc || '',
-              weight: item.weight || '',
-              workType: item.workType || '',
-              details: item.details || '',
-              source: item.source || null,
-              sourceId: item.sourceId || null
-            })))
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load DC for edit:', err)
-        toast.error('Failed to load Delivery Challan details for editing.')
-      }
-    }
-    loadEditRecord()
-  }, [editId, parties])
 
   // Derived arrays for inputs
   const partyNames = useMemo(() => parties.map(p => p.name).filter(Boolean), [parties])
@@ -794,7 +779,6 @@ export default function DCEntry() {
   }
 
   const generateChallanPDF = async (payload) => {
-  const generateChallanPDF = async (payload, download = false) => {
     try {
       // Fetch logo as base64
       let logoBase64 = null
@@ -1156,11 +1140,6 @@ export default function DCEntry() {
       doc.text('This is a computer-generated document.', pageW / 2, 285, { align: 'center' })
 
       doc.save(`DC_${payload.dcNo}.pdf`)
-      if (download) {
-        doc.save(`DC_${payload.dcNo}.pdf`)
-      } else {
-        window.open(doc.output('bloburl'), '_blank')
-      }
     } catch (err) {
       console.error('PDF generation error:', err)
       toast.error(`Failed to generate PDF: ${err.message}`)
@@ -1169,7 +1148,6 @@ export default function DCEntry() {
 
   // Submit complete DC Entry
   const handleSubmit = async (generatePdf = false) => {
-  const handleSubmit = async (generatePdf = false, downloadPdf = false) => {
     if (!customerName) {
       toast.error('Customer Name is required')
       return
@@ -1279,27 +1257,6 @@ export default function DCEntry() {
     } catch (err) {
       console.error(err)
       toast.error(err.response?.data?.message || 'Failed to submit Delivery Challan')
-      if (editId) {
-        await api.put(`/api/delivery-challan/${editId}`, payload, { loadingMessage: 'Updating Delivery Challan...' })
-        toast.success(`Delivery Challan ${dcNo} updated successfully!`)
-      } else {
-        await api.post('/api/delivery-challan', payload, { loadingMessage: 'Submitting Delivery Challan...' })
-        toast.success(`Delivery Challan ${dcNo} submitted successfully!`)
-      }
-      await fetchRecentValues()
-
-      if (generatePdf === true) {
-        await generateChallanPDF(payload, downloadPdf)
-      }
-
-      if (editId) {
-        navigate(-1)
-      } else {
-        handleClearAll()
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error(err.response?.data?.message || 'Failed to submit/update Delivery Challan')
     } finally {
       setSubmitting(false)
     }
@@ -1770,27 +1727,6 @@ export default function DCEntry() {
           <button
             type="button"
             onClick={() => handleSubmit(false)}
-            onClick={() => handleSubmit(true, false)}
-            disabled={submitting}
-            className="flex items-center justify-center gap-2 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded text-[13px] shadow disabled:opacity-60 transition-colors active:scale-95"
-            title="Save & View PDF"
-          >
-            {submitting ? <Loader2 size={14} className="animate-spin" /> : <FileText size={15} />}
-            Save & PDF (View)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit(true, true)}
-            disabled={submitting}
-            className="flex items-center justify-center gap-2 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded text-[13px] shadow disabled:opacity-60 transition-colors active:scale-95"
-            title="Save & Download PDF"
-          >
-            {submitting ? <Loader2 size={14} className="animate-spin" /> : <Download size={15} />}
-            Save & PDF (Download)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit(false, false)}
             disabled={submitting}
             className="flex items-center justify-center gap-2 px-6 py-2 bg-[#0097A7] hover:bg-[#007a87] text-white font-bold rounded text-[13px] shadow disabled:opacity-60 transition-colors active:scale-95"
           >

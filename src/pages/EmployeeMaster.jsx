@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { useEmployees, useReferenceMaster } from '../hooks/useMasterData'
 import { useMemo } from 'react'
@@ -71,12 +71,6 @@ function DetailModal({ row, onClose }) {
       return new Date(v).toLocaleDateString('en-IN')
     return v
   }
-  const createdStr = row.createdAt
-    ? new Date(row.createdAt).toLocaleString('en-GB', { hour12: true })
-    : '—'
-  const updatedStr = row.updatedAt
-    ? new Date(row.updatedAt).toLocaleString('en-GB', { hour12: true })
-    : '—'
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
@@ -93,8 +87,6 @@ function DetailModal({ row, onClose }) {
             ['Join Date', fmt(row.joinDate)], ['Releving Date', fmt(row.relevingDate)],
             ['Team', row.team], ['Email ID', row.emailId],
             ['Reporting Person', row.repPerson], ['Status', row.status],
-            ['Created Date/Time', createdStr],
-            ['Updated Date/Time', updatedStr],
           ].map(([l, v]) => (
             <div key={l} className="flex flex-col py-1 border-b border-slate-100">
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{l}</span>

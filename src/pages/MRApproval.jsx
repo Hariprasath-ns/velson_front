@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronRight, ChevronLeft, X, CheckCircle2, XCircle, Loader2, FileText } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
@@ -27,7 +27,6 @@ export default function MRApproval() {
     setLoading(true)
     try {
       const res = await api.get('/api/material-request', { skipGlobalLoader: true })
-      const res = await api.get('/api/material-request?limit=10000', { skipGlobalLoader: true })
       setRows(res.data?.data || [])
     } catch {
       toast.error('Failed to load material requests')

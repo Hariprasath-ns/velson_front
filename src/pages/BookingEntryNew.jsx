@@ -1,12 +1,12 @@
-﻿import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import BarcodeGenerator from './BarcodeGenerator'
+import { openExcelPreview } from '../utils/excelPreview'
 import {
   ChevronRight, Search, Printer, X, Trash2, Download,
   FileSpreadsheet, FileJson, Filter, Settings, RotateCcw,
-  FileSpreadsheet, FileJson, Filter, Settings, RotateCcw, FileText,
   Plus, Save, Edit, Check, List, Barcode
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
@@ -227,6 +227,17 @@ export default function BookingEntryNew() {
     return list.length > 0 ? list : ['Open', 'Close']
   }, [statusesData])
 
+  const getChosenOption = (row) => {
+    const cust = customers.find(c => c.customerName === row.customerName)
+    if (!cust) return '—'
+    const customerVehicles = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+    const idx = customerVehicles.findIndex(v =>
+      (v.serialNumber && (v.serialNumber === row.vehicleSerialNo || v.serialNumber === row.serialNo)) ||
+      (v.vehicleNumber && v.vehicleNumber === row.vehicleNo)
+    )
+    return idx !== -1 ? String(idx + 1) : '—'
+  }
+
   const [editingId, setEditingId] = useState(null)
   const [isEditUnlocked, setIsEditUnlocked] = useState(false)
   const [selectedRow, setSelectedRow] = useState(null)
@@ -244,8 +255,10 @@ export default function BookingEntryNew() {
     if (selectedRow) {
       const cust = customers.find(c => c.customerName === selectedRow.customerName)
       let selectedOption = ''
+      let totalCount = 0
       if (cust) {
         const customerVehicles = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+        totalCount = customerVehicles.length
         const idx = customerVehicles.findIndex(v => v.serialNumber === selectedRow.vehicleSerialNo)
         if (idx !== -1) {
           selectedOption = String(idx + 1)
@@ -253,7 +266,8 @@ export default function BookingEntryNew() {
       }
       setForm({
         ...selectedRow,
-        chooseOption: selectedOption
+        chooseOption: selectedOption || String(selectedRow.customerVehicleCount || ''),
+        customerVehicleCount: totalCount || selectedRow.customerVehicleCount || 1
       })
       setEditingId(selectedRow.id)
       setIsEditUnlocked(true)
@@ -361,19 +375,20 @@ export default function BookingEntryNew() {
 
     const customerVehicles = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
     const count = customerVehicles.length
+    const firstVehicle = customerVehicles[0]
 
     setForm(f => ({
       ...f,
       customerName: customerNameVal,
       customerCode: cust.cCode || '',
       customerVehicleCount: count,
-      chooseOption: '',
-      vehicleSerialNo: '',
-      serialNo: '',
-      vehicleNo: '',
-      vehicleModelNo: '',
-      modelSubType: '',
-      vehicleName: ''
+      chooseOption: count > 0 ? '1' : '',
+      vehicleSerialNo: firstVehicle?.serialNumber || '',
+      serialNo: firstVehicle?.serialNumber || '',
+      vehicleNo: firstVehicle?.vehicleNumber || '',
+      vehicleModelNo: firstVehicle?.modelName || '',
+      modelSubType: firstVehicle?.modelSubType || '',
+      vehicleName: firstVehicle?.vehicleName || ''
     }))
   }
 
@@ -450,6 +465,13 @@ export default function BookingEntryNew() {
     }))
   }
 
+  const getVehicleCountForSave = () => {
+    if (form.customerVehicleCount !== '' && form.customerVehicleCount !== null && form.customerVehicleCount !== undefined) {
+      return Number(form.customerVehicleCount)
+    }
+    return 1
+  }
+
   const handleSave = async () => {
     if (!form.customerName || !form.vehicleModelNo || !form.modelSubType || !form.vehicleName) {
       toast.warning('Please fill in all required fields (Customer, Model No, Model SubType, Vehicle Name).')
@@ -460,13 +482,14 @@ export default function BookingEntryNew() {
       const isDuplicate = bookings.some(b =>
         b.id !== editingId &&
         b.tempStatus === 'Open' &&
+        (b.customerName || '').toLowerCase() === (form.customerName || '').toLowerCase() &&
         (
           (form.vehicleNo && b.vehicleNo && b.vehicleNo !== '—' && b.vehicleNo.toLowerCase() === form.vehicleNo.toLowerCase()) ||
           (form.serialNo && b.serialNo && b.serialNo !== '—' && b.serialNo.toLowerCase() === form.serialNo.toLowerCase())
         )
       )
       if (isDuplicate) {
-        toast.warning('Duplicate entry: An open booking already exists for this vehicle.')
+        toast.warning('Duplicate entry: An open booking already exists for this Customer and Vehicle.')
         return
       }
     }
@@ -474,7 +497,7 @@ export default function BookingEntryNew() {
     try {
       const payload = {
         ...form,
-        customerVehicleCount: form.customerVehicleCount ? Number(form.customerVehicleCount) : 1
+        customerVehicleCount: getVehicleCountForSave()
       };
 
       let updatedBookings
@@ -507,8 +530,10 @@ export default function BookingEntryNew() {
   const handleEdit = (row) => {
     const cust = customers.find(c => c.customerName === row.customerName)
     let selectedOption = ''
+    let totalCount = 0
     if (cust) {
       const customerVehicles = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+      totalCount = customerVehicles.length
       const idx = customerVehicles.findIndex(v => v.serialNumber === row.vehicleSerialNo)
       if (idx !== -1) {
         selectedOption = String(idx + 1)
@@ -516,7 +541,8 @@ export default function BookingEntryNew() {
     }
     setForm({
       ...row,
-      chooseOption: selectedOption
+      chooseOption: selectedOption || String(row.customerVehicleCount || ''),
+      customerVehicleCount: totalCount || row.customerVehicleCount || 1
     })
     setEditingId(row.id)
     setIsEditUnlocked(false)
@@ -776,19 +802,18 @@ export default function BookingEntryNew() {
   }
 
   const handleExportExcel = () => {
-  const handleExportExcel = (download = false) => {
     if (filteredBookings.length === 0) {
       toast.warning('No bookings data available to export.')
       return
     }
 
-    // Construct real Excel rows
     const data = filteredBookings.map((b, idx) => ({
       'S.No': idx + 1,
       'Booking Date': b.bookingDate,
       'Customer Name': b.customerName,
       'Customer Code': b.customerCode || '—',
       'Vehicle Count': b.customerVehicleCount || 1,
+      'Choosed Vehicle Count': getChosenOption(b),
       'Serial No': b.vehicleSerialNo || b.serialNo || '—',
       'Vehicle No': b.vehicleNo || '—',
       'Service Job No': b.serviceJobNo,
@@ -804,19 +829,10 @@ export default function BookingEntryNew() {
     const worksheet = XLSX.utils.json_to_sheet(data)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Bookings')
+    const workbookBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const workbookBlob = new Blob([workbookBuffer], { type: 'application/octet-stream' })
 
-    // Download as a real binary Excel spreadsheet
-    XLSX.writeFile(workbook, `bookings_list_${new Date().toISOString().split('T')[0]}.xlsx`)
-    toast.success('Successfully downloaded Bookings Excel spreadsheet!')
-    if (download) {
-      XLSX.writeFile(workbook, `bookings_list_${new Date().toISOString().split('T')[0]}.xlsx`)
-      toast.success('Successfully downloaded Bookings Excel spreadsheet!')
-    } else {
-      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-    }
+    openExcelPreview(data, workbookBlob, `bookings_list_${new Date().toISOString().split('T')[0]}.xlsx`, 'Bookings Export Preview')
   }
 
   const handlePrintBookingList = () => {
@@ -921,7 +937,6 @@ export default function BookingEntryNew() {
   }
 
   const handleExportPdf = () => {
-  const handleExportPdf = (download = false) => {
     if (filteredBookings.length === 0) {
       toast.warning('No bookings to export.')
       return
@@ -1042,12 +1057,6 @@ export default function BookingEntryNew() {
 
     doc.save(`bookings_list_${new Date().toISOString().split('T')[0]}.pdf`)
     toast.success('Successfully downloaded Bookings PDF registry!')
-    if (download) {
-      doc.save(`bookings_list_${new Date().toISOString().split('T')[0]}.pdf`)
-      toast.success('Successfully downloaded Bookings PDF registry!')
-    } else {
-      window.open(doc.output('bloburl'), '_blank')
-    }
   }
 
   return (
@@ -1089,7 +1098,7 @@ export default function BookingEntryNew() {
 
         <div className="p-4">
           {/* Highly compact form fields */}
-          <div className="grid grid-cols-12 gap-x-8 gap-y-2.5 mb-5 max-w-7xl mx-auto">
+          <div className="grid grid-cols-12 gap-x-8 gap-y-2.5 mb-5 w-full">
 
             {/* Left Column Fields */}
             <div className="col-span-6 space-y-2.5">
@@ -1302,7 +1311,7 @@ export default function BookingEntryNew() {
           </div>
 
           {/* Compact Action Toolbar containing only form action operations */}
-          <div className="flex flex-wrap items-center justify-between border border-slate-200 py-1.5 mb-4 bg-slate-50/50 px-3 rounded-lg max-w-7xl mx-auto shadow-sm gap-2">
+          <div className="flex flex-wrap items-center justify-between border border-slate-200 py-1.5 mb-4 bg-slate-50/50 px-3 rounded-lg w-full shadow-sm gap-2">
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -1362,7 +1371,7 @@ export default function BookingEntryNew() {
 
           {/* Advanced Filter Panel */}
           {showFilterPanel && (
-            <div className="max-w-7xl mx-auto mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg shadow-inner grid grid-cols-12 gap-4 items-end transition-all duration-300">
+            <div className="w-full mb-4 p-4 bg-slate-50 border border-slate-200 rounded-lg shadow-inner grid grid-cols-12 gap-4 items-end transition-all duration-300">
               <div className="col-span-3">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Filter by Customer</label>
                 <select
@@ -1432,7 +1441,7 @@ export default function BookingEntryNew() {
           )}
 
           {/* Solid sub-banner for Booking list */}
-          <div className="max-w-7xl mx-auto bg-[#0097A7] text-white px-5 py-2 rounded-t-lg font-bold text-xs uppercase tracking-wider shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="w-full bg-[#0097A7] text-white px-5 py-2 rounded-t-lg font-bold text-xs uppercase tracking-wider shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 
             <div>
               <h3>  Bookings List</h3>
@@ -1454,8 +1463,6 @@ export default function BookingEntryNew() {
                   { icon: <Download size={12} className="text-red-500" />, l: 'Pdf' },
                   { icon: <Filter size={12} className="text-[#0097A7]" />, l: 'Filter' },
                   //   { icon: <Settings size={12} className="text-slate-500" />, l: 'Setting' },
-                  { icon: <FileText size={12} className="text-red-500" />, l: 'Pdf' },
-                  { icon: <Filter size={12} className="text-[#0097A7]" />, l: 'Filter' },
                 ].map(tool => (
                   <button
                     key={tool.l}
@@ -1463,8 +1470,6 @@ export default function BookingEntryNew() {
                       if (tool.l === 'Dos') handlePrintBookingList();
                       else if (tool.l === 'Excel') handleExportExcel();
                       else if (tool.l === 'Pdf') handleExportPdf();
-                      else if (tool.l === 'Excel') handleExportExcel(false);
-                      else if (tool.l === 'Pdf') handleExportPdf(false);
                       else if (tool.l === 'Filter') setShowFilterPanel(prev => !prev);
                       else toast.success(`${tool.l} tool activated.`);
                     }}
@@ -1478,10 +1483,10 @@ export default function BookingEntryNew() {
           </div>
 
           {/* Table Section with compact elements */}
-          <div className="max-w-7xl mx-auto border border-slate-200 rounded-b-lg overflow-hidden shadow-sm bg-white mb-3">
+          <div className="w-full border border-slate-200 rounded-b-lg overflow-hidden shadow-sm bg-white mb-3">
 
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed text-left border-collapse min-w-[2180px]">
+              <table className="w-full table-fixed text-left border-collapse min-w-[2390px]">
                 <thead className="bg-slate-50 text-[12px] uppercase text-slate-400 font-bold border-b border-slate-200">
                   <tr className="h-8">
                     <th className="px-3 py-1 border-r border-slate-100 w-16 text-center whitespace-nowrap">S.No</th>
@@ -1490,6 +1495,7 @@ export default function BookingEntryNew() {
                     <th className="px-3 py-1 border-r border-slate-100 w-32 whitespace-nowrap">Customer Code</th>
                     <th className="px-3 py-1 border-r border-slate-100 w-40 whitespace-nowrap">Serial No</th>
                     <th className="px-3 py-1 border-r border-slate-100 w-28 text-center whitespace-nowrap">Vehicle Count</th>
+                    <th className="px-3 py-1 border-r border-slate-100 w-52 text-center whitespace-nowrap">Choosed Vehicle Count</th>
                     <th className="px-3 py-1 border-r border-slate-100 w-36 whitespace-nowrap">Vehicle No</th>
                     <th className="px-3 py-1 border-r border-slate-100 w-44 whitespace-nowrap">Service Job.No</th>
                     <th className="px-3 py-1 border-r border-slate-100 w-28 whitespace-nowrap">Model No</th>
@@ -1506,7 +1512,7 @@ export default function BookingEntryNew() {
                 <tbody className="divide-y divide-slate-100 text-[12.5px]">
                   {filteredBookings.length === 0 ? (
                     <tr>
-                      <td colSpan={16} className="py-16 text-center text-slate-300 italic">
+                      <td colSpan={18} className="py-16 text-center text-slate-300 italic">
                         No Booking records found.
                       </td>
                     </tr>
@@ -1523,6 +1529,7 @@ export default function BookingEntryNew() {
                         <td className="px-3 py-1 border-r border-slate-50 text-slate-600 font-medium whitespace-nowrap overflow-hidden text-ellipsis">{row.customerCode || '—'}</td>
                         <td className="px-3 py-1 border-r border-slate-50 font-semibold text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis">{row.serialNo || '—'}</td>
                         <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-[#0097A7] whitespace-nowrap">{row.customerVehicleCount || 1}</td>
+                        <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-slate-700 whitespace-nowrap">{getChosenOption(row)}</td>
                         <td className="px-3 py-1 border-r border-slate-50 font-mono text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">{row.vehicleNo || '—'}</td>
                         <td className="px-3 py-1 border-r border-slate-50 font-bold text-[#0097A7] whitespace-nowrap overflow-hidden text-ellipsis">{row.serviceJobNo}</td>
                         <td className="px-3 py-1 border-r border-slate-50 font-bold text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">{row.vehicleModelNo}</td>
@@ -1543,7 +1550,7 @@ export default function BookingEntryNew() {
           </div>
 
           {/* Status bar */}
-          <div className="flex items-center justify-between px-2.5 max-w-7xl mx-auto text-[12px] text-slate-400 font-bold uppercase tracking-wider">
+          <div className="flex items-center justify-between px-2.5 w-full text-[12px] text-slate-400 font-bold uppercase tracking-wider">
             <span>Row : {filteredBookings.length}</span>
           </div>
 

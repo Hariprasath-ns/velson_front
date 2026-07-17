@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Printer } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
@@ -330,24 +330,6 @@ export default function PoApproval() {
 
         {/* Filter Bar */}
         <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50 shrink-0">
-          {/* Left: Search text box */}
-          <div className="flex items-center gap-2 flex-1 max-w-xs">
-            <Filter className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <input
-              type="text"
-              value={filterText}
-              onChange={e => setFilterText(e.target.value)}
-              placeholder="Search PO No, Supplier, Type, Status…"
-              className="flex-1 border border-blue-200 rounded px-3 py-1 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white"
-            />
-            {filterText && (
-              <button onClick={() => setFilterText('')} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Right: Date filters + Export + utility controls */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <label className={lbl}>From Date :</label>
@@ -373,7 +355,6 @@ export default function PoApproval() {
             >
               <span className="w-2 h-2 rounded-full bg-red-500"></span> {searching ? 'Searching…' : 'Search'}
             </button>
-            <div className="h-4 w-px bg-slate-300" />
           </div>
 
           {/* Export + utility controls */}

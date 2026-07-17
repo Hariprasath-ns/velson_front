@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import {
   ChevronRight, X, Search, FileBarChart, Play, Edit, Trash2, Printer, 
   FileSpreadsheet, FileText, Filter, Settings, Download
@@ -77,18 +77,6 @@ export default function InwardReports() {
           <div className="p-5 flex-1 flex flex-col">
             {/* Filter Bar */}
             <div className="flex flex-wrap items-center justify-between mb-6 bg-slate-50/50 p-5 rounded-xl border border-slate-100">
-              {/* Left: Search text box */}
-              <div className="flex items-center gap-2">
-                <Filter size={14} className="text-blue-400 shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search records…"
-                  className="border border-blue-200 rounded px-3 py-1.5 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white w-56"
-                />
-              </div>
-
-              {/* Right: Date filters + export controls */}
-              <div className="flex items-center gap-5">
               <div className="flex items-center gap-8">
                 <div className="flex items-center gap-3">
                   <Label>From Date :</Label>
@@ -102,26 +90,6 @@ export default function InwardReports() {
                   <div className="w-2.5 h-2.5 bg-red-500 rounded-full group-hover:animate-pulse" />
                   Search
                 </button>
-
-                {/* Tool Icons Bar */}
-                <div className="flex items-center gap-5 border-l border-slate-200 pl-6 text-slate-500">
-                  <div className="flex items-center gap-1.5 cursor-pointer hover:text-[#0097A7] transition-colors">
-                    <span className="text-[11px] font-bold">LS</span>
-                    <span className="text-[12px] font-black text-[#0097A7]">1</span>
-                  </div>
-                  <button className="hover:text-[#0097A7] transition-colors" title="Dos">
-                    <Download size={16} />
-                  </button>
-                  <button className="hover:text-emerald-600 transition-colors" title="Excel">
-                    <FileSpreadsheet size={16} />
-                  </button>
-                  <button className="hover:text-rose-600 transition-colors" title="Pdf">
-                    <FileText size={16} />
-                  </button>
-                  <button className="hover:text-[#0097A7] transition-colors" title="Setting">
-                    <Settings size={16} />
-                  </button>
-                </div>
               </div>
 
               {/* Tool Icons Bar */}
