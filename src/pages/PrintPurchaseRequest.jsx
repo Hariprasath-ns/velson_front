@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Trash2, Printer, Pencil } from 'lucide-react'
+import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, X, Trash2, Printer, Pencil } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useModulePermission } from '../hooks/useModulePermission'
 
@@ -37,6 +38,7 @@ const buildRows = (data) =>
     'Request No':    pr.prNo || '',
     'Request Date':  fmtDate(pr.prDate),
     'Department':    pr.departmentRef?.description || pr.department || '',
+    'Department':    pr.department || '',
     'Job No':        pr.details?.map(d => d.jobNo).filter(Boolean).join('; ') || '',
     'Request User':  pr.requestingUser || '',
     'Required Date': fmtDate(pr.requiredDate),
@@ -165,6 +167,7 @@ export default function PrintPurchaseRequest() {
       setLoading(true)
       try {
         const res  = await fetch('/api/purchase-request')
+        const res  = await fetch('/api/purchase-request?limit=10000')
         const json = await res.json()
         if (json.success && json.data) {
           setAllData(json.data)
@@ -194,6 +197,7 @@ export default function PrintPurchaseRequest() {
         return (
           (pr.prNo || '').toLowerCase().includes(q) ||
           ((pr.departmentRef?.description || pr.department) || '').toLowerCase().includes(q) ||
+          (pr.department || '').toLowerCase().includes(q) ||
           (pr.requestingUser || '').toLowerCase().includes(q) ||
           (pr.status || '').toLowerCase().includes(q) ||
           (pr.poNo || '').toLowerCase().includes(q) ||
@@ -289,6 +293,7 @@ export default function PrintPurchaseRequest() {
         body: JSON.stringify({
           prDate: pr.prDate, requiredDate: pr.requiredDate,
           department: pr.departmentRef?.description || pr.department, departmentId: pr.departmentId,
+          department: pr.department, departmentId: pr.departmentId,
           requestingUser: pr.requestingUser,
           team: pr.team, teamId: pr.teamId,
           requestingFor: pr.requestingFor, requestingForId: pr.requestingForId,
@@ -329,6 +334,7 @@ export default function PrintPurchaseRequest() {
         body: JSON.stringify({
           prDate: pr.prDate, requiredDate: pr.requiredDate,
           department: pr.departmentRef?.description || pr.department, departmentId: pr.departmentId,
+          department: pr.department, departmentId: pr.departmentId,
           requestingUser: pr.requestingUser,
           team: pr.team, teamId: pr.teamId,
           requestingFor: pr.requestingFor, requestingForId: pr.requestingForId,
@@ -355,6 +361,7 @@ export default function PrintPurchaseRequest() {
       case 'Request No':    return <td key={col} className="p-1.5 border-x border-slate-200 font-medium text-[#0097A7]">{pr.prNo}</td>
       case 'Request Date':  return <td key={col} className="p-1.5 border-x border-slate-200">{fmtDate(pr.prDate)}</td>
       case 'Department Name': return <td key={col} className="p-1.5 border-x border-slate-200">{pr.departmentRef?.description || pr.department || ''}</td>
+      case 'Department Name': return <td key={col} className="p-1.5 border-x border-slate-200">{pr.department || ''}</td>
       case 'Job No':        return <td key={col} className="p-1.5 border-x border-slate-200">{jobNo}</td>
       case 'Request User':  return <td key={col} className="p-1.5 border-x border-slate-200">{pr.requestingUser || ''}</td>
       case 'Required Date': return <td key={col} className="p-1.5 border-x border-slate-200">{fmtDate(pr.requiredDate)}</td>
@@ -451,6 +458,10 @@ export default function PrintPurchaseRequest() {
               <span className="w-2 h-2 rounded-full bg-red-500"></span> Search
             </button>
             <div className="h-4 w-px bg-slate-300" />
+          </div>
+
+          {/* Export + utility controls */}
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
               <span className="text-[12px] font-medium text-slate-500">LS</span>
               <input value={displayData.length} readOnly className="w-10 text-center border border-slate-300 rounded text-[12px] py-0.5 bg-slate-50" />
@@ -467,12 +478,22 @@ export default function PrintPurchaseRequest() {
             </button>
             <div className="relative" ref={settingsRef}>
               <button
+            {/* <button
+              onClick={() => { setFilterOpen(o => !o); if (filterOpen) setFilterText('') }}
+              className={`${iconBtn} ${filterOpen ? 'text-[#0097A7]' : ''}`}
+              title="Toggle search filter"
+            >
+              <Filter className={`w-4 h-4 ${filterOpen ? 'text-[#0097A7]' : 'text-blue-500'}`} /> Filter
+            </button> */}
+            <div className="relative" ref={settingsRef}>
+              {/* <button
                 onClick={() => setSettingsOpen(o => !o)}
                 className={`${iconBtn} ${settingsOpen ? 'text-[#0097A7]' : ''}`}
                 title="Column visibility settings"
               >
                 <Settings className="w-4 h-4 text-slate-700" /> Setting
               </button>
+              </button> */}
               {settingsOpen && (
                 <div className="absolute right-0 top-7 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-3 min-w-[180px]">
                   <p className="text-[11px] font-bold text-slate-500 uppercase mb-2 tracking-wide">Show / Hide Columns</p>
@@ -498,6 +519,27 @@ export default function PrintPurchaseRequest() {
             </div>
           </div>
         </div>
+
+        {/* Inline text filter bar */}
+        {filterOpen && (
+          <div className="px-3 py-2 border-b border-slate-200 bg-blue-50/40 flex items-center gap-3 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              value={filterText}
+              onChange={e => setFilterText(e.target.value)}
+              placeholder="Search across Request No, Department, User, Status, PO No, Job No…"
+              className="flex-1 border border-blue-200 rounded px-3 py-1 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white"
+            />
+            {filterText && (
+              <button onClick={() => setFilterText('')} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <span className="text-[11px] text-slate-400 shrink-0">{displayData.length} result{displayData.length !== 1 ? 's' : ''}</span>
+          </div>
+        )}
 
         {/* Data Grid */}
         <div className="flex-1 overflow-auto relative">

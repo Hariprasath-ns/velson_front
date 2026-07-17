@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import { 
@@ -370,6 +370,7 @@ export default function ServiceQuotationDetails() {
   }
 
   const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (filteredList.length === 0) {
       toast.warning('No quotation data available to export.')
       return
@@ -405,6 +406,18 @@ export default function ServiceQuotationDetails() {
   }
 
   const handleExportPdf = () => {
+    if (download) {
+      XLSX.writeFile(workbook, `service_quotations_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Successfully downloaded Service Quotations Excel spreadsheet!')
+    } else {
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
+  }
+
+  const handleExportPdf = (download = false) => {
     if (filteredList.length === 0) {
       toast.warning('No quotations data available to export.')
       return
@@ -521,6 +534,12 @@ export default function ServiceQuotationDetails() {
     
     doc.save(`service_quotations_${new Date().toISOString().split('T')[0]}.pdf`)
     toast.success('Successfully downloaded Service Quotations PDF registry!')
+    if (download) {
+      doc.save(`service_quotations_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('Successfully downloaded Service Quotations PDF registry!')
+    } else {
+      window.open(doc.output('bloburl'), '_blank')
+    }
   }
 
   // Auto summation values
@@ -669,6 +688,10 @@ export default function ServiceQuotationDetails() {
                   { icon: <Printer size={12} />, l: 'Dos' },
                   { icon: <FileSpreadsheet size={12} className="text-green-600" />, l: 'Excel' },
                   { icon: <Download size={12} className="text-red-500" />, l: 'Pdf' },
+                  { icon: <FileSpreadsheet size={12} className="text-green-600" />, l: 'Excel (View)' },
+                  { icon: <Download size={12} className="text-green-600" />, l: 'Excel (Download)' },
+                  { icon: <FileText size={12} className="text-red-500" />, l: 'Pdf (View)' },
+                  { icon: <Download size={12} className="text-red-500" />, l: 'Pdf (Download)' },
                   { icon: <Filter size={12} className="text-[#0097A7]" />, l: 'Filter' },
                   { icon: <Settings size={12} className="text-slate-500" />, l: 'Setting' },
                 ].map(tool => (
@@ -678,6 +701,10 @@ export default function ServiceQuotationDetails() {
                       if (tool.l === 'Dos') handlePrint();
                       else if (tool.l === 'Excel') handleExportExcel();
                       else if (tool.l === 'Pdf') handleExportPdf();
+                      else if (tool.l === 'Excel (View)') handleExportExcel(false);
+                      else if (tool.l === 'Excel (Download)') handleExportExcel(true);
+                      else if (tool.l === 'Pdf (View)') handleExportPdf(false);
+                      else if (tool.l === 'Pdf (Download)') handleExportPdf(true);
                       else toast.success(`${tool.l} tool activated.`);
                     }}
                     className="flex items-center gap-0.5 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[12px] font-bold uppercase rounded shadow-sm transition-all active:scale-95"

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import {
   ChevronRight, ChevronDown, FileSpreadsheet, Search, Save, Edit, Trash2, RotateCcw, Image
@@ -6,6 +6,11 @@ import {
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useServiceBookings, useBoms, useServiceSpares } from '../hooks/useMasterData'
+  ChevronRight, ChevronDown, FileSpreadsheet, Search, Save, Edit, Trash2, RotateCcw, Image, Download
+} from 'lucide-react'
+import { useToast } from '../components/Toast'
+import api from '../services/api'
+import { useServiceBookings, useBoms, useServiceSpares, useItemMaster } from '../hooks/useMasterData'
 import { useQueryClient } from '@tanstack/react-query'
 import AuthenticatedImage from '../components/AuthenticatedImage'
 
@@ -298,6 +303,7 @@ export default function ServiceSpareEntry() {
   const { data: bookingsDataRes = [] } = useServiceBookings()
   const { data: bomCreationsList = [] } = useBoms()
   const { data: sparesList = [] } = useServiceSpares()
+  const { data: itemMasterList = [] } = useItemMaster()
 
   const [selectedItemForImage, setSelectedItemForImage] = useState(null)
 
@@ -1083,6 +1089,7 @@ export default function ServiceSpareEntry() {
   }
 
   const handleExportSpareChildExcel = async (spareRecord) => {
+  const handleExportSpareChildExcel = async (spareRecord, download = false) => {
     const childEntries = getSpareChildEntries(spareRecord)
     if (childEntries.length === 0) return
     try {
@@ -1101,6 +1108,15 @@ export default function ServiceSpareEntry() {
       XLSX.utils.book_append_sheet(workbook, ws, 'ChildParts')
       XLSX.writeFile(workbook, `spare_entry_${spareRecord.serviceJobNo}_child_entries_${new Date().toISOString().split('T')[0]}.xlsx`)
       toast.success('Excel downloaded successfully!')
+      if (download) {
+        XLSX.writeFile(workbook, `spare_entry_${spareRecord.serviceJobNo}_child_entries_${new Date().toISOString().split('T')[0]}.xlsx`)
+        toast.success('Excel downloaded successfully!')
+      } else {
+        const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+        const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        const url = URL.createObjectURL(blob)
+        window.open(url, '_blank')
+      }
     } catch (err) {
       console.error(err)
       toast.error('Error exporting child entries to Excel')
@@ -1211,6 +1227,7 @@ export default function ServiceSpareEntry() {
   }
 
   const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (filteredSpares.length === 0) {
       toast.warning('No data to export.')
       return
@@ -1236,6 +1253,15 @@ export default function ServiceSpareEntry() {
     XLSX.utils.book_append_sheet(wb, ws, 'ServiceSpares')
     XLSX.writeFile(wb, `service_spare_entry_${new Date().toISOString().split('T')[0]}.xlsx`)
     toast.success('Excel downloaded successfully!')
+    if (download) {
+      XLSX.writeFile(wb, `service_spare_entry_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel downloaded successfully!')
+    } else {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
   }
 
   const selectedPartsCount = getSelectedParts().length
@@ -1266,6 +1292,18 @@ export default function ServiceSpareEntry() {
                 className="bg-[#007a87] hover:bg-[#006873] border border-white/20 text-[12px] px-3 py-1 rounded transition-colors font-bold uppercase tracking-wider flex items-center gap-1 h-[28px]"
               >
                 <FileSpreadsheet size={12} className="text-green-300" /> Excel
+                onClick={() => handleExportExcel(false)}
+                className="bg-[#007a87] hover:bg-[#006873] border border-white/20 text-[12px] px-3 py-1 rounded transition-colors font-bold uppercase tracking-wider flex items-center gap-1 h-[28px]"
+                title="Excel View"
+              >
+                <FileSpreadsheet size={12} className="text-green-300" /> Excel (View)
+              </button>
+              <button
+                onClick={() => handleExportExcel(true)}
+                className="bg-[#007a87] hover:bg-[#006873] border border-white/20 text-[12px] px-3 py-1 rounded transition-colors font-bold uppercase tracking-wider flex items-center gap-1 h-[28px]"
+                title="Excel Download"
+              >
+                <Download size={12} className="text-green-300" /> Excel (Download)
               </button>
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('velson:navigate', { detail: 'Dashboard' }))}
@@ -1779,6 +1817,22 @@ export default function ServiceSpareEntry() {
                                         title="Export Excel"
                                       >
                                         <FileSpreadsheet size={12} className="text-green-600" /> Export Excel
+                                          handleExportSpareChildExcel(row, false);
+                                        }}
+                                        className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[10.5px] font-bold rounded shadow-sm transition-all"
+                                        title="Export Excel (View)"
+                                      >
+                                        <FileSpreadsheet size={12} className="text-green-600" /> Excel (View)
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleExportSpareChildExcel(row, true);
+                                        }}
+                                        className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[10.5px] font-bold rounded shadow-sm transition-all"
+                                        title="Export Excel (Download)"
+                                      >
+                                        <Download size={12} className="text-green-600" /> Excel (Download)
                                       </button>
                                       <button
                                         onClick={(e) => {

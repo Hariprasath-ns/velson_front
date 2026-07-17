@@ -1,4 +1,4 @@
-/* eslint-disable */
+﻿/* eslint-disable */
 import { useState, useEffect } from 'react'
 import { ChevronRight, ChevronDown, Search, Trash2, Printer, X, RefreshCw, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
@@ -53,6 +53,7 @@ export default function PrintMaterialRequest() {
     setLoading(true)
     try {
       const res = await api.get('/api/material-request', { skipGlobalLoader: true })
+      const res = await api.get('/api/material-request?limit=10000', { skipGlobalLoader: true })
       setAllRows(res.data?.data || [])
     } catch {
       toast.error('Failed to load material requests')
@@ -167,6 +168,10 @@ export default function PrintMaterialRequest() {
               {PAGE_SIZES.map(s => <option key={s}>{s}</option>)}
             </select>
             entries
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[12px] text-slate-600">Search:</label>
+            <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} className={`${inp} w-44`} placeholder="MR No / Dept / User…" />
           </div>
         </div>
 

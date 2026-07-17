@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+﻿import React, { useState, useEffect, useMemo } from 'react'
 import {
   ChevronRight, ArrowUpRight, ArrowDownRight, Warehouse, AlertTriangle, 
   Search, ShieldAlert, Package, CircleDot, RefreshCw, Layers, TrendingUp,
@@ -88,6 +88,12 @@ const Sparkline = ({ points, color }) => {
         api.get('/api/grn-master', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/purchase-request', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
         api.get('/api/delivery-challan', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
+        api.get('/api/item-group-master?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/stock-adjustment?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/material-request?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/grn-master?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/purchase-request?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => []),
+        api.get('/api/delivery-challan?limit=10000', { skipGlobalLoader: true }).then(r => r.data?.data || []).catch(() => [])
       ])
 
       setItems(itemsRes)

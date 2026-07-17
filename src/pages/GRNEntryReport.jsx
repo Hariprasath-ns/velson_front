@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import api from '../services/api'
 import { ChevronRight, Search, Edit, Trash2, Printer, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
@@ -215,6 +215,8 @@ export default function GRNEntryReport() {
         <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
           <div className="flex items-center gap-2"><label className="text-[12px] text-slate-600">Search:</label><input value={searchText} onChange={e=>setSearchText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSearch()} className={`${inp} w-40`}/></div>
           <div className="flex items-center gap-2 text-[12.5px] text-slate-600">Show <select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}} className={`${inp} w-16`}>{PAGE_SIZES.map(s=><option key={s}>{s}</option>)}</select> entries</div>
+          <div className="flex items-center gap-2 text-[12.5px] text-slate-600">Show <select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}} className={`${inp} w-16`}>{PAGE_SIZES.map(s=><option key={s}>{s}</option>)}</select> entries</div>
+          <div className="flex items-center gap-2"><label className="text-[12px] text-slate-600">Search:</label><input value={searchText} onChange={e=>setSearchText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSearch()} className={`${inp} w-40`}/></div>
         </div>
 
         {loading ? (

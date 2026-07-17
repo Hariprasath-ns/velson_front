@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, Plus, Trash2, Send, X, Save } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
@@ -317,6 +317,9 @@ const masters = await Promise.all(
   pr.details.map(d => fetchItemMasterByCode(d.itemCode))
 )
 const prefillItems = pr.details.map((d, i) => {
+  prefill.items.map(d => fetchItemMasterByCode(d.itemCode))
+)
+const prefillItems = prefill.items.map((d, i) => {
   const master = masters[i]
   const qtyVal   = parseFloat(d.qty) || 0
   const priceVal = master?.purchaseRate || 0
@@ -324,6 +327,7 @@ const prefillItems = pr.details.map((d, i) => {
   return {
     ...emptyItem(),
     purchaseReqNo:  pr.prNo,
+    purchaseReqNo:  prefill.prNo,
     itemId:         master?.id              || null,
     itemCode:       d.itemCode              || '',
     itemName:       d.itemName              || master?.partName    || '',

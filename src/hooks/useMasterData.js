@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
 
 // Cache Durations
@@ -137,6 +137,7 @@ export function useSuppliers() {
     queryKey: ['supplier-master'],
     queryFn: async () => {
       const res = await api.get('/api/supplier-master')
+      const res = await api.get('/api/supplier-master?limit=10000')
       return res.data?.data || []
     },
     staleTime: Infinity,  // master data — never changes mid-session
@@ -148,6 +149,18 @@ export function usePurchaseRequests() {
     queryKey: ['purchase-request'],
     queryFn: async () => {
       const res = await api.get('/api/purchase-request')
+      const res = await api.get('/api/purchase-request?limit=10000')
+      return res.data?.data || []
+    },
+    staleTime: CACHE_5_MIN,
+  })
+}
+
+export function useItemMaster() {
+  return useQuery({
+    queryKey: ['item-master'],
+    queryFn: async () => {
+      const res = await api.get('/api/item-master?limit=10000')
       return res.data?.data || []
     },
     staleTime: CACHE_5_MIN,

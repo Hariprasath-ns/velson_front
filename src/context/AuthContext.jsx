@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+﻿import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import api from '../services/api'
 import { initSocket, disconnectSocket } from '../services/socket'
 
@@ -119,6 +119,51 @@ export function AuthProvider({ children }) {
     setAuth(null)
     disconnectSocket()
   }, [])
+
+  // Idle timeout tracking: 30 minutes of inactivity
+  useEffect(() => {
+    if (!auth) return
+
+    const TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
+    let timerId
+    let lastReset = Date.now()
+
+    const triggerLogout = () => {
+      window.dispatchEvent(new CustomEvent('velson:toast', {
+        detail: {
+          message: 'Login expired',
+          type: 'error',
+          title: 'Session Timeout'
+        }
+      }))
+      logout()
+    }
+
+    const handleActivity = () => {
+      const now = Date.now()
+      // Throttle the resets so they only occur once every 5 seconds
+      if (now - lastReset > 5000) {
+        lastReset = now
+        if (timerId) clearTimeout(timerId)
+        timerId = setTimeout(triggerLogout, TIMEOUT_MS)
+      }
+    }
+
+    // Set initial timer
+    timerId = setTimeout(triggerLogout, TIMEOUT_MS)
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart']
+    events.forEach(event => {
+      window.addEventListener(event, handleActivity)
+    })
+
+    return () => {
+      if (timerId) clearTimeout(timerId)
+      events.forEach(event => {
+        window.removeEventListener(event, handleActivity)
+      })
+    }
+  }, [auth, logout])
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>

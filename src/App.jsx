@@ -1,7 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import Layout from './components/Layout';
-import ErrorBoundary from './components/ErrorBoundary';
+import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary'
 import { PAGE_TO_PATH, NAV } from './config/nav'
 import { useAuth } from './context/AuthContext'
 import { useModulePermission } from './hooks/useModulePermission'
@@ -313,7 +313,7 @@ function NavigationEventBridge() {
       const pageKey = e.detail?.page ?? e.detail
       const path = PAGE_TO_PATH[pageKey]
       if (!path) return
-      navigate(path)
+      navigate(path, { state: e.detail?.state })
     }
     window.addEventListener('velson:navigate', handler)
     return () => window.removeEventListener('velson:navigate', handler)

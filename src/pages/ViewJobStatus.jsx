@@ -1,7 +1,8 @@
-import { useState, useEffect, Fragment } from 'react'
+﻿import { useState, useEffect, Fragment } from 'react'
 import * as XLSX from 'xlsx'
 import logoImg from '../assets/logo.png'
 import { ChevronRight, ChevronDown, Search, X, FileSpreadsheet, CheckCircle2, Eye, Image as ImageIcon, Save, Lock, PieChart as PieChartIcon, Clock, Check, Activity, Archive } from 'lucide-react'
+import { ChevronRight, ChevronDown, Search, X, FileSpreadsheet, CheckCircle2, Eye, Image as ImageIcon, Save, Lock, PieChart as PieChartIcon, Clock, Check, Activity, Archive, Download } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useEmployees } from '../hooks/useMasterData'
@@ -1066,6 +1067,7 @@ export default function ViewJobStatus() {
 
   const handleSearch = () => toast.info(`Showing ${filtered.length} results.`)
   const handleExcel = () => {
+  const handleExcel = (download = false) => {
     if (filtered.length === 0) {
       toast.warning('No records available to export.')
       return
@@ -1092,6 +1094,15 @@ export default function ViewJobStatus() {
 
     XLSX.writeFile(workbook, `job_status_records_${new Date().toISOString().split('T')[0]}.xlsx`)
     toast.success('Successfully downloaded Job Status Excel spreadsheet!')
+    if (download) {
+      XLSX.writeFile(workbook, `job_status_records_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Successfully downloaded Job Status Excel spreadsheet!')
+    } else {
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
   }
 
   const stageColor = (s) => {
@@ -1228,6 +1239,19 @@ export default function ViewJobStatus() {
               </button>
               <button onClick={handleExcel} className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-lg border border-slate-200 transition-all shadow-sm">
                 <FileSpreadsheet size={13} /> Excel
+              <button
+                onClick={() => handleExcel(false)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-lg border border-slate-200 transition-all shadow-sm"
+                title="Excel View"
+              >
+                <FileSpreadsheet size={13} /> Excel (View)
+              </button>
+              <button
+                onClick={() => handleExcel(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-lg border border-slate-200 transition-all shadow-sm"
+                title="Excel Download"
+              >
+                <Download size={13} /> Excel (Download)
               </button>
               <button className="text-slate-400 hover:text-red-600 transition-colors ml-1"><X size={20} strokeWidth={2.5} /></button>
             </div>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+﻿import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import api from '../services/api'
 import { useCustomers, useReferenceMaster } from '../hooks/useMasterData'
 import { X, Save, RotateCcw, List, Edit, Trash2, Info, ChevronRight, Loader2 } from 'lucide-react'
@@ -250,6 +250,12 @@ const emptyForm = {
 // ── Detail Modal ─────────────────────────────────────────────────────────────
 
 function DetailModal({ row, onClose }) {
+  const createdStr = row.createdAt
+    ? new Date(row.createdAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
+  const updatedStr = row.updatedAt
+    ? new Date(row.updatedAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
@@ -271,6 +277,8 @@ function DetailModal({ row, onClose }) {
             ['Account Name', row.accountName], ['Account Number', row.accountNumber],
             ['IFSC Code', row.ifscCode], ['MICR Code', row.micrCode],
             ['Remarks', row.remarks],
+            ['Created Date/Time', createdStr],
+            ['Updated Date/Time', updatedStr],
           ].map(([l, v]) => (
             <div key={l} className="flex flex-col py-1 border-b border-slate-100">
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{l}</span>

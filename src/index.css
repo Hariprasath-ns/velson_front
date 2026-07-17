@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -115,5 +115,13 @@ body { background-color: #f8fafc; color: #1e293b;
 
 .animate-gauge-entry {
   animation: gaugeEntrance 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Global Table Row Hover Highlight */
+table tbody tr {
+  transition: background-color 150ms ease-in-out;
+}
+table tbody tr:hover {
+  background-color: #b2ebf2 !important;
 }
 

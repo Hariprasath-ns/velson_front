@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import {
@@ -221,6 +221,7 @@ export default function ServiceBookingDetails() {
 
   // ── Excel Spreadsheets binary downloads (.xlsx) ──
   const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (filteredList.length === 0) {
       toast.warning('No bookings data available to export.')
       return
@@ -254,6 +255,19 @@ export default function ServiceBookingDetails() {
 
   // ── Direct PDF Generation Downloads (.pdf) ──
   const handleExportPdf = () => {
+    if (download) {
+      XLSX.writeFile(workbook, `bookings_details_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Successfully downloaded Bookings Excel spreadsheet!')
+    } else {
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
+  }
+
+  // ── Direct PDF Generation Downloads (.pdf) ──
+  const handleExportPdf = (download = false) => {
     if (filteredList.length === 0) {
       toast.warning('No bookings details available to export.')
       return
@@ -369,6 +383,12 @@ export default function ServiceBookingDetails() {
 
     doc.save(`bookings_details_${new Date().toISOString().split('T')[0]}.pdf`)
     toast.success('Successfully downloaded Booking details PDF!')
+    if (download) {
+      doc.save(`bookings_details_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('Successfully downloaded Booking details PDF!')
+    } else {
+      window.open(doc.output('bloburl'), '_blank')
+    }
   }
 
   // ── Dos Print layouts preview ──
@@ -567,6 +587,10 @@ export default function ServiceBookingDetails() {
                   { icon: <Printer size={12} />, l: 'Dos' },
                   { icon: <FileSpreadsheet size={12} className="text-green-600" />, l: 'Excel' },
                   { icon: <Download size={12} className="text-red-500" />, l: 'Pdf' },
+                  { icon: <FileSpreadsheet size={12} className="text-green-600" />, l: 'Excel (View)' },
+                  { icon: <Download size={12} className="text-green-600" />, l: 'Excel (Download)' },
+                  { icon: <FileText size={12} className="text-red-500" />, l: 'Pdf (View)' },
+                  { icon: <Download size={12} className="text-red-500" />, l: 'Pdf (Download)' },
                   { icon: <Filter size={12} className="text-[#0097A7]" />, l: 'Filter' },
                   { icon: <Settings size={12} className="text-slate-500" />, l: 'Setting' }
                 ].map(tool => (
@@ -576,6 +600,10 @@ export default function ServiceBookingDetails() {
                       if (tool.l === 'Dos') handlePrintBookingRegistry()
                       else if (tool.l === 'Excel') handleExportExcel()
                       else if (tool.l === 'Pdf') handleExportPdf()
+                      else if (tool.l === 'Excel (View)') handleExportExcel(false)
+                      else if (tool.l === 'Excel (Download)') handleExportExcel(true)
+                      else if (tool.l === 'Pdf (View)') handleExportPdf(false)
+                      else if (tool.l === 'Pdf (Download)') handleExportPdf(true)
                       else if (tool.l === 'Filter') setShowFilterPanel(!showFilterPanel)
                       else toast.success(`${tool.l} tool activated.`)
                     }}

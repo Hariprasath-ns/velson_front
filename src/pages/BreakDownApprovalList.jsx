@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import {
   ChevronRight, X, Search, Download, FileSpreadsheet, FileJson, Filter, Settings, Wrench, Calendar, RotateCcw, CheckCircle2
 } from 'lucide-react'
@@ -133,6 +133,7 @@ export default function BreakDownApprovalList() {
   }
 
   const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (filteredData.length === 0) {
       toast.warning('No records to export.')
       return
@@ -158,6 +159,18 @@ export default function BreakDownApprovalList() {
   }
 
   const handleExportPdf = () => {
+    if (download) {
+      XLSX.writeFile(wb, `breakdown_approvals_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel spreadsheet downloaded successfully.')
+    } else {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
+  }
+
+  const handleExportPdf = (download = false) => {
     if (filteredData.length === 0) {
       toast.warning('No records to export.')
       return
@@ -263,6 +276,12 @@ export default function BreakDownApprovalList() {
 
     doc.save(`breakdown_approvals_${new Date().toISOString().split('T')[0]}.pdf`)
     toast.success('PDF downloaded successfully.')
+    if (download) {
+      doc.save(`breakdown_approvals_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('PDF downloaded successfully.')
+    } else {
+      window.open(doc.output('bloburl'), '_blank')
+    }
   }
 
   return (
@@ -291,6 +310,32 @@ export default function BreakDownApprovalList() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black rounded-lg transition-all shadow-sm"
               >
                 <Download size={14} /> PDF
+                onClick={() => handleExportExcel(false)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-lg transition-all shadow-sm"
+                title="Excel View"
+              >
+                <FileSpreadsheet size={14} /> Excel (View)
+              </button>
+              <button 
+                onClick={() => handleExportExcel(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-lg transition-all shadow-sm"
+                title="Excel Download"
+              >
+                <Download size={14} /> Excel (Download)
+              </button>
+              <button 
+                onClick={() => handleExportPdf(false)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black rounded-lg transition-all shadow-sm"
+                title="Pdf View"
+              >
+                <FileText size={14} /> PDF (View)
+              </button>
+              <button 
+                onClick={() => handleExportPdf(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black rounded-lg transition-all shadow-sm"
+                title="Pdf Download"
+              >
+                <Download size={14} /> PDF (Download)
               </button>
               <button onClick={() => window.history.back()} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-500 hover:bg-slate-600 text-white text-[11px] font-black rounded-lg transition-all shadow-sm">
                 <X size={14} strokeWidth={2.5} /> Close

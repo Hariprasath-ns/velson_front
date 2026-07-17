@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Trash2, Eye, Pencil } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 
@@ -258,6 +258,10 @@ export default function GateEntryReport() {
               <span className="w-2 h-2 rounded-full bg-red-500"></span> Search Summary
             </button>
             <div className="h-4 w-px bg-slate-300"/>
+          </div>
+
+          {/* Export Controls */}
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
               <span className="text-[12px] font-medium text-slate-500">LS</span>
               <input value={displayRows.length} readOnly className="w-10 text-center border border-slate-300 rounded text-[12px] py-0.5 bg-slate-50"/>
@@ -266,6 +270,12 @@ export default function GateEntryReport() {
             <button onClick={() => doDocExport(displayRows)} className={iconBtn}><FileText className="w-4 h-4 text-[#0097A7]"/> Dos</button>
             <button onClick={() => doExcelExport(displayRows)} className={iconBtn}><FileSpreadsheet className="w-4 h-4 text-[#0097A7]"/> Excel</button>
             <button onClick={() => doPrint(displayRows)} className={iconBtn}><FilePdf className="w-4 h-4 text-red-500"/> Pdf</button>
+            <button
+              onClick={() => { setFilterOpen(o => !o); if (filterOpen) setFilterText('') }}
+              className={`${iconBtn} ${filterOpen ? 'text-[#0097A7]' : ''}`}
+            >
+              <Filter className={`w-4 h-4 ${filterOpen ? 'text-[#0097A7]' : 'text-blue-500'}`}/> Filter
+            </button>
             <div className="relative" ref={settingsRef}>
               <button onClick={() => setSettingsOpen(o => !o)} className={`${iconBtn} ${settingsOpen ? 'text-[#0097A7]' : ''}`}>
                 <Settings className="w-4 h-4 text-slate-700"/> Setting
@@ -287,6 +297,22 @@ export default function GateEntryReport() {
             </div>
           </div>
         </div>
+
+        {/* Inline text filter */}
+        {filterOpen && (
+          <div className="px-3 py-2 border-b border-slate-200 bg-blue-50/40 flex items-center gap-3 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-blue-400 shrink-0"/>
+            <input autoFocus type="text" value={filterText} onChange={e => setFilterText(e.target.value)}
+              placeholder="Search Gate Entry No, PO No, Supplier, Invoice No…"
+              className="flex-1 border border-blue-200 rounded px-3 py-1 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white"/>
+            {filterText && (
+              <button onClick={() => setFilterText('')} className="text-slate-400 hover:text-slate-600">
+                <X className="w-3.5 h-3.5"/>
+              </button>
+            )}
+            <span className="text-[11px] text-slate-400 shrink-0">{displayRows.length} result{displayRows.length !== 1 ? 's' : ''}</span>
+          </div>
+        )}
 
         {/* Data Grid */}
         <div className="flex-1 overflow-auto relative">

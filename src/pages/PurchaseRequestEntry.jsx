@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, Plus, Trash2, X, Loader2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
@@ -109,6 +109,8 @@ export default function PurchaseRequestEntry() {
             const rfRec = rj.success ? rj.data.find(r => r.description === mr.requestingFor) : null
             setForm(f => ({
               ...f,
+              requestNo: mr.mrNo || '',
+              financialYear: mr.financialYear || f.financialYear,
               department: mr.departmentTo || '',
               departmentId: deptRec?.id ?? null,
               requestingUser: mr.requestingUser || f.requestingUser,
@@ -137,6 +139,8 @@ export default function PurchaseRequestEntry() {
                 }
               }))
             }
+          } else {
+            if (nj.success) setForm(f => ({ ...f, requestNo: nj.prNo, financialYear: nj.financialYear }))
           }
         } else if (editIdVal) {
           setEditId(editIdVal)
@@ -156,6 +160,12 @@ export default function PurchaseRequestEntry() {
               team: pr.teamRef?.description || pr.team || '',
               teamId: pr.teamId ?? null,
               requestingFor: pr.requestingForRef?.description || pr.requestingFor || '',
+              department: pr.department || '',
+              departmentId: pr.departmentId ?? null,
+              requestingUser: pr.requestingUser || 'admin',
+              team: pr.team || '',
+              teamId: pr.teamId ?? null,
+              requestingFor: pr.requestingFor || '',
               requestingForId: pr.requestingForId ?? null,
               remarks: pr.remarks || '',
             }))

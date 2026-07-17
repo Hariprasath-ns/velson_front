@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Trash2, Printer, Eye, Pencil } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 
@@ -384,6 +384,9 @@ export default function PrintPurchaseOrder() {
               <span className="w-2 h-2 rounded-full bg-red-500"></span> Search
             </button>
             <div className="h-4 w-px bg-slate-300" />
+          </div>
+
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
               <span className="text-[12px] font-medium text-slate-500">LS</span>
               <input value={displayData.length} readOnly className="w-10 text-center border border-slate-300 rounded text-[12px] py-0.5 bg-slate-50" />
@@ -397,6 +400,12 @@ export default function PrintPurchaseOrder() {
             </button>
             <button onClick={handlePrint} className={iconBtn} title="Export as PDF / Print">
               <FilePdf className="w-4 h-4 text-red-500" /> Pdf
+            </button>
+            <button
+              onClick={() => { setFilterOpen(o => !o); if (filterOpen) setFilterText('') }}
+              className={`${iconBtn} ${filterOpen ? 'text-[#0097A7]' : ''}`}
+            >
+              <Filter className={`w-4 h-4 ${filterOpen ? 'text-[#0097A7]' : 'text-blue-500'}`} /> Filter
             </button>
             <div className="relative" ref={settingsRef}>
               <button
@@ -422,6 +431,27 @@ export default function PrintPurchaseOrder() {
             </div>
           </div>
         </div>
+
+        {/* Inline text filter */}
+        {filterOpen && (
+          <div className="px-3 py-2 border-b border-slate-200 bg-blue-50/40 flex items-center gap-3 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              value={filterText}
+              onChange={e => setFilterText(e.target.value)}
+              placeholder="Search across PO No, Supplier, Type, Status…"
+              className="flex-1 border border-blue-200 rounded px-3 py-1 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white"
+            />
+            {filterText && (
+              <button onClick={() => setFilterText('')} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <span className="text-[11px] text-slate-400 shrink-0">{displayData.length} result{displayData.length !== 1 ? 's' : ''}</span>
+          </div>
+        )}
 
         {/* Data Grid */}
         <div className="flex-1 overflow-auto relative">

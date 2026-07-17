@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   ChevronRight, Package, Store, Settings, Paperclip,
   Pencil, Trash2, Eye, Download, Image as ImageIcon,
@@ -606,6 +606,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                     <tr
                       key={item.id}
                       className={idx % 2 === 0 ? 'bg-white hover:bg-[#f0fdfe] transition-colors' : 'bg-slate-50 hover:bg-[#f0fdfe] transition-colors'}
+                      className={idx % 2 === 0 ? 'bg-white hover:bg-[#b2ebf2] transition-colors' : 'bg-slate-50 hover:bg-[#b2ebf2] transition-colors'}
                     >
                       {/* <td className={tdCls + ' font-medium text-slate-800'}>{item.id}</td> */}
                       <td className={tdCls}>{from + idx}</td>
@@ -1080,6 +1081,9 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
                     value={form.partNo}
                     onChange={partNoAutoGen && !editItem ? undefined : u('partNo')}
                     readOnly={partNoAutoGen && !editItem}
+                    placeholder="Auto-Generated Part Number"
+                    value={form.partNo}
+                    readOnly={true}
                   />
                 )}
                 {partNoAutoGen && !editItem && !partNoGenerating && (

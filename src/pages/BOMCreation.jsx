@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/set-state-in-effect */
+﻿/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { ChevronRight, X, Plus, Image as ImageIcon, Search, RotateCcw, FileSpreadsheet } from 'lucide-react'
 import { useToast } from '../components/Toast'
@@ -197,6 +197,10 @@ export default function BOMCreation() {
       return
     }
     const customerVehicles = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+    const customerVehicles = vehicles.filter(v => 
+      Number(v.customerId) === Number(cust.id) &&
+      bookings.some(b => (b.vehicleSerialNo === v.serialNumber || b.serialNo === v.serialNumber) && b.tempStatus === 'Open')
+    )
     setForm(f => ({
       ...f,
       customerName: customerNameVal,
@@ -214,6 +218,10 @@ export default function BOMCreation() {
     const vehicle = customerVehicles[idx]
     if (vehicle) {
       const matchingBooking = bookings.find(b => b.vehicleSerialNo === vehicle.serialNumber)
+      const matchingBooking = bookings.find(b => 
+        (b.vehicleSerialNo === vehicle.serialNumber || b.serialNo === vehicle.serialNumber) && 
+        b.tempStatus === 'Open'
+      )
       setForm(f => ({
         ...f,
         vehicleSerialNo: vehicle.serialNumber || '',
@@ -484,6 +492,12 @@ export default function BOMCreation() {
     const custObj = customers.find(c => c.customerName === form.customerName)
     return custObj ? vehicles.filter(v => Number(v.customerId) === Number(custObj.id)) : []
   }, [customers, vehicles, form.customerName])
+    if (!custObj) return []
+    return vehicles.filter(v => 
+      Number(v.customerId) === Number(custObj.id) &&
+      bookings.some(b => (b.vehicleSerialNo === v.serialNumber || b.serialNo === v.serialNumber) && b.tempStatus === 'Open')
+    )
+  }, [customers, vehicles, form.customerName, bookings])
 
   const vehicleOptions = useMemo(() => {
     const count = customerVehicles.length
@@ -502,6 +516,7 @@ export default function BOMCreation() {
 
   const bookingServiceJobNoOptions = useMemo(() => {
     return bookings.map(b => b.serviceJobNo).filter(Boolean)
+    return bookings.filter(b => b.tempStatus === 'Open').map(b => b.serviceJobNo).filter(Boolean)
   }, [bookings])
 
   const modelOptions = useMemo(() => {

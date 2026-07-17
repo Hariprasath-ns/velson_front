@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import {
   ChevronRight, Save, X, Search, Edit, Trash2, Eraser,
   FileSpreadsheet, ChevronUp, Wrench, AlertTriangle, User, Calendar,
   RotateCcw, Plus, Activity, RefreshCw
+  RotateCcw, Plus, Activity, RefreshCw, Download
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
@@ -130,6 +131,7 @@ export default function MachineBreakDown() {
   }, [breakdowns, searchQuery])
 
   const handleExportExcel = () => {
+  const handleExportExcel = (download = false) => {
     if (displayBreakdowns.length === 0) {
       toast.warning('No records to export.')
       return
@@ -153,6 +155,15 @@ export default function MachineBreakDown() {
     XLSX.utils.book_append_sheet(wb, ws, 'Machine Breakdowns')
     XLSX.writeFile(wb, `machine_breakdowns_${new Date().toISOString().split('T')[0]}.xlsx`)
     toast.success('Excel file exported successfully.')
+    if (download) {
+      XLSX.writeFile(wb, `machine_breakdowns_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel file exported successfully.')
+    } else {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
   }
 
   const u = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
@@ -461,6 +472,18 @@ export default function MachineBreakDown() {
             className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:bg-emerald-50 px-2 py-0.5 rounded transition-colors"
           >
             <FileSpreadsheet size={14} /> Excel
+            onClick={() => handleExportExcel(false)}
+            className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:bg-emerald-50 px-2 py-0.5 rounded transition-colors"
+            title="Excel View"
+          >
+            <FileSpreadsheet size={14} /> Excel (View)
+          </button>
+          <button
+            onClick={() => handleExportExcel(true)}
+            className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:bg-emerald-50 px-2 py-0.5 rounded transition-colors"
+            title="Excel Download"
+          >
+            <Download size={14} /> Excel (Download)
           </button>
           <button onClick={() => window.history.back()} className="bg-rose-500 hover:bg-rose-600 text-white p-1 rounded transition-colors shadow-sm">
             <X size={16} strokeWidth={3} />

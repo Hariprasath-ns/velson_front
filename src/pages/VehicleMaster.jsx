@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { useReferenceMaster, useCustomers, useVehicles } from '../hooks/useMasterData'
 import { useMemo } from 'react'
@@ -47,6 +47,12 @@ function DetailModal({ row, onClose }) {
   const dateStr = row.entryDate
     ? new Date(row.entryDate).toLocaleDateString('en-GB')
     : '—'
+  const createdStr = row.createdAt
+    ? new Date(row.createdAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
+  const updatedStr = row.updatedAt
+    ? new Date(row.updatedAt).toLocaleString('en-GB', { hour12: true })
+    : '—'
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -69,6 +75,8 @@ function DetailModal({ row, onClose }) {
             ['B.O.M. Type',       row.bomType],
             ['B.O.M. Model No.',  row.bomModelNumber],
             ['Remarks',           row.remarks],
+            ['Created Date/Time',  createdStr],
+            ['Updated Date/Time',  updatedStr],
           ].map(([l, v]) => (
             <div key={l} className="flex justify-between py-1.5 border-b border-slate-100 last:border-0">
               <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">{l}</span>
@@ -355,6 +363,7 @@ export default function VehicleMaster() {
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-32 shrink-0`}>Vehicle Count :</label>
                 <input type="number" min="1" value={form.vehicleCount} onChange={e => setField('vehicleCount', e.target.value)} className={inp(false)}/>
+                <input type="number" min="1" value={form.vehicleCount} readOnly className={`${inp(false)} bg-slate-50 text-slate-500 font-bold cursor-not-allowed`}/>
               </div>
               <div className="flex items-start gap-2">
                 <label className={`${lbl} w-32 shrink-0 pt-1`}>Address :</label>
@@ -487,6 +496,7 @@ export default function VehicleMaster() {
 
         {loadingList ? (
           <TableSkeleton rows={5} cols={['6%','10%','16%','9%','12%','12%','12%','13%','7%','7%']} />
+          <TableSkeleton rows={5} cols={['5%','9%','14%','12%','8%','10%','10%','10%','10%','4%','4%','4%']} />
         ) : (
         <div className="overflow-x-auto w-full">
           {(
@@ -497,6 +507,10 @@ export default function VehicleMaster() {
                     <th key={h} className="text-center px-2 py-1.5 font-bold text-slate-600 text-[12px] uppercase tracking-wide whitespace-nowrap">
                       {h}
                       {['Entry Date', 'Customer Name', 'Vehicle Count', 'Vehicle Number', 'Model Name', 'Sub Model Type', 'Vehicle Name'].includes(h) && (
+                  {['S.No.', 'Entry Date', 'Customer Name', 'Serial No.', 'Vehicle Count', 'Vehicle Number', 'Model Name', 'Sub Model Type', 'Vehicle Name', 'Edit', 'Delete', 'Details'].map(h => (
+                    <th key={h} className="text-center px-2 py-1.5 font-bold text-slate-600 text-[12px] uppercase tracking-wide whitespace-nowrap">
+                      {h}
+                      {['Entry Date', 'Customer Name', 'Serial No.', 'Vehicle Count', 'Vehicle Number', 'Model Name', 'Sub Model Type', 'Vehicle Name'].includes(h) && (
                         <svg className="inline w-3 h-3 ml-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
                         </svg>
@@ -508,11 +522,13 @@ export default function VehicleMaster() {
               <tbody>
                 {paged.length === 0
                   ? <tr><td colSpan={11} className="text-center py-8 text-slate-400 text-[12px]">No records found</td></tr>
+                  ? <tr><td colSpan={12} className="text-center py-8 text-slate-400 text-[12px]">No records found</td></tr>
                   : paged.map((row, idx) => (
                     <tr key={row.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
                       <td className="px-2 py-1.5 text-center">{(page - 1) * pageSize + idx + 1}</td>
                       <td className="px-2 py-1.5 text-center">{row.entryDate ? new Date(row.entryDate).toLocaleDateString('en-GB') : '—'}</td>
                       <td className="px-2 py-1.5 text-center font-medium">{row.customer?.customerName || '—'}</td>
+                      <td className="px-2 py-1.5 text-center font-mono text-[#0097A7]">{row.serialNumber || '—'}</td>
                       <td className="px-2 py-1.5 text-center text-[#0097A7]">{row.vehicleCount ?? '—'}</td>
                       <td className="px-2 py-1.5 text-center">{row.vehicleNumber || '—'}</td>
                       <td className="px-2 py-1.5 text-center">{row.modelName}</td>
