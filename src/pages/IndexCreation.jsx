@@ -45,7 +45,17 @@ const Select = ({ options, placeholder, value, onChange, className = "" }) => (
 const isImageHeader = (h) => {
   if (!h) return false
   const lower = h.toLowerCase()
-  return lower.includes('image') || lower.includes('diagram') || lower.includes('pic') || lower.includes('photo')
+  return (
+    lower.includes('image') ||
+    lower.includes('diagram') ||
+    lower.includes('pic') ||
+    lower.includes('photo') ||
+    lower.includes('drawing') ||
+    lower.includes('illustration') ||
+    lower.includes('logo') ||
+    lower.includes('thumbnail') ||
+    lower.includes('graphic')
+  )
 }
 
 const resolveImageSrc = (val) => {
@@ -57,6 +67,77 @@ const resolveImageSrc = (val) => {
   }
   return '';
 }
+
+const reorderHeaders = (headers) => {
+  if (!headers || !headers.length) return [];
+  
+  // Find Part No header
+  const partNoHeader = headers.find(h => {
+    const l = h.toLowerCase();
+    return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno' || l === 'part_no';
+  });
+
+  // Find Part Name header
+  const partNameHeader = headers.find(h => {
+    const l = h.toLowerCase();
+    return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description') || l === 'partname' || l === 'part_name';
+  });
+
+  // Find Image header
+  const imageHeader = headers.find(h => {
+    const l = h.toLowerCase();
+    return (
+      l.includes('image') ||
+      l.includes('diagram') ||
+      l.includes('pic') ||
+      l.includes('photo') ||
+      l.includes('drawing') ||
+      l.includes('illustration') ||
+      l.includes('logo') ||
+      l.includes('thumbnail') ||
+      l.includes('graphic')
+    );
+  });
+
+  // Find UOM header
+  const uomHeader = headers.find(h => {
+    const l = h.toLowerCase();
+    return l.includes('uom') || l === 'unit' || l.includes('unit of measure') || l === 'measure' || l === 'units';
+  });
+
+  const ordered = [];
+  if (partNoHeader) ordered.push(partNoHeader);
+  if (partNameHeader) ordered.push(partNameHeader);
+  if (imageHeader) ordered.push(imageHeader);
+  if (uomHeader) ordered.push(uomHeader);
+
+  // Add the remaining headers in their original order
+  headers.forEach(h => {
+    if (h !== partNoHeader && h !== partNameHeader && h !== imageHeader && h !== uomHeader) {
+      ordered.push(h);
+    }
+  });
+
+  return ordered;
+};
+
+const isPartNameHeader = (h) => {
+  if (!h) return false;
+  const l = h.toLowerCase();
+  return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description') || l === 'partname' || l === 'part_name';
+};
+
+const isPartNoHeader = (h) => {
+  if (!h) return false;
+  const l = h.toLowerCase();
+  return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno' || l === 'part_no';
+};
+
+const isUOMHeader = (h) => {
+  if (!h) return false;
+  const l = h.toLowerCase();
+  return l.includes('uom') || l === 'unit' || l.includes('unit of measure') || l === 'measure' || l === 'units';
+};
 
 
 export default function IndexCreation() {
@@ -198,7 +279,7 @@ export default function IndexCreation() {
           }
         }
         
-        setExcelHeaders(headers.filter(h => h))
+        setExcelHeaders(reorderHeaders(headers.filter(h => h)))
         setExcelData(validRows)
         setSkippedRecords(skippedRows)
         setIsEditMode(false)
@@ -447,7 +528,7 @@ export default function IndexCreation() {
           const ed = record.excelData.excelData.map((r, i) => ({ ...r, _rowNum: i + 2 }))
           setExcelData(ed)
           if (ed.length > 0) {
-            setExcelHeaders(Object.keys(ed[0]).filter(k => k !== '_rowNum'))
+            setExcelHeaders(reorderHeaders(Object.keys(ed[0]).filter(k => k !== '_rowNum')))
           }
         }
         setImageFile(null)
@@ -609,8 +690,8 @@ export default function IndexCreation() {
 
           <div className="p-8">
             <div className="grid grid-cols-12 gap-10">
-              {/* Left Column: Form Fields */}
-              <div className="col-span-6">
+              {/* Center Column: Form Fields */}
+              <div className="col-span-12 max-w-2xl mx-auto w-full">
                 <div className="space-y-5 bg-slate-50/30 p-6 rounded-2xl border border-slate-100 shadow-inner">
                   <div className="grid grid-cols-12 items-center gap-4">
                     <div className="col-span-3"><Label>Creation Date</Label></div>
@@ -664,48 +745,6 @@ export default function IndexCreation() {
                     {isSaving ? 'Saving...' : editRecordId ? 'Update Index' : 'Save Index'}
                     </button>
                   </div>
-                </div>
-              </div>
-
-              {/* Right Column: Visualization */}
-              <div className="col-span-6">
-                <div className="border border-slate-200 rounded-lg bg-slate-50 min-h-[393px] flex flex-col items-center justify-center p-6 relative">
-                  {imagePreview ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center">
-                      <div className="relative w-full max-w-[400px] aspect-[16/10] bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex items-center justify-center">
-                        <img src={imagePreview} alt="preview" className="w-full h-full object-contain" />
-                        <button
-                          type="button"
-                          onClick={handleClearImage}
-                          className="absolute top-3 right-3 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-md transition-colors z-10 active:scale-95"
-                          title="Remove image"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <p className="mt-3 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                        Model Image Preview
-                      </p>
-                      <p className="mt-1 text-[13px] font-semibold text-slate-700">
-                        {form.modelNo || "No Model Selected"}
-                      </p>
-                    </div>
-                  ) : (
-                    <label className="w-full max-w-[400px] aspect-[16/10] border-2 border-dashed border-slate-300 hover:border-[#0097A7] rounded-xl flex flex-col items-center justify-center cursor-pointer bg-white/50 hover:bg-[#0097A7]/5 transition-all group p-4 text-center">
-                      <ImageIcon
-                        size={48}
-                        strokeWidth={1.5}
-                        className="text-slate-400 group-hover:text-[#0097A7] mb-3 transition-colors"
-                      />
-                      <p className="text-[13px] font-semibold text-slate-655">
-                        Upload Model Image
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Click or drag image file here (PNG, JPG)
-                      </p>
-                      <input type="file" className="hidden" accept="image/*" onChange={handleImageSelect} />
-                    </label>
-                  )}
                 </div>
               </div>
             </div>
@@ -812,13 +851,31 @@ export default function IndexCreation() {
                   </div>
                 </div>
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm overflow-x-auto bg-white">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse table-fixed">
                     <thead className="bg-[#fcfdfe] text-[11px] uppercase text-slate-500 font-black border-b border-slate-200 whitespace-nowrap">
                       <tr>
                         <th className="px-6 py-4 border-r border-slate-100 w-16 text-center">#</th>
-                        {excelHeaders.map(header => (
-                          <th key={header} className="px-6 py-4 border-r border-slate-100">{header}</th>
-                        ))}
+                        {excelHeaders.map(header => {
+                          const isPartName = isPartNameHeader(header);
+                          const isPartNo = isPartNoHeader(header);
+                          const isImg = isImageHeader(header);
+                          const isUom = isUOMHeader(header);
+                          let widthClass = "w-[150px]";
+                          if (isPartNo) widthClass = "w-[160px]";
+                          else if (isPartName) widthClass = "w-[280px]";
+                          else if (isImg) widthClass = "w-[120px]";
+                          else if (isUom) widthClass = "w-[100px]";
+
+                          return (
+                            <th 
+                              key={header} 
+                              className={`px-6 py-4 border-r border-slate-100 ${widthClass} ${isPartName ? 'max-w-[200px] truncate' : ''}`}
+                              title={isPartName ? header : undefined}
+                            >
+                              {header}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 text-[13px]">
@@ -828,7 +885,7 @@ export default function IndexCreation() {
                             {(currentPage - 1) * rowsPerPage + idx + 1}
                           </td>
                           {excelHeaders.map(header => {
-                            const isImg = isImageHeader(header)
+                            const isImg = isImageHeader(header) || !!resolveImageSrc(row[header])
                             if (isImg) {
                               const imgSrc = resolveImageSrc(row[header])
                               return (
@@ -869,13 +926,15 @@ export default function IndexCreation() {
                                 </td>
                               )
                             }
+                            const isPartName = isPartNameHeader(header);
                             return (
                               <td 
                                 key={header} 
-                                className={`px-6 py-3 border-r border-slate-50 font-medium whitespace-nowrap ${!row[header] ? 'bg-rose-50/80 text-slate-400' : 'text-slate-800'} ${isEditMode ? 'hover:bg-slate-50 cursor-text outline-none focus:bg-white focus:ring-2 focus:ring-[#0097A7]/40 focus:ring-inset' : ''}`}
+                                className={`px-6 py-3 border-r border-slate-50 font-medium whitespace-nowrap truncate ${isPartName ? 'max-w-[200px]' : ''} ${!row[header] ? 'bg-rose-50/80 text-slate-400' : 'text-slate-800'} ${isEditMode ? 'hover:bg-slate-50 cursor-text outline-none focus:bg-white focus:ring-2 focus:ring-[#0097A7]/40 focus:ring-inset' : ''}`}
                                 contentEditable={isEditMode}
                                 suppressContentEditableWarning
                                 onBlur={(e) => handleCellEdit(row._rowNum, header, e.target.textContent, row._isSkipped)}
+                                title={row[header] || ''}
                               >
                                 {row[header] || ''}
                               </td>

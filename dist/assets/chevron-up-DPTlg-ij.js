@@ -1,1 +1,0 @@
-import{J as e}from"./index-CNLC0ohu.js";var t=e(`chevron-up`,[[`path`,{d:`m18 15-6-6-6 6`,key:`153udz`}]]);export{t};

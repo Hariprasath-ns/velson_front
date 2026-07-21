@@ -45,7 +45,17 @@ const Select = ({ options, placeholder, value, onChange, className = "" }) => (
 const isImageHeader = (h) => {
   if (!h) return false
   const lower = h.toLowerCase()
-  return lower.includes('image') || lower.includes('diagram') || lower.includes('pic') || lower.includes('photo')
+  return (
+    lower.includes('image') ||
+    lower.includes('diagram') ||
+    lower.includes('pic') ||
+    lower.includes('photo') ||
+    lower.includes('drawing') ||
+    lower.includes('illustration') ||
+    lower.includes('logo') ||
+    lower.includes('thumbnail') ||
+    lower.includes('graphic')
+  )
 }
 
 const resolveImageSrc = (val) => {
@@ -57,6 +67,77 @@ const resolveImageSrc = (val) => {
   }
   return '';
 }
+
+const reorderHeaders = (headers) => {
+  if (!headers || !headers.length) return [];
+  
+  // Find Part No header
+  const partNoHeader = headers.find(h => {
+    const l = h.toLowerCase();
+    return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno' || l === 'part_no';
+  });
+
+  // Find Part Name header
+  const partNameHeader = headers.find(h => {
+    const l = h.toLowerCase();
+    return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description') || l === 'partname' || l === 'part_name';
+  });
+
+  // Find Image header
+  const imageHeader = headers.find(h => {
+    const l = h.toLowerCase();
+    return (
+      l.includes('image') ||
+      l.includes('diagram') ||
+      l.includes('pic') ||
+      l.includes('photo') ||
+      l.includes('drawing') ||
+      l.includes('illustration') ||
+      l.includes('logo') ||
+      l.includes('thumbnail') ||
+      l.includes('graphic')
+    );
+  });
+
+  // Find UOM header
+  const uomHeader = headers.find(h => {
+    const l = h.toLowerCase();
+    return l.includes('uom') || l === 'unit' || l.includes('unit of measure') || l === 'measure' || l === 'units';
+  });
+
+  const ordered = [];
+  if (partNoHeader) ordered.push(partNoHeader);
+  if (partNameHeader) ordered.push(partNameHeader);
+  if (imageHeader) ordered.push(imageHeader);
+  if (uomHeader) ordered.push(uomHeader);
+
+  // Add the remaining headers in their original order
+  headers.forEach(h => {
+    if (h !== partNoHeader && h !== partNameHeader && h !== imageHeader && h !== uomHeader) {
+      ordered.push(h);
+    }
+  });
+
+  return ordered;
+};
+
+const isPartNameHeader = (h) => {
+  if (!h) return false;
+  const l = h.toLowerCase();
+  return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description') || l === 'partname' || l === 'part_name';
+};
+
+const isPartNoHeader = (h) => {
+  if (!h) return false;
+  const l = h.toLowerCase();
+  return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno' || l === 'part_no';
+};
+
+const isUOMHeader = (h) => {
+  if (!h) return false;
+  const l = h.toLowerCase();
+  return l.includes('uom') || l === 'unit' || l.includes('unit of measure') || l === 'measure' || l === 'units';
+};
 
 
 export default function IndexCreationReport() {
@@ -269,15 +350,15 @@ export default function IndexCreationReport() {
             </div>
 
             <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse min-w-[1000px]">
+              <table className="w-full text-left border-collapse min-w-[1000px] table-fixed">
                 <thead className="bg-[#fcfdfe] text-[10px] uppercase text-slate-400 font-black border-b border-slate-200">
                   <tr>
                     <th className="px-5 py-4 border-r border-slate-100 w-16 text-center">S.No</th>
-                    <th className="px-5 py-4 border-r border-slate-100">Index No</th>
-                    <th className="px-5 py-4 border-r border-slate-100">Model Name</th>
-                    <th className="px-5 py-4 border-r border-slate-100">Model No</th>
-                    <th className="px-5 py-4 border-r border-slate-100">Creation By</th>
-                    <th className="px-5 py-4 border-r border-slate-100">Creation Date</th>
+                    <th className="px-5 py-4 border-r border-slate-100 w-28">Index No</th>
+                    <th className="px-5 py-4 border-r border-slate-100 w-[250px]">Model Name</th>
+                    <th className="px-5 py-4 border-r border-slate-100 w-[200px]">Model No</th>
+                    <th className="px-5 py-4 border-r border-slate-100 w-[200px]">Creation By</th>
+                    <th className="px-5 py-4 border-r border-slate-100 w-[180px]">Creation Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-[12.5px]">
@@ -296,10 +377,10 @@ export default function IndexCreationReport() {
                         >
                           <td className="px-5 py-2 border-r border-slate-50 text-center text-slate-300 font-bold">{idx + 1}</td>
                           <td className="px-5 py-2 border-r border-slate-50 font-black text-[#0097A7] uppercase">{String(row.indexNo).padStart(3, '0')}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-700">{row.model}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-medium text-slate-600">{row.modelNo}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-medium text-slate-600">{row.createdBy || '—'}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-bold">{row.date?.split('T')[0] || row.date}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-700 truncate" title={row.model}>{row.model}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 font-medium text-slate-600 truncate" title={row.modelNo}>{row.modelNo}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 font-medium text-slate-600 truncate" title={row.createdBy || ''}>{row.createdBy || '—'}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-bold whitespace-nowrap">{row.date?.split('T')[0] || row.date}</td>
                         </tr>
                         {expandedRow === row.id && (
                           <tr>
@@ -317,21 +398,38 @@ export default function IndexCreationReport() {
                                       : null;
                                   return excelRows && excelRows.length > 0 ? (
                                   <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
-                                    <table className="w-full text-left border-collapse">
+                                    <table className="w-full text-left border-collapse table-fixed">
                                       <thead className="bg-[#fcfdfe] text-[10px] uppercase text-slate-400 font-black border-b border-slate-200">
                                         <tr>
-                                          {Object.keys(excelRows[0] || {}).filter(k => k !== '_rowNum').map(header => (
-                                            <th key={header} className="px-4 py-3 border-r border-slate-100">{header}</th>
-                                          ))}
+                                           {reorderHeaders(Object.keys(excelRows[0] || {}).filter(k => k !== '_rowNum')).map(header => {
+                                             const isPartName = isPartNameHeader(header);
+                                             const isPartNo = isPartNoHeader(header);
+                                             const isImg = isImageHeader(header);
+                                             const isUom = isUOMHeader(header);
+                                             let widthClass = "w-[150px]";
+                                             if (isPartNo) widthClass = "w-[160px]";
+                                             else if (isPartName) widthClass = "w-[280px]";
+                                             else if (isImg) widthClass = "w-[120px]";
+                                             else if (isUom) widthClass = "w-[100px]";
+                                             return (
+                                               <th 
+                                                 key={header} 
+                                                 className={`px-4 py-3 border-r border-slate-100 ${widthClass} ${isPartName ? 'max-w-[200px] truncate' : ''}`}
+                                                 title={isPartName ? header : undefined}
+                                               >
+                                                 {header}
+                                               </th>
+                                             );
+                                           })}
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-50 text-[11px] text-slate-600 font-medium">
                                         {excelRows.map((exRow, i) => (
                                           <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                              {Object.keys(excelRows[0] || {}).filter(k => k !== '_rowNum').map(k => {
-                                                const isImg = isImageHeader(k)
+                                               {reorderHeaders(Object.keys(excelRows[0] || {}).filter(k => k !== '_rowNum')).map(k => {
+                                                const isImg = isImageHeader(k) || !!resolveImageSrc(exRow[k]);
                                                 if (isImg) {
-                                                  const imgSrc = resolveImageSrc(exRow[k])
+                                                  const imgSrc = resolveImageSrc(exRow[k]);
                                                   return (
                                                     <td key={k} className="px-4 py-1.5 border-r border-slate-50 text-center align-middle">
                                                       {imgSrc ? (
@@ -358,9 +456,16 @@ export default function IndexCreationReport() {
                                                     </td>
                                                   )
                                                 }
-                                              return (
-                                                <td key={k} className="px-4 py-2 border-r border-slate-50 whitespace-nowrap">{exRow[k] || ''}</td>
-                                              )
+                                               const isPartName = isPartNameHeader(k);
+                                               return (
+                                                 <td 
+                                                   key={k} 
+                                                   className={`px-4 py-2 border-r border-slate-50 whitespace-nowrap truncate ${isPartName ? 'max-w-[200px]' : ''}`}
+                                                   title={exRow[k] || ''}
+                                                 >
+                                                   {exRow[k] || ''}
+                                                 </td>
+                                               )
                                             })}
                                           </tr>
                                         ))}
