@@ -371,50 +371,27 @@ export default function ServiceDetailsEntry() {
     }
 
     const matchingBoms = bomCreationsList.filter(b => 
-      (b.serviceJobNo && b.serviceJobNo === serviceJobNo) ||
-      (b.serialJobNo && b.serialJobNo === serviceJobNo)
+      (b.serviceJobNo && b.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase()) ||
+      (b.serialJobNo && b.serialJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase())
     )
 
     const targetBoms = matchingBoms
 
-    const childRows = []
+    const uniqueAssemblies = []
+    const seen = new Set()
     targetBoms.forEach(b => {
-      if (Array.isArray(b.excelRows)) {
-        b.excelRows.forEach(row => {
-          const keys = Object.keys(row)
-          const partNoKey = keys.find(k => {
-            const l = k.toLowerCase()
-            return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno'
-          })
-          const partNameKey = keys.find(k => {
-            const l = k.toLowerCase()
-            return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description')
-          })
-
-          const partNo = partNoKey ? row[partNoKey] : ''
-          const partName = partNameKey ? row[partNameKey] : ''
-
-          if (partNo) {
-            childRows.push({
-              id: partNo,
-              name: partName ? `${partNo} - ${partName}` : partNo
-            })
-          }
+      const partNo = (b.assemblyPartNo || b.bomNo || `BOM-${b.id}`).trim()
+      const key = partNo.toLowerCase()
+      if (!seen.has(key)) {
+        seen.add(key)
+        uniqueAssemblies.push({
+          id: partNo,
+          name: b.groupName ? `${partNo} - ${b.groupName.trim()}` : partNo
         })
       }
     })
 
-    // Remove duplicate parts from display
-    const uniqueChildRows = []
-    const seen = new Set()
-    childRows.forEach(row => {
-      if (!seen.has(row.id)) {
-        seen.add(row.id)
-        uniqueChildRows.push(row)
-      }
-    })
-
-    setAssembliesList(uniqueChildRows)
+    setAssembliesList(uniqueAssemblies)
 
     const editingRow = editingId !== null ? serviceDetailsList.find(s => s.id === editingId) : null
     if (editingRow && editingRow.serviceJobNo === serviceJobNo) {
@@ -483,6 +460,29 @@ export default function ServiceDetailsEntry() {
     setFilteredServiceList(result)
   }, [searchQuery, serviceDetailsList])
 
+  // Display-only list splitting records with multiple assemblies into separate items
+  const displayList = useMemo(() => {
+    const list = []
+    for (const row of filteredServiceList) {
+      if (Array.isArray(row.checkedAssemblies) && row.checkedAssemblies.length > 0) {
+        for (const ass of row.checkedAssemblies) {
+          list.push({
+            ...row,
+            displayKey: `${row.id}-${ass}`,
+            singleAssembly: ass
+          })
+        }
+      } else {
+        list.push({
+          ...row,
+          displayKey: String(row.id),
+          singleAssembly: ''
+        })
+      }
+    }
+    return list
+  }, [filteredServiceList])
+
   // Checklist handler
   const handleAssemblyCheck = (id) => {
     if (checkedAssemblies.includes(id)) {
@@ -532,9 +532,20 @@ export default function ServiceDetailsEntry() {
         toast.success(`Service details log for Job ${serviceJobNo} updated successfully!`)
         setEditingId(null)
       } else {
-        const res = await api.post('/api/service-detail', newEntry, { loadingMessage: 'Saving record...' })
-        updatedList = [res.data.data, ...serviceDetailsList]
-        toast.success(`Service details log for Job ${serviceJobNo} created successfully!`)
+        if (checkedAssemblies.length > 0) {
+          let newlyCreated = []
+          for (const ass of checkedAssemblies) {
+            const payload = { ...newEntry, checkedAssemblies: [ass] }
+            const res = await api.post('/api/service-detail', payload)
+            newlyCreated.push(res.data.data)
+          }
+          updatedList = [...newlyCreated, ...serviceDetailsList]
+          toast.success(`Created ${checkedAssemblies.length} separate service details entries!`)
+        } else {
+          const res = await api.post('/api/service-detail', newEntry, { loadingMessage: 'Saving record...' })
+          updatedList = [res.data.data, ...serviceDetailsList]
+          toast.success(`Service details log for Job ${serviceJobNo} created successfully!`)
+        }
       }
 
       setServiceDetailsList(updatedList)
@@ -695,7 +706,7 @@ export default function ServiceDetailsEntry() {
             <div className="grid grid-cols-12 gap-x-8 gap-y-4 max-w-7xl mx-auto mb-4">
 
               {/* Left Column (Inputs) */}
-              <div className="col-span-6 space-y-1.5 border-r border-slate-100 pr-6 text-[11px]">
+              <div className="col-span-5 space-y-1.5 border-r border-slate-100 pr-6 text-[11px]">
 
                 {/* Row 1: Service Job No */}
                 <div className="grid grid-cols-12 gap-2 items-center">
@@ -828,20 +839,7 @@ export default function ServiceDetailsEntry() {
                   </div>
                 </div>
 
-                {/* Row 10: Status */}
-                <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4 text-left pr-1">
-                    <Label>Status :</Label>
-                  </div>
-                  <div className="col-span-8">
-                    <Select
-                      options={statusOptions}
-                      placeholder="Select Status..."
-                      value={status}
-                      onChange={e => setStatus(e.target.value)}
-                    />
-                  </div>
-                </div>
+
 
                 {/* Row 11: Remarks */}
                 <div className="grid grid-cols-12 gap-2 items-start">
@@ -863,7 +861,7 @@ export default function ServiceDetailsEntry() {
               </div>
 
               {/* Right Column (Assembly Checklist) */}
-              <div className="col-span-6 space-y-2.5">
+              <div className="col-span-7 space-y-2.5">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                   <span className="font-bold text-[12px] uppercase text-[#0097A7] tracking-wider">Assembly List</span>
 
@@ -1020,52 +1018,33 @@ export default function ServiceDetailsEntry() {
                       <th className="px-3 py-1 border-r border-slate-100 w-36 text-center">Service Job No</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-28 text-center">Customer Code</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-[280px]">Customer Name</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-32">Serial No</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-28 text-center">Vehicle No</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-24 text-center">Model</th>
+                      <th className="px-3 py-1 border-r border-slate-100">Assembly List</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-28 text-center">Created By</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-36 text-center">Created Date</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-28 text-center">Assemblies Count</th>
                       <th className="px-3 py-1">Remarks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-[12.5px]">
-                    {filteredServiceList.length === 0 ? (
+                    {displayList.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="py-12 text-center text-slate-300 italic">
+                        <td colSpan={8} className="py-12 text-center text-slate-300 italic">
                           No service details logs saved.
                         </td>
                       </tr>
                     ) : (
-                      filteredServiceList.map((row, idx) => {
-                        const matchingBoms = bomCreationsList.filter(b => 
-                          (b.serviceJobNo && b.serviceJobNo === row.serviceJobNo) ||
-                          (b.serialJobNo && b.serialJobNo === row.serviceJobNo)
-                        )
+                      displayList.map((row, idx) => {
+                        const matchingBoms = bomCreationsList.filter(b => {
+                          const rJob = (row.serviceJobNo || '').trim().toLowerCase()
+                          if (!rJob) return false
+                          return (b.serviceJobNo && b.serviceJobNo.trim().toLowerCase() === rJob) ||
+                                 (b.serialJobNo && b.serialJobNo.trim().toLowerCase() === rJob)
+                        })
                         let targetBoms = matchingBoms
                         
-                        let totalCount = 0
-                        const seenParts = new Set()
-                        targetBoms.forEach(b => {
-                          if (Array.isArray(b.excelRows)) {
-                            b.excelRows.forEach(excelRow => {
-                              const keys = Object.keys(excelRow)
-                              const partNoKey = keys.find(k => {
-                                const l = k.toLowerCase()
-                                return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno'
-                              })
-                              const partNo = partNoKey ? excelRow[partNoKey] : ''
-                              if (partNo && !seenParts.has(partNo)) {
-                                seenParts.add(partNo)
-                                totalCount++
-                              }
-                            })
-                          }
-                        })
-                        if (totalCount === 0) totalCount = STANDARD_ASSEMBLIES.length
+                        const totalCount = targetBoms.length
                         return (
                           <tr
-                            key={row.id}
+                            key={row.displayKey}
                             onClick={() => setSelectedRowId(row.id)}
                             className={`hover:bg-[#0097A7]/5 cursor-pointer h-9 transition-colors ${selectedRowId === row.id ? 'bg-[#0097A7]/10 font-semibold' : ''}`}
                           >
@@ -1085,14 +1064,19 @@ export default function ServiceDetailsEntry() {
                             </td>
                             <td className="px-3 py-1 border-r border-slate-50 text-center text-slate-500 font-semibold">{row.customerCode}</td>
                             <td className="px-3 py-1 border-r border-slate-50 font-bold text-slate-700">{row.customerName}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-slate-600 font-medium">{row.serialNo}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-center font-mono text-slate-600">{row.vehicleNo}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-slate-500">{row.vehicleModelNo}</td>
+                            <td className="px-3 py-1 border-r border-slate-50 text-slate-600 font-semibold">
+                              {row.singleAssembly ? (
+                                <span className="whitespace-nowrap bg-[#0097A7]/5 text-[#0097A7] px-1.5 py-0.5 rounded text-[11px] font-bold border border-[#0097A7]/10 w-fit">
+                                  {row.singleAssembly}
+                                </span>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
                             <td className="px-3 py-1 border-r border-slate-50 text-center text-slate-500 font-medium">Admin</td>
                             <td className="px-3 py-1 border-r border-slate-50 text-center text-slate-600 font-mono">
                               {row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-GB') : '—'}
                             </td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-[#0097A7] bg-slate-50/20">{(row.checkedAssemblies || []).length} / {totalCount}</td>
                             <td className="px-3 py-1 text-slate-500 max-w-[240px] truncate">{row.remarks || '—'}</td>
                           </tr>
                         )
@@ -1108,7 +1092,7 @@ export default function ServiceDetailsEntry() {
             {/* Aggregated Total summary bar row matching exact template design guidelines */}
             <div className="max-w-7xl mx-auto bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-center justify-end text-[12px] font-bold tracking-wider shadow-sm mb-1">
               <div className="flex items-center pr-4 text-slate-500 uppercase">
-                <span>Row : {filteredServiceList.length}</span>
+                <span>Row : {displayList.length}</span>
               </div>
             </div>
 

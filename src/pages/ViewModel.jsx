@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronRight, Search, X, Layers, Printer, RotateCcw, Box } from 'lucide-react'
 import { useToast } from '../components/Toast'
 // ── Shared UI primitives ──
@@ -51,6 +51,49 @@ export default function ViewModel() {
   const [structure, setStructure] = useState([])
   const [loading, setLoading] = useState(false)
 
+  // Load main index from localStorage
+  const mainIndex = useMemo(() => {
+    return JSON.parse(localStorage.getItem('velson_bom_main_index') || '[]')
+  }, [])
+
+  const customerNameOptions = useMemo(() => {
+    return Array.from(new Set(mainIndex.map(r => r.customerName).filter(Boolean))).sort()
+  }, [mainIndex])
+
+  const customerCodeOptions = useMemo(() => {
+    return Array.from(new Set(mainIndex.map(r => r.customerCode).filter(Boolean))).sort()
+  }, [mainIndex])
+
+  const modelNoOptions = useMemo(() => {
+    return Array.from(new Set(mainIndex.map(r => r.vehicleModelNo).filter(Boolean))).sort()
+  }, [mainIndex])
+
+  const partNoOptions = useMemo(() => {
+    return Array.from(new Set(mainIndex.map(r => r.assemblyPartNo).filter(Boolean))).sort()
+  }, [mainIndex])
+
+  const handleCustomerNameChange = (selectedName) => {
+    setForm(f => {
+      if (!selectedName) {
+        return {
+          ...f,
+          customerName: '',
+          customerCode: '',
+          modelNo: '',
+          partNo: ''
+        }
+      }
+      const match = mainIndex.find(r => r.customerName === selectedName)
+      return {
+        ...f,
+        customerName: selectedName,
+        customerCode: match ? (match.customerCode || '') : '',
+        modelNo: match ? (match.vehicleModelNo || '') : '',
+        partNo: match ? (match.assemblyPartNo || '') : ''
+      }
+    })
+  }
+
   const u = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
   const handleFetchHierarchy = () => {
@@ -100,7 +143,7 @@ export default function ViewModel() {
               <div className="col-span-8 space-y-5 bg-slate-50/50 p-6 rounded-2xl border border-slate-100 shadow-inner">
                 <div className="grid grid-cols-12 gap-4 items-center">
                   <div className="col-span-3 text-right"><Label>Customer Name :</Label></div>
-                  <div className="col-span-6"><Select options={['Customer A', 'Customer B', 'Customer C']} placeholder="Select Customer Account" value={form.customerName} onChange={u('customerName')} /></div>
+                  <div className="col-span-6"><Select options={customerNameOptions} placeholder="Select Customer Account" value={form.customerName} onChange={e => handleCustomerNameChange(e.target.value)} /></div>
                   <div className="col-span-3">
                     <button className="flex items-center justify-center gap-2 w-full px-4 py-[9px] bg-[#dcfce7] hover:bg-[#bbf7d0] text-emerald-800 text-[10px] font-black rounded-lg border border-emerald-200 transition-all shadow-sm active:scale-95 uppercase tracking-widest">
                       <Search size={14} /> All Assembly PDF
@@ -109,8 +152,8 @@ export default function ViewModel() {
                 </div>
 
                 <div className="grid grid-cols-12 gap-4 items-center">
-                  <div className="col-span-3 text-right"><Label>Booking Customer Code :</Label></div>
-                  <div className="col-span-6"><Select options={['CODE-001', 'CODE-002']} placeholder="Select Code" value={form.customerCode} onChange={u('customerCode')} /></div>
+                  <div className="col-span-3 text-right"><Label>Customer Code :</Label></div>
+                  <div className="col-span-6"><Select options={customerCodeOptions} placeholder="Select Code" value={form.customerCode} onChange={u('customerCode')} /></div>
                   <div className="col-span-3">
                     <button 
                       onClick={handleFetchHierarchy}
@@ -124,7 +167,7 @@ export default function ViewModel() {
 
                 <div className="grid grid-cols-12 gap-4 items-center">
                   <div className="col-span-3 text-right"><Label>Model No :</Label></div>
-                  <div className="col-span-6"><Select options={['MOD-V10-2026', 'MOD-V7-2026', 'MOD-X500']} placeholder="Choose Manufacturing Model" value={form.modelNo} onChange={u('modelNo')} /></div>
+                  <div className="col-span-6"><Select options={modelNoOptions} placeholder="Choose Manufacturing Model" value={form.modelNo} onChange={u('modelNo')} /></div>
                   <div className="col-span-3 pl-3 flex items-center gap-2">
                     <input 
                       type="checkbox" 
@@ -139,7 +182,7 @@ export default function ViewModel() {
 
                 <div className="grid grid-cols-12 gap-4 items-center">
                   <div className="col-span-3 text-right"><Label>Assembly Part No :</Label></div>
-                  <div className="col-span-6"><Select options={['ASSY-HYD-001', 'ASSY-ELE-002']} placeholder="Filter by Sub-Assembly" value={form.partNo} onChange={u('partNo')} /></div>
+                  <div className="col-span-6"><Select options={partNoOptions} placeholder="Filter by Sub-Assembly" value={form.partNo} onChange={u('partNo')} /></div>
                   <div className="col-span-3 flex items-center gap-3 pl-3">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Count :</span>
                     <span className="text-[20px] font-black text-[#0097A7] leading-none">{structure.length}</span>

@@ -9,6 +9,42 @@ import ExcelJS from 'exceljs'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../components/Toast'
 
+const CANONICAL_HEADERS = [
+  'PartName',
+  'Image',
+  'Qty',
+  'UOM',
+  'PartNo',
+  'RouteCardNo',
+  'Process1',
+  'Process2',
+  'Process3',
+  'Process4',
+  'Process5',
+  'Process6',
+  'Process7'
+];
+
+const getCanonicalRowData = (childRow) => {
+  if (!childRow) return {};
+  const keys = Object.keys(childRow);
+  const findValue = (canonicalName) => {
+    if (childRow[canonicalName] !== undefined) return childRow[canonicalName];
+    const cClean = canonicalName.toLowerCase().replace(/[\s_-]/g, '');
+    const matchedKey = keys.find(k => {
+      const kClean = k.toLowerCase().replace(/[\s_-]/g, '');
+      return kClean === cClean;
+    });
+    return matchedKey ? childRow[matchedKey] : '';
+  };
+
+  const canonicalRow = {};
+  CANONICAL_HEADERS.forEach(header => {
+    canonicalRow[header] = findValue(header);
+  });
+  return canonicalRow;
+};
+
 // ── Shared UI primitives ──
 const Label = ({ children }) => (
   <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase tracking-wider whitespace-nowrap">
@@ -537,17 +573,17 @@ export default function BOMCreationReport() {
       const workbook = new ExcelJS.Workbook()
       const worksheet = workbook.addWorksheet(`BOM_${bomRecord.bomNo}_Details`)
 
-      const headers = Object.keys(bomRecord.excelRows[0] || {})
       const columns = [
         { header: 'S.No', key: 'sno', width: 8 },
-        ...headers.map(h => ({ header: h, key: h, width: 20 }))
+        ...CANONICAL_HEADERS.map(h => ({ header: h, key: h, width: 20 }))
       ]
       worksheet.columns = columns
 
       bomRecord.excelRows.forEach((row, idx) => {
+        const canonical = getCanonicalRowData(row)
         const rowData = { sno: idx + 1 }
-        headers.forEach(h => {
-          rowData[h] = row[h] || ''
+        CANONICAL_HEADERS.forEach(h => {
+          rowData[h] = canonical[h] || ''
         })
         worksheet.addRow(rowData)
       })
@@ -569,7 +605,6 @@ export default function BOMCreationReport() {
   const handlePrintChildBOM = (bomRecord) => {
     if (!bomRecord || !bomRecord.excelRows || bomRecord.excelRows.length === 0) return
     const printWindow = window.open('', '_blank', 'width=950,height=750')
-    const headers = Object.keys(bomRecord.excelRows[0] || {})
     printWindow.document.write(`
       <html>
         <head>
@@ -603,28 +638,31 @@ export default function BOMCreationReport() {
             <thead>
               <tr>
                 <th style="width: 5%">S.No</th>
-                \${headers.map(h => \`<th>\${h}</th>\`).join('')}
+                ${CANONICAL_HEADERS.map(h => `<th>${h}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
-              \${bomRecord.excelRows.map((row, idx) => \`
+              ${bomRecord.excelRows.map((row, idx) => {
+                const canonical = getCanonicalRowData(row);
+                return `
                 <tr>
-                  <td class="text-center">\${idx + 1}</td>
-                  \${headers.map(h => {
-                    const val = row[h];
-                    const valStr = String(val).trim();
-                    const isImg = valStr.startsWith('http://') ||
+                  <td class="text-center">${idx + 1}</td>
+                  ${CANONICAL_HEADERS.map(h => {
+                    const val = canonical[h];
+                    const valStr = String(val || '').trim();
+                    const isImg = h === 'Image' || valStr.startsWith('http://') ||
                       valStr.startsWith('https://') ||
                       valStr.startsWith('/api/') ||
                       valStr.startsWith('/uploads/') ||
                       valStr.startsWith('data:image/');
-                    if (isImg) {
-                      return \`<td><img src="\${valStr}" style="max-height: 40px; max-width: 80px; object-fit: contain;" /></td>\`;
+                    if (isImg && valStr) {
+                      return `<td><img src="${valStr}" style="max-height: 40px; max-width: 80px; object-fit: contain;" /></td>`;
                     }
-                    return \`<td>\${valStr}</td>\`;
+                    return `<td>${valStr}</td>`;
                   }).join('')}
                 </tr>
-              \`).join('')}
+                `;
+              }).join('')}
             </tbody>
           </table>
           <div class="footer">
@@ -843,17 +881,17 @@ export default function BOMCreationReport() {
                             setExpandedBomId(row.id === expandedBomId ? null : row.id)
                             setSelectedChildRow(null)
                           }}
-                          className={`cursor-pointer transition-colors h-14 group ${row.id === selectedId ? 'bg-[#0097A7]/10 hover:bg-[#0097A7]/15 font-semibold' : 'hover:bg-[#0097A7]/5'}`}
+                          className={`cursor-pointer transition-colors h-14 group ${row.id === selectedId ? 'bg-[#0097A7]/10 hover:bg-[#0097A7] hover:text-white font-semibold' : 'hover:bg-[#0097A7] hover:text-white'}`}
                         >
-                          <td className="px-5 py-2 border-r border-slate-50 text-center text-slate-300 font-bold">{idx + 1}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-black text-[#0097A7]">
+                          <td className="px-5 py-2 border-r border-slate-50 text-center text-slate-300 font-bold group-hover:text-white">{idx + 1}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 font-black text-[#0097A7] group-hover:text-white">
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setExpandedBomId(row.id === expandedBomId ? null : row.id)
                                 }}
-                                className="p-1 rounded bg-[#0097A7]/10 hover:bg-[#0097A7]/20 text-[#0097A7] transition-all flex items-center justify-center animate-none"
+                                className="p-1 rounded bg-[#0097A7]/10 hover:bg-[#0097A7]/20 text-[#0097A7] transition-all flex items-center justify-center animate-none group-hover:bg-white/20 group-hover:text-white"
                                 title={row.id === expandedBomId ? "Collapse Child Entries" : "View Child Entries"}
                               >
                                 {row.id === expandedBomId ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -861,35 +899,36 @@ export default function BOMCreationReport() {
                               <span>{row.bomNo}</span>
                             </div>
                           </td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-700">{row.customerName}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium">{row.customerCode || 'N/A'}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-600 uppercase text-[11px] truncate max-w-[300px]">{row.serialJobNo || row.serviceJobNo || 'N/A'}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-semibold text-slate-600 uppercase text-[11px] text-center">
+                          <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-700 group-hover:text-white">{row.customerName}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium group-hover:text-white">{row.customerCode || 'N/A'}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-600 uppercase text-[11px] truncate max-w-[300px] group-hover:text-white">{row.serialJobNo || row.serviceJobNo || 'N/A'}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 font-semibold text-slate-600 uppercase text-[11px] text-center group-hover:text-white">
                             {(() => {
                               const count = vehicles.filter(v => v.customer?.customerName === row.customerName).length;
                               return count > 0 ? count : (row.vehicleCount || 0);
                             })()}
                           </td>
-                          <td className="px-5 py-2 border-r border-slate-50">{row.assemblyPartNo || 'N/A'}</td>
-                          <td className="px-5 py-2 border-r border-slate-50">{row.model || 'N/A'}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-400">{row.date ? row.date.split('T')[0] : 'N/A'}</td>
-                          <td className="px-5 py-2 text-center font-black text-slate-700 text-[11px]">{row.createdBy || 'superadmin'}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 group-hover:text-white">{row.assemblyPartNo || 'N/A'}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 group-hover:text-white">{row.model || 'N/A'}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-400 group-hover:text-white">{row.date ? row.date.split('T')[0] : 'N/A'}</td>
+                          <td className="px-5 py-2 text-center font-black text-slate-700 text-[11px] group-hover:text-white">{row.createdBy || 'superadmin'}</td>
                           <td className="px-5 py-2 text-center">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setDeleteTarget(row)
                               }}
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition-colors shadow-sm border border-rose-100"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition-colors shadow-sm border border-rose-100 group-hover:bg-white group-hover:text-rose-600"
                               title="Delete Record"
                             >
                               <Trash2 size={15} />
                             </button>
                           </td>
                         </tr>
+
                         {row.id === expandedBomId && (
-                          <tr className="bg-slate-50/70 hover:bg-slate-50/70">
-                            <td colSpan={11} className="px-8 py-4 border-b border-slate-200">
+                           <tr className="bg-slate-50/70 hover:bg-slate-50/70 no-hover">
+                             <td colSpan={11} className="px-8 py-4 border-b border-slate-200">
                               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 overflow-x-auto">
                                 <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                                   <h4 className="text-[11px] font-black text-[#0097A7] uppercase tracking-widest">
@@ -927,54 +966,58 @@ export default function BOMCreationReport() {
                                     <thead className="bg-slate-50/80 text-[10px] uppercase text-slate-400 font-bold border-b border-slate-200">
                                       <tr>
                                         <th className="px-4 py-2 border-r border-slate-100 w-12 text-center">S.No</th>
-                                        {Object.keys(row.excelRows[0] || {}).map((header, hIdx) => (
+                                        {CANONICAL_HEADERS.map((header, hIdx) => (
                                           <th key={hIdx} className="px-4 py-2 border-r border-slate-100">{header}</th>
                                         ))}
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 bg-white">
-                                      {row.excelRows.map((childRow, childIdx) => (
-                                        <tr
-                                          key={childIdx}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setSelectedChildRow(childRow === selectedChildRow ? null : childRow)
-                                            setSelectedId(row.id)
-                                          }}
-                                          className={`cursor-pointer transition-colors ${childRow === selectedChildRow
-                                            ? 'bg-[#0097A7]/10 hover:bg-[#0097A7]/15 font-semibold'
-                                            : 'hover:bg-[#0097A7]/5'
-                                            }`}
-                                        >
-                                          <td className="px-4 py-1.5 border-r border-slate-50 text-center text-slate-400 font-bold">{childIdx + 1}</td>
-                                          {Object.entries(childRow).map(([key, val], colIdx) => {
-                                            const valStr = String(val).trim();
-                                            const isImg = valStr.startsWith('http://') ||
-                                              valStr.startsWith('https://') ||
-                                              valStr.startsWith('/api/') ||
-                                              valStr.startsWith('/uploads/') ||
-                                              valStr.startsWith('data:image/');
-                                            return (
-                                              <td key={colIdx} className="px-4 py-1.5 border-r border-slate-50 text-slate-600">
-                                                {isImg ? (
-                                                  <img
-                                                    src={valStr}
-                                                    alt="Preview"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setLightboxImage(valStr);
-                                                    }}
-                                                    className="max-h-12 max-w-[80px] object-contain rounded border border-slate-200 cursor-zoom-in hover:scale-105 hover:shadow-sm transition-all duration-200"
-                                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                                  />
-                                                ) : (
-                                                  valStr
-                                                )}
-                                              </td>
-                                            );
-                                          })}
-                                        </tr>
-                                      ))}
+                                      {row.excelRows.map((childRow, childIdx) => {
+                                        const canonical = getCanonicalRowData(childRow);
+                                        return (
+                                          <tr
+                                            key={childIdx}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setSelectedChildRow(childRow === selectedChildRow ? null : childRow)
+                                              setSelectedId(row.id)
+                                            }}
+                                            className={`cursor-pointer transition-colors group ${childRow === selectedChildRow
+                                              ? 'bg-[#0097A7]/10 hover:bg-[#0097A7] hover:text-white font-semibold'
+                                              : 'hover:bg-[#0097A7] hover:text-white'
+                                              }`}
+                                          >
+                                            <td className="px-4 py-1.5 border-r border-slate-50 text-center text-slate-400 font-bold group-hover:text-white/50">{childIdx + 1}</td>
+                                            {CANONICAL_HEADERS.map((header, colIdx) => {
+                                              const val = canonical[header];
+                                              const valStr = String(val || '').trim();
+                                              const isImg = header === 'Image' || valStr.startsWith('http://') ||
+                                                valStr.startsWith('https://') ||
+                                                valStr.startsWith('/api/') ||
+                                                valStr.startsWith('/uploads/') ||
+                                                valStr.startsWith('data:image/');
+                                              return (
+                                                <td key={colIdx} className="px-4 py-1.5 border-r border-slate-50 text-slate-600 group-hover:text-white">
+                                                  {isImg && valStr ? (
+                                                    <img
+                                                      src={valStr}
+                                                      alt="Preview"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setLightboxImage(valStr);
+                                                      }}
+                                                      className="max-h-12 max-w-[80px] object-contain rounded border border-slate-200 cursor-zoom-in hover:scale-105 hover:shadow-sm transition-all duration-200"
+                                                      onError={(e) => { e.target.style.display = 'none'; }}
+                                                    />
+                                                  ) : (
+                                                    valStr
+                                                  )}
+                                                </td>
+                                              );
+                                            })}
+                                          </tr>
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 )}

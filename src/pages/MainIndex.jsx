@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { ChevronRight, Save, X, Database, RotateCcw } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { ChevronRight, Save, X, Database, RotateCcw, Trash2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import { useCustomers, useVehicles, useServiceBookings } from '../hooks/useMasterData'
 
 // ── Shared UI primitives ──
 const Label = ({ children, required }) => (
@@ -43,12 +44,12 @@ export default function MainIndex() {
   const toast = useToast()
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    no: 'IDX-' + Math.floor(Math.random() * 9000 + 1000),
+    no: '',
     customerName: '',
     customerCode: '',
     vehicleCount: '',
     vehicleModelNo: '',
-    serialJobNo: '',
+    serviceJobNo: '',
     vehicleSerialNo: '',
     vehicleQty: '1',
     bomModelNo: '',
@@ -62,7 +63,128 @@ export default function MainIndex() {
   const [childParts, setChildParts] = useState([])
   const [isLoading, setIsLoading] = useState(false)
 
+  // React Query master data fetches
+  const { data: bookings = [] } = useServiceBookings()
+  const { data: customers = [] } = useCustomers()
+  const { data: vehicles = [] } = useVehicles()
+
+  const getNextIndexID = () => {
+    const existing = JSON.parse(localStorage.getItem('velson_bom_main_index') || '[]')
+    const ids = existing
+      .map(r => {
+        if (!r.no) return null
+        const match = r.no.match(/\d+$/)
+        return match ? parseInt(match[0], 10) : null
+      })
+      .filter(num => num !== null && !isNaN(num))
+    const max = ids.length > 0 ? Math.max(...ids) : 0
+    const nextNum = max + 1
+    return `IM${String(nextNum).padStart(4, '0')}`
+  }
+
+  useEffect(() => {
+    setForm(f => ({ ...f, no: getNextIndexID() }))
+  }, [])
+
   const u = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
+
+  const handleCustomerChange = (customerNameVal) => {
+    const cust = customers.find(c => c.customerName === customerNameVal)
+    if (!cust) {
+      setForm(f => ({
+        ...f,
+        customerName: customerNameVal,
+        customerCode: '',
+        vehicleCount: '',
+        vehicleSerialNo: '',
+        vehicleModelNo: '',
+        serviceJobNo: ''
+      }))
+      return
+    }
+    const customerVehiclesTotal = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+    setForm(f => ({
+      ...f,
+      customerName: customerNameVal,
+      customerCode: cust.cCode || '',
+      vehicleCount: customerVehiclesTotal.length,
+      vehicleSerialNo: '',
+      vehicleModelNo: '',
+      serviceJobNo: ''
+    }))
+  }
+
+  const handleCustomerCodeChange = (customerCodeVal) => {
+    const cust = customers.find(c => c.cCode === customerCodeVal)
+    if (!cust) {
+      setForm(f => ({
+        ...f,
+        customerCode: customerCodeVal,
+        customerName: '',
+        vehicleCount: '',
+        vehicleSerialNo: '',
+        vehicleModelNo: '',
+        serviceJobNo: ''
+      }))
+      return
+    }
+    const customerVehiclesTotal = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+    setForm(f => ({
+      ...f,
+      customerCode: customerCodeVal,
+      customerName: cust.customerName || '',
+      vehicleCount: customerVehiclesTotal.length,
+      vehicleSerialNo: '',
+      vehicleModelNo: '',
+      serviceJobNo: ''
+    }))
+  }
+
+  const handleServiceJobNoSelect = (serviceJobNoVal) => {
+    const booking = bookings.find(b => b.serviceJobNo === serviceJobNoVal)
+    if (booking) {
+      const custObj = customers.find(c => c.customerName === booking.customerName)
+      const count = custObj ? vehicles.filter(v => Number(v.customerId) === Number(custObj.id)).length : 0
+
+      setForm(f => ({
+        ...f,
+        serviceJobNo: serviceJobNoVal,
+        customerName: booking.customerName || '',
+        customerCode: booking.customerCode || '',
+        vehicleSerialNo: booking.vehicleSerialNo || booking.serialNo || '',
+        vehicleModelNo: booking.vehicleModelNo || '',
+        vehicleCount: count
+      }))
+    } else {
+      setForm(f => ({ ...f, serviceJobNo: serviceJobNoVal }))
+    }
+  }
+
+  const customerNameOptions = useMemo(() => {
+    return Array.from(new Set(customers.map(c => c.customerName).filter(Boolean))).sort()
+  }, [customers])
+
+  const customerCodeOptions = useMemo(() => {
+    return Array.from(new Set(customers.map(c => c.cCode).filter(Boolean))).sort()
+  }, [customers])
+
+  const serviceJobNoOptions = useMemo(() => {
+    const filteredBookings = form.customerName
+      ? bookings.filter(b => b.customerName === form.customerName)
+      : bookings
+    return filteredBookings
+      .filter(b => {
+        const tempSt = (b.tempStatus || '').toLowerCase()
+        const st = (b.status || '').toLowerCase()
+        return tempSt !== 'close' && tempSt !== 'closed' && st !== 'close' && st !== 'closed'
+      })
+      .map(b => b.serviceJobNo)
+      .filter(Boolean)
+  }, [bookings, form.customerName])
+
+  const vehicleModelOptions = useMemo(() => {
+    return Array.from(new Set(vehicles.map(v => v.modelName).filter(Boolean))).sort()
+  }, [vehicles])
 
   const handleLoadParts = () => {
     if (!form.bomModelNo) {
@@ -81,7 +203,7 @@ export default function MainIndex() {
   }
 
   const handleSave = () => {
-    if (!form.customerName || !form.serialJobNo) {
+    if (!form.customerName || !form.serviceJobNo) {
       toast.warning('Required: Customer and Job No.')
       return
     }
@@ -95,12 +217,12 @@ export default function MainIndex() {
   const handleReset = () => {
     setForm({
       date: new Date().toISOString().split('T')[0],
-      no: 'IDX-' + Math.floor(Math.random() * 9000 + 1000),
+      no: getNextIndexID(),
       customerName: '',
       customerCode: '',
       vehicleCount: '',
       vehicleModelNo: '',
-      serialJobNo: '',
+      serviceJobNo: '',
       vehicleSerialNo: '',
       vehicleQty: '1',
       bomModelNo: '',
@@ -143,31 +265,31 @@ export default function MainIndex() {
               <div className="col-span-6 space-y-4">
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label>Entry Date</Label></div>
-                   <div className="col-span-4"><Input type="date" value={form.date} onChange={u('date')} /></div>
+                   <div className="col-span-4"><Input type="date" value={form.date} readOnly={true} className="cursor-not-allowed !bg-slate-50" /></div>
                    <div className="col-span-2 text-right"><Label>Index ID</Label></div>
-                   <div className="col-span-3"><Input value={form.no} readOnly className="!font-black text-[#0097A7] !bg-white" /></div>
+                   <div className="col-span-3"><Input value={form.no} readOnly className="!font-black text-[#0097A7]" /></div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label required>Customer Name</Label></div>
-                   <div className="col-span-9"><Select options={['Customer A', 'Customer B', 'Customer C']} placeholder="--- Search Customer ---" value={form.customerName} onChange={u('customerName')} /></div>
+                   <div className="col-span-9"><Select options={customerNameOptions} placeholder="Select Customer" value={form.customerName} onChange={e => handleCustomerChange(e.target.value)} /></div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label>Customer Code :</Label></div>
-                   <div className="col-span-4"><Select options={['C-100', 'C-200', 'C-300']} placeholder="Select Code" value={form.customerCode} onChange={u('customerCode')} /></div>
+                   <div className="col-span-4"><Select options={customerCodeOptions} placeholder="Select Code" value={form.customerCode} onChange={e => handleCustomerCodeChange(e.target.value)} /></div>
                    <div className="col-span-2 text-right"><Label>Vehicle Count :</Label></div>
-                   <div className="col-span-3"><Select options={['1', '2', '3', '4', '5']} placeholder="0" value={form.vehicleCount} onChange={u('vehicleCount')} /></div>
+                   <div className="col-span-3"><Input value={form.vehicleCount} readOnly placeholder="0" /></div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label>Vehicle Model</Label></div>
-                   <div className="col-span-9"><Select options={['MOD-X', 'MOD-Y', 'MOD-Z']} placeholder="Select Vehicle Model" value={form.vehicleModelNo} onChange={u('vehicleModelNo')} /></div>
+                   <div className="col-span-9"><Select options={vehicleModelOptions} placeholder="Select Vehicle Model" value={form.vehicleModelNo} onChange={u('vehicleModelNo')} /></div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center gap-4">
-                   <div className="col-span-3"><Label required>Serial Job No</Label></div>
-                   <div className="col-span-9"><Select options={['JOB-101', 'JOB-102', 'JOB-103']} placeholder="Select Active Job" value={form.serialJobNo} onChange={u('serialJobNo')} /></div>
+                   <div className="col-span-3"><Label required>Service Job No</Label></div>
+                   <div className="col-span-9"><Select options={serviceJobNoOptions} placeholder="Select Active Job" value={form.serviceJobNo} onChange={e => handleServiceJobNoSelect(e.target.value)} /></div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center gap-4">
@@ -256,12 +378,12 @@ export default function MainIndex() {
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                           {childParts.map((part, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50 transition-colors h-14 group">
-                              <td className="px-6 py-2 border-r border-slate-50 text-center text-slate-300 font-bold">{idx + 1}</td>
-                              <td className="px-6 py-2 border-r border-slate-50 font-black text-[#0097A7]">{part.partNo}</td>
-                              <td className="px-6 py-2 border-r border-slate-50 font-bold text-slate-700 uppercase text-[11px]">{part.desc}</td>
-                              <td className="px-6 py-2 border-r border-slate-50 text-right font-black text-slate-900">{part.qty}</td>
-                              <td className="px-6 py-2 text-slate-500 italic text-[11px]">{part.remarks}</td>
+                            <tr key={idx} className="hover:bg-[#0097A7] hover:text-white transition-colors h-14 group">
+                              <td className="px-6 py-2 border-r border-slate-50 text-center text-slate-300 font-bold group-hover:text-white/50">{idx + 1}</td>
+                              <td className="px-6 py-2 border-r border-slate-50 font-black text-[#0097A7] group-hover:text-white">{part.partNo}</td>
+                              <td className="px-6 py-2 border-r border-slate-50 font-bold text-slate-700 uppercase text-[11px] group-hover:text-white">{part.desc}</td>
+                              <td className="px-6 py-2 border-r border-slate-50 text-right font-black text-slate-900 group-hover:text-white">{part.qty}</td>
+                              <td className="px-6 py-2 text-slate-500 italic text-[11px] group-hover:text-white/80">{part.remarks}</td>
                               <td className="px-6 py-2 text-center">
                                 <button onClick={() => setChildParts(prev => prev.filter((_, i) => i !== idx))} className="p-2 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                                   <Trash2 size={16} />
