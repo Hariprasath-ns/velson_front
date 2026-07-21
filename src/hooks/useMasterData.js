@@ -153,3 +153,14 @@ export function usePurchaseRequests() {
     staleTime: CACHE_5_MIN,
   })
 }
+
+export function useItemMaster() {
+  return useQuery({
+    queryKey: ['item-master'],
+    queryFn: async () => {
+      const res = await api.get('/api/item-master?limit=10000')
+      return res.data?.data || []
+    },
+    staleTime: CACHE_INFINITY,
+  })
+}

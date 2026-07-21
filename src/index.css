@@ -143,3 +143,19 @@ u {
   text-decoration: underline !important;
 }
 
+/* Global Table Row Hover Effect */
+tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover {
+  background-color: #0097A7 !important;
+  color: #ffffff !important;
+}
+
+tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td,
+tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td span,
+tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td div,
+tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td p,
+tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td b,
+tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td strong,
+tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td a {
+  color: #ffffff !important;
+}
+

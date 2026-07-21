@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { ChevronRight, X, Plus, Image as ImageIcon, Search, RotateCcw, FileSpreadsheet } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
-import { useCustomers, useVehicles, useServiceBookings, useItemGroups, useBoms } from '../hooks/useMasterData'
+import { useCustomers, useVehicles, useServiceBookings, useItemGroups, useBoms, useItemMaster } from '../hooks/useMasterData'
 import ItemSearchInput from '../components/ItemSearchInput'
 import AuthenticatedImage from '../components/AuthenticatedImage'
 import ExcelJS from 'exceljs'
@@ -152,7 +152,21 @@ export default function BOMCreation() {
   const vehicles = vehsRes
   const bookings = bookingsRes
   const itemGroups = groupRes
+
+  const [itemMaster, setItemMaster] = useState([])
   const [selectedPart, setSelectedPart] = useState(null)
+
+  useEffect(() => {
+    const fetchItemMaster = async () => {
+      try {
+        const res = await api.get('/api/item-master?limit=10000')
+        setItemMaster(res.data?.data || [])
+      } catch (err) {
+        console.error('Failed to fetch item master list:', err)
+      }
+    }
+    fetchItemMaster()
+  }, [])
   // Helper to compute next BOM No based on sequence
   const getNextBOMNo = (records) => {
     const bomNumbers = records
@@ -181,6 +195,38 @@ export default function BOMCreation() {
       groupName: groupNameVal,
       assemblyPartNo: ''
     }))
+    setSelectedPart(null)
+  }
+
+  const assemblyPartNoOptions = useMemo(() => {
+    if (!form.groupName) {
+      return []
+    }
+    const selectedGroup = itemGroups.find(g => g.groupName && g.groupName.trim().toLowerCase() === form.groupName.trim().toLowerCase())
+    if (!selectedGroup) return []
+    return itemMaster
+      .filter(item => Number(item.groupId) === Number(selectedGroup.id))
+      .map(item => item.partNo)
+      .filter(Boolean)
+  }, [itemMaster, itemGroups, form.groupName])
+
+  const handleAssemblyPartNoChange = (partNoVal) => {
+    const item = itemMaster.find(i => i.partNo === partNoVal)
+    if (item) {
+      const matchedGroup = itemGroups.find(g => Number(g.id) === Number(item.groupId))
+      setForm(f => ({
+        ...f,
+        assemblyPartNo: item.partNo,
+        groupName: matchedGroup ? matchedGroup.groupName : f.groupName
+      }))
+      setSelectedPart(item)
+    } else {
+      setForm(f => ({
+        ...f,
+        assemblyPartNo: partNoVal
+      }))
+      setSelectedPart(null)
+    }
   }
 
   const handleCustomerChange = (customerNameVal) => {
@@ -196,12 +242,12 @@ export default function BOMCreation() {
       }))
       return
     }
-    const customerVehicles = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+    const customerVehiclesTotal = vehicles.filter(v => Number(v.customerId) === Number(cust.id))
     setForm(f => ({
       ...f,
       customerName: customerNameVal,
       customerCode: cust.cCode || '',
-      vehicleCount: customerVehicles.length
+      vehicleCount: customerVehiclesTotal.length
     }))
   }
 
@@ -226,6 +272,9 @@ export default function BOMCreation() {
   const handleServiceJobNoSelect = (serviceJobNoVal) => {
     const booking = bookings.find(b => b.serviceJobNo === serviceJobNoVal)
     if (booking) {
+      const custObj = customers.find(c => c.customerName === booking.customerName)
+      const count = custObj ? vehicles.filter(v => Number(v.customerId) === Number(custObj.id)).length : 0
+
       setForm(f => ({
         ...f,
         serviceJobNo: serviceJobNoVal,
@@ -233,7 +282,7 @@ export default function BOMCreation() {
         customerCode: booking.customerCode || '',
         vehicleSerialNo: booking.vehicleSerialNo || booking.serialNo || '',
         model: booking.vehicleModelNo || '',
-        vehicleCount: booking.customerVehicleCount || ''
+        vehicleCount: count
       }))
     } else {
       setForm(f => ({ ...f, serviceJobNo: serviceJobNoVal }))
@@ -486,13 +535,20 @@ export default function BOMCreation() {
   }, [customers, vehicles, form.customerName])
 
   const vehicleOptions = useMemo(() => {
-    const count = customerVehicles.length
     const opts = []
-    for (let i = 1; i <= count; i++) {
-      opts.push(String(i))
-    }
+    customerVehicles.forEach((v, idx) => {
+      const vBookings = bookings.filter(b => b.vehicleSerialNo === v.serialNumber || b.serialNo === v.serialNumber)
+      const hasOpenBooking = vBookings.some(b => {
+        const tempSt = (b.tempStatus || '').toLowerCase()
+        const st = (b.status || '').toLowerCase()
+        return tempSt !== 'close' && tempSt !== 'closed' && st !== 'close' && st !== 'closed'
+      })
+      if (hasOpenBooking) {
+        opts.push(String(idx + 1))
+      }
+    })
     return opts
-  }, [customerVehicles])
+  }, [customerVehicles, bookings])
 
   const selectedVehicleLabel = useMemo(() => {
     if (!form.vehicleSerialNo) return ''
@@ -501,7 +557,14 @@ export default function BOMCreation() {
   }, [customerVehicles, form.vehicleSerialNo])
 
   const bookingServiceJobNoOptions = useMemo(() => {
-    return bookings.map(b => b.serviceJobNo).filter(Boolean)
+    return bookings
+      .filter(b => {
+        const tempSt = (b.tempStatus || '').toLowerCase()
+        const st = (b.status || '').toLowerCase()
+        return tempSt !== 'close' && tempSt !== 'closed' && st !== 'close' && st !== 'closed'
+      })
+      .map(b => b.serviceJobNo)
+      .filter(Boolean)
   }, [bookings])
 
   const modelOptions = useMemo(() => {
@@ -568,11 +631,11 @@ export default function BOMCreation() {
       />
       <div className="px-6 py-6">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-[12px] text-slate-400 mb-5 uppercase font-bold tracking-tight">
+        <div className="max-w-5xl mx-auto flex items-center gap-2 text-[12px] text-slate-400 mb-5 uppercase font-bold tracking-tight">
           <span>BOM</span> <ChevronRight size={12} /> <span className="text-[#0097A7]">BOM Creation</span>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
             <div className="flex items-center gap-2">
@@ -580,9 +643,6 @@ export default function BOMCreation() {
               <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">BOM Creation Interface</h2>
             </div>
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 text-[12px] font-bold rounded-lg border border-slate-200 transition-all shadow-sm">
-                <FileSpreadsheet size={14} className="text-green-600" /> Sample Upload File
-              </button>
               <button onClick={() => window.history.back()} className="text-slate-400 hover:text-red-600 transition-colors ml-2">
                 <X size={20} strokeWidth={2.5} />
               </button>
@@ -590,10 +650,10 @@ export default function BOMCreation() {
           </div>
 
           <div className="p-6">
-            <div className="grid grid-cols-12 gap-10">
-              {/* Left Column: BOM Details */}
-              <div className="col-span-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-12 gap-8">
+              {/* Left Column: BOM Form Fields & Buttons */}
+              <div className="col-span-9 space-y-6">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label required>Entry Date</Label>
                     <Input type="date" value={form.date} onChange={u('date')} />
@@ -602,19 +662,16 @@ export default function BOMCreation() {
                     <Label>BOM No</Label>
                     <Input value={form.bomNo} readOnly placeholder="Auto-generated" className="!font-bold !text-[#0097A7]" />
                   </div>
-                </div>
+                  <div>
+                    <Label required>Customer Name</Label>
+                    <SearchableSelect
+                      options={customers.map(c => c.customerName)}
+                      value={form.customerName}
+                      onChange={handleCustomerChange}
+                      placeholder="Search Customer..."
+                    />
+                  </div>
 
-                <div>
-                  <Label required>Customer Name</Label>
-                  <SearchableSelect
-                    options={customers.map(c => c.customerName)}
-                    value={form.customerName}
-                    onChange={handleCustomerChange}
-                    placeholder="Search Customer..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label>Customer Code</Label>
                     <Input value={form.customerCode} readOnly placeholder="Auto-populated" className='font-bold !text-[#0097A7]' />
@@ -632,80 +689,50 @@ export default function BOMCreation() {
                       placeholder="Select..."
                     />
                   </div>
-                </div>
 
-                <div>
-                  <Label required>Service Job No</Label>
-                  <Select options={bookingServiceJobNoOptions} value={form.serviceJobNo} onChange={e => handleServiceJobNoSelect(e.target.value)} placeholder="Select Service Job No" />
-                </div>
+                  <div>
+                    <Label required>Service Job No</Label>
+                    <Select options={bookingServiceJobNoOptions} value={form.serviceJobNo} onChange={e => handleServiceJobNoSelect(e.target.value)} placeholder="Select Service Job No" />
+                  </div>
+                  <div>
+                    <Label>Vehicle Serial No</Label>
+                    <Input value={form.vehicleSerialNo} onChange={u('vehicleSerialNo')} placeholder="Enter Serial No..." />
+                  </div>
+                  <div>
+                    <Label>Model</Label>
+                    <Select options={modelOptions} value={form.model} onChange={u('model')} placeholder="Select Model..." />
+                  </div>
 
-                <div>
-                  <Label>Vehicle Serial No</Label>
-                  <Input value={form.vehicleSerialNo} onChange={u('vehicleSerialNo')} placeholder="Enter Serial No..." />
-                </div>
-
-                <div>
-                  <Label>Model</Label>
-                  <Select options={modelOptions} value={form.model} onChange={u('model')} placeholder="Select Model..." />
-                </div>
-              </div>
-
-              {/* Middle Column: File Upload */}
-              <div className="col-span-4 space-y-4 border-l border-slate-100 pl-10">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 border-dashed">
-                  <div className="space-y-4">
-                    <div>
-                      <Label>File Location</Label>
-                      <Input value={form.fileLocation} readOnly placeholder="Upload via Browse..." />
-                    </div>
-                    <div>
-                      <Label required>File Name</Label>
-                      <Input value={form.fileName} readOnly placeholder="No file chosen" />
-                    </div>
+                  <div>
+                    <Label>Group Name</Label>
+                    <Select options={groupNameOptions} value={form.groupName} onChange={e => handleGroupNameChange(e.target.value)} placeholder="Pick Group" />
+                  </div>
+                  <div>
+                    <Label>Assembly Part No</Label>
+                    <SearchableSelect
+                      options={assemblyPartNoOptions}
+                      value={form.assemblyPartNo}
+                      onChange={handleAssemblyPartNoChange}
+                      placeholder="Select/Search Assembly Part No..."
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <Label required>File Name</Label>
+                    <Input value={form.fileName} readOnly placeholder="No file chosen" />
                   </div>
                 </div>
 
-                <div>
-                  <Label>Group Name</Label>
-                  <Select options={groupNameOptions} value={form.groupName} onChange={e => handleGroupNameChange(e.target.value)} placeholder="Pick Group" />
-                </div>
-                <div>
-                  <Label>Assembly Part No</Label>
-                  <ItemSearchInput
-                    value={form.assemblyPartNo}
-                    onChange={(val, item) => {
-                      if (item) {
-                        const matchedGroup = itemGroups.find(g => Number(g.id) === Number(item.groupId))
-                        setForm(f => ({
-                          ...f,
-                          assemblyPartNo: item.partNo,
-                          groupName: matchedGroup ? matchedGroup.groupName : f.groupName
-                        }))
-                        setSelectedPart(item)
-                      } else {
-                        setForm(f => ({
-                          ...f,
-                          assemblyPartNo: val
-                        }))
-                        if (!val) setSelectedPart(null)
-                      }
-                    }}
-                    displayField="partNo"
-                    placeholder="Search Assembly Part No"
-                    className="w-full px-3 py-[7px] text-sm border border-slate-200 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all duration-200 hover:border-slate-300"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-6">
-                  <button onClick={handleBrowseClick} className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-[13px] font-bold rounded-lg transition-all shadow-sm active:scale-95">
-                    <Search size={18} className="text-[#0097A7]" /> Browse
+                <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+                  <button onClick={handleBrowseClick} className="px-6 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-[13px] font-bold rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-2">
+                    <Search size={16} className="text-[#0097A7]" /> Browse
                   </button>
                   <button
                     onClick={handleCreate}
                     disabled={isCreating}
-                    className="flex-1 flex-row flex items-center justify-center gap-2 px-6 py-3 bg-[#0097A7] hover:bg-[#007a87] text-white text-[13px] font-bold rounded-lg transition-all shadow-md active:scale-95 disabled:opacity-50"
+                    className="px-6 py-2.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[13px] font-bold rounded-lg transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2"
                   >
-                    {isCreating ? <RotateCcw size={18} className="animate-spin" /> : <Plus size={18} />}
+                    {isCreating ? <RotateCcw size={16} className="animate-spin" /> : <Plus size={16} />}
                     {isCreating ? 'Uploading' : 'Upload'}
                   </button>
                 </div>
@@ -759,7 +786,7 @@ export default function BOMCreation() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
                       {excelData.map((row, idx) => (
-                        <tr key={idx} className={`hover:bg-slate-50 transition-colors ${selectedRows.includes(idx) ? 'bg-[#0097A7]/5' : ''}`}>
+                        <tr key={idx} className={`hover:bg-[#0097A7] hover:text-white group transition-colors ${selectedRows.includes(idx) ? 'bg-[#0097A7]/10' : ''}`}>
                           <td className="px-5 py-2.5 border-r border-slate-200 text-center">
                             <input
                               type="checkbox"
@@ -781,7 +808,7 @@ export default function BOMCreation() {
                                 contentEditable={!isImg}
                                 suppressContentEditableWarning
                                 onBlur={(e) => handleCellEdit(idx, key, e.target.textContent)}
-                                className="px-5 py-2.5 border-r border-slate-200 text-slate-700 text-sm outline-none focus:bg-slate-50"
+                                className="px-5 py-2.5 border-r border-slate-200 text-slate-700 text-sm outline-none focus:bg-slate-50 group-hover:text-white"
                               >
                                 {isImg ? (
                                   <img

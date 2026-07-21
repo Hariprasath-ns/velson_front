@@ -296,9 +296,13 @@ export default function ServiceSpareEntry() {
   const queryClient = useQueryClient()
 
   // React Query hooks for Master Data
-  const { data: bookingsDataRes = [] } = useServiceBookings()
-  const { data: bomCreationsList = [] } = useBoms()
-  const { data: sparesList = [] } = useServiceSpares()
+  const { data: bookingsDataRaw } = useServiceBookings()
+  const { data: bomCreationsRaw } = useBoms()
+  const { data: sparesRaw } = useServiceSpares()
+
+  const bookingsDataRes = Array.isArray(bookingsDataRaw) ? bookingsDataRaw : []
+  const bomCreationsList = Array.isArray(bomCreationsRaw) ? bomCreationsRaw : []
+  const sparesList = Array.isArray(sparesRaw) ? sparesRaw : []
 
   const [selectedItemForImage, setSelectedItemForImage] = useState(null)
 
@@ -324,6 +328,7 @@ export default function ServiceSpareEntry() {
   const [serviceDetailsList, setServiceDetailsList] = useState([])
   const [selectedRowId, setSelectedRowId] = useState(null)
   const [editingId, setEditingId] = useState(null)
+  const [itemMasterList, setItemMasterList] = useState([])
 
   // Sub-table display and selection states
   const [expandedSpareIds, setExpandedSpareIds] = useState({})
@@ -370,7 +375,16 @@ export default function ServiceSpareEntry() {
         console.error('Failed to load service details:', err)
       }
     }
+    const fetchItemMaster = async () => {
+      try {
+        const res = await api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
+        setItemMasterList(res.data?.data || [])
+      } catch (err) {
+        console.error('Failed to fetch item master list:', err)
+      }
+    }
     fetchServiceDetails()
+    fetchItemMaster()
   }, [])
 
   // Auto-fill when Job No selected
@@ -421,7 +435,7 @@ export default function ServiceSpareEntry() {
         b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === selectedPartNo.toLowerCase()
       );
     } else {
-      const detail = serviceDetailsList.find(d => d.serviceJobNo === serviceJobNo);
+      const detail = (serviceDetailsList || []).find(d => d.serviceJobNo && d.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase());
       const checkedAssemblies = detail?.checkedAssemblies || [];
 
       checkedAssemblies.forEach(assPartNo => {
@@ -444,7 +458,7 @@ export default function ServiceSpareEntry() {
     }
 
     if (matchingBoms.length > 0) {
-      const nested = buildNestedBomRows(matchingBoms, [], selectedPartNo, []);
+      const nested = buildNestedBomRows(matchingBoms, itemMasterList, selectedPartNo, []);
       setBomRows(nested);
 
       // Expand all assemblies by default
@@ -938,8 +952,8 @@ export default function ServiceSpareEntry() {
     }
 
     if (matchingBoms.length > 0) {
-      const nested = buildNestedBomRows(matchingBoms, [], selectedPartNo, row.selectedParts || []);
-      setEditingRowBomRows(nested);
+      const nested = buildNestedBomRows(matchingBoms, itemMasterList, selectedPartNo, row.selectedParts || []);
+      setBomRows(nested);
 
       const expanded = {};
       nested.forEach(b => {
@@ -1102,7 +1116,7 @@ export default function ServiceSpareEntry() {
       XLSX.utils.book_append_sheet(workbook, ws, 'ChildParts')
       const workbookBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
       const workbookBlob = new Blob([workbookBuffer], { type: 'application/octet-stream' })
-      openExcelPreview(exportData, workbookBlob, `spare_entry_${spareRecord.serviceJobNo}_child_entries_${new Date().toISOString().split('T')[0]}.xlsx`, 'Spare Entry Child Records Preview')
+      openExcelPreview(data, workbookBlob, `spare_entry_${spareRecord.serviceJobNo}_child_entries_${new Date().toISOString().split('T')[0]}.xlsx`, 'Spare Entry Child Records Preview')
       toast.success('Excel downloaded successfully!')
     } catch (err) {
       console.error(err)
@@ -1555,7 +1569,7 @@ export default function ServiceSpareEntry() {
 
                         if (isExpanded) {
                           rows.push(
-                            <tr key={`child-table-${assembly.id}`} className="bg-slate-50/70 hover:bg-slate-50/70">
+                            <tr key={`child-table-${assembly.id}`} className="bg-slate-50/70 hover:bg-slate-50/70 no-hover">
                               <td colSpan={5} className="px-4 py-2 border-b border-slate-200">
                                 <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 overflow-x-auto">
                                   <table className="w-full text-left border-collapse text-[12px]">
@@ -1706,10 +1720,7 @@ export default function ServiceSpareEntry() {
                       <th className="px-3 py-1 border-r border-slate-100 w-12 text-center"></th>
                       <th className="px-3 py-1 border-r border-slate-100 w-14 text-center">S.No</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-36">Service Job No</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-28">Customer Code</th>
-                      <th className="px-3 py-1 border-r border-slate-100">Customer Name</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-28">Vehicle No</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-24">Model</th>
+                      <th className="px-3 py-1 border-r border-slate-100">Item Name</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-24 text-center">Parts Qty</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-28 text-right">Total (₹)</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-24">Status</th>
@@ -1743,10 +1754,9 @@ export default function ServiceSpareEntry() {
                             </td>
                             <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-slate-400">{idx + 1}</td>
                             <td className="px-3 py-1 border-r border-slate-50 font-bold text-[#0097A7]">{row.serviceJobNo}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-slate-500">{row.customerCode}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 font-bold text-slate-700">{row.customerName}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 font-mono text-slate-600">{row.vehicleNo}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-slate-500 font-bold">{row.vehicleModelNo}</td>
+                            <td className="px-3 py-1 border-r border-slate-50 text-slate-700 max-w-[280px] truncate font-medium" title={(row.items || []).map(i => i.partName).join(', ')}>
+                              {(row.items || []).map(i => i.partName).join(', ') || '—'}
+                            </td>
                             <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-slate-600">{(row.selectedParts || []).length}</td>
                             <td className="px-3 py-1 border-r border-slate-50 text-right font-bold text-[#0097A7]">
                               {(row.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -1765,8 +1775,8 @@ export default function ServiceSpareEntry() {
                         ];
                         if (isExpanded) {
                           rows.push(
-                            <tr key={`expanded-${row.id}`} className="bg-slate-50/70 hover:bg-slate-50/70">
-                              <td colSpan={11} className="px-6 py-3 border-b border-slate-200">
+                            <tr key={`expanded-${row.id}`} className="bg-slate-50/70 hover:bg-slate-50/70 no-hover">
+                              <td colSpan={8} className="px-6 py-3 border-b border-slate-200">
                                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 overflow-x-auto">
                                   <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                                     <h4 className="text-[11.5px] font-bold text-[#0097A7] uppercase tracking-wider">

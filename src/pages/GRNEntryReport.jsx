@@ -277,7 +277,7 @@ export default function GRNEntryReport() {
                     <td className="px-3 py-2 text-center"><button onClick={(e)=>{e.stopPropagation(); handlePrint(row)}} disabled={printingId===row.id} className="px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white text-[11px] rounded transition-colors disabled:opacity-60">{printingId===row.id?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Printer className="w-3.5 h-3.5"/>}</button></td>
                   </tr>
                   {expandedRows[row.id] && (
-                    <tr className="bg-slate-50/50">
+                    <tr className="bg-slate-50/50 no-hover">
                       <td colSpan={19} className="px-6 py-3 border-l-4 border-l-[#0097A7] bg-slate-50/30">
                         <div className="rounded border border-slate-200 overflow-hidden shadow-sm max-w-5xl mx-auto my-1 bg-white">
                           <table className="w-full text-left text-[11.5px] border-collapse">
