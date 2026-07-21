@@ -827,7 +827,7 @@ export default function BOMCreationReport() {
                 </div>
               </div>
             </div>
-<div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <table className="w-full text-left border-collapse">
                 <thead className="bg-[#fcfdfe] text-[9px] uppercase text-slate-400 font-black border-b border-slate-200">
                   <tr>
@@ -847,7 +847,7 @@ export default function BOMCreationReport() {
                 <tbody className="divide-y divide-slate-50 text-[12px]">
                   {filteredData.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-24 text-center text-slate-200 italic">
+                      <td colSpan={11} className="py-24 text-center text-slate-200 italic">
                         No BOM creation records match the selected filters.
                       </td>
                     </tr>
