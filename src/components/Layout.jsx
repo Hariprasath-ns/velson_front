@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, startTransition } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { NAV } from '../config/nav'
 import { useAuth } from '../context/AuthContext'
@@ -104,8 +104,8 @@ export default function Layout({ children }) {
     "customer-complaint-entry", "ccms-entry-details", "dc-details-report",
     "breakdown-approval-list", "nc-approval", "nc-job-created", "nc-dc-entry", "nc-dc-details",
     "barcode-details", "auto-job-entry", "service-job-entry-details", "conformation-list", "conformation-entry-details",
-    "job-card-entry", "process-menu", "tech-auto-job", "view-job-status", "waiting-for-approval", "update-route-details", "process-completed", "mr-approval", "nc-job-created", "nc-approval", "ipr-approval", "job-qty-mismatch", "process-card-close", "job-qc-entry",
-    "credit-sales", "sales-details", "quotation-sales", "quotation-details", "dc-sales", "dc-details", "service-bill-entry", "service-bill-details", "service-labour-bill-details", "temp-service-bill-details",
+    "job-card-entry", "process-menu", "tech-auto-job", "view-job-status", "waiting-for-approval", "update-route-details", "process-completed", "mr-approval", "ipr-approval", "job-qty-mismatch", "process-card-close", "job-qc-entry",
+    "credit-sales", "sales-details", "quotation-sales", "dc-sales", "dc-details", "service-bill-entry", "service-bill-details", "service-labour-bill-details", "temp-service-bill-details",
   ];
 
   const userRoleUpper = userRole.toUpperCase();
@@ -174,7 +174,7 @@ export default function Layout({ children }) {
               return (
                 <button
                   key={item.id}
-                  onClick={() => topPath && navigate(topPath)}
+                  onClick={() => topPath && startTransition(() => navigate(topPath))}
                   className={`w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-[12.5px] transition-colors
                     ${isActive ? 'bg-[#0097A7] text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
                 >
@@ -205,7 +205,7 @@ export default function Layout({ children }) {
                   return (
                     <button
                       key={child.id + '-' + item.id}
-                      onClick={() => navigate(childPath)}
+                      onClick={() => startTransition(() => navigate(childPath))}
                       className={`w-full text-left flex items-center gap-2 pl-8 pr-3 py-2 text-[12px] border-l-[3px] transition-colors
                         ${isChildActive
                           ? 'border-[#00BCD4] bg-[#0097A7]/25 text-white font-semibold'

@@ -1,9 +1,62 @@
-import { useEffect, lazy, Suspense } from 'react'
+import React, { useEffect, lazy, Suspense, Component, startTransition } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import { PAGE_TO_PATH, NAV } from './config/nav'
 import { useAuth } from './context/AuthContext'
 import { useModulePermission } from './hooks/useModulePermission'
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("Uncaught React error:", error, errorInfo)
+    if (error?.message?.match(/Failed to fetch dynamically imported module/i)) {
+      window.location.reload()
+    }
+  }
+  render() {
+    if (this.state.hasError) {
+      if (this.state.error?.message?.match(/Failed to fetch dynamically imported module/i)) {
+        return <div className="bg-[#f4f6f8] min-h-screen flex items-center justify-center text-slate-400 text-sm">Updating application...</div>
+      }
+      return (
+        <div className="bg-[#f4f6f8] min-h-screen p-8 text-center text-red-500 flex flex-col items-center pt-20">
+          <h2 className="text-xl font-bold mb-4">Something went wrong.</h2>
+          <details className="whitespace-pre-wrap text-left p-4 bg-red-50 rounded border border-red-200 max-w-4xl overflow-auto text-sm">
+            {this.state.error && this.state.error.toString()}
+          </details>
+          <button onClick={() => window.location.reload()} className="mt-6 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors shadow-sm">
+            Reload Page
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// Bridges legacy velson:navigate custom events to React Router navigation.
+function NavigationEventBridge() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const handler = e => {
+      const pageKey = e.detail?.page ?? e.detail
+      const path = PAGE_TO_PATH[pageKey]
+      if (!path) return
+      startTransition(() => navigate(path))
+    }
+    window.addEventListener('velson:navigate', handler)
+    return () => window.removeEventListener('velson:navigate', handler)
+  }, [navigate])
+
+  return null
+}
 
 const BookingEntryNew = lazy(() => import('./pages/BookingEntryNew'))
 const ServiceQuotation = lazy(() => import('./pages/ServiceQuotation'))
@@ -302,24 +355,6 @@ const PAGE_COMPONENTS = {
   LandingPage: LandingPage,
 }
 
-// Bridges legacy velson:navigate custom events to React Router navigation.
-// Pages that still dispatch window events work without modification.
-function NavigationEventBridge() {
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    const handler = e => {
-      const pageKey = e.detail?.page ?? e.detail
-      const path = PAGE_TO_PATH[pageKey]
-      if (!path) return
-      navigate(path)
-    }
-    window.addEventListener('velson:navigate', handler)
-    return () => window.removeEventListener('velson:navigate', handler)
-  }, [navigate])
-
-  return null
-}
 
 const PAGE_TO_MODULE = (() => {
   const map = {}
@@ -359,7 +394,7 @@ function AppRoutes() {
     <>
       <NavigationEventBridge />
       <Layout>
-        <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading page...</div>}>
+        <Suspense fallback={<div className="bg-[#f4f6f8] min-h-screen flex items-center justify-center text-slate-400 text-sm">Loading...</div>}>
         <Routes>
           <Route path="/" element={<Navigate to="/LandingPage" replace />} />
           <Route path="/LandingPage" element={<LandingPage />} />
@@ -411,5 +446,9 @@ export default function App() {
   if (LOGIN_REQUIRED && !auth) return <LoginPage onLogin={login} />
   if (!auth) return null
 
-  return <AppRoutes />
+  return (
+    <ErrorBoundary>
+      <AppRoutes />
+    </ErrorBoundary>
+  )
 }

@@ -40,6 +40,19 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // ── Validate token on startup — clear stale/invalid tokens automatically ──
+  useEffect(() => {
+    if (!auth?.token || auth.token === 'bypass') return
+    api.get('/api/auth/permissions', { skipGlobalLoader: true }).catch((err) => {
+      if (err.response?.status === 401) {
+        // Token is invalid or expired — clear it so user sees login instead of blank pages
+        localStorage.removeItem(STORAGE_KEY)
+        setAuth(null)
+        disconnectSocket()
+      }
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const handleRefreshed = (e) => {
       setAuth(e.detail)

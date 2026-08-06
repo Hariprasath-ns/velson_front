@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { ChevronRight, Save, X, Search, CheckSquare, Square, RotateCcw, Image as ImageIcon, Upload } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import api from '../services/api'
+import { useReferenceMaster } from '../hooks/useMasterData'
 
 const Label = ({ children, required }) => (
   <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase tracking-wider">
@@ -24,40 +26,7 @@ const Select = ({ options, placeholder, value, onChange, className = "" }) => (
   </div>
 )
 
-const STORAGE_KEY = 'velson_tech_auto_job'
-
-const MODELS = [
-  'V2I', 'V4', 'V4I', 'V7', 'V3i', 'V9', 'VEDC', 'RC', 'V10', 'POWERPACK', 'VELSON',
-  'Velson customer requirement', 'GRIPPER', 'GEARBOX', 'SAMP', 'COMMON', 'UNDERGROUND DRILL',
-  'Consumables', 'V3 XL', 'COMPRESSOR', 'EQUALIZER BEAM', 'VEM', 'CORE DRILL', 'HDE',
-  'GRADE CONTROL MACHINE', 'MICROBLAST', 'MINICORE', 'HD 300', 'AUTO JOB', 'HMD',
-]
-
 const PRIORITIES = ['P0', 'P1', 'P2', 'P3', 'P4', 'PE']
-
-// Simulated parts data to appear when a model is selected
-const PARTS_DB = [
-  { partNo: 'VC-100015', partName: '10" SINGLE ROPE PULLEY 54', qty: 60, uom: 'No', minStock: 30, closingQty: 0.00, createdDate: '11-04-2026 17:00:03', description: '' },
-  { partNo: 'VC-100017', partName: '10" SINGLE ROPE PULLEY V10 THREAD ROD P', qty: 40, uom: 'No', minStock: 20, closingQty: 18.00, createdDate: '28-02-2026 15:29:49', description: '' },
-  { partNo: 'VC-100041', partName: 'HOUSING 1', qty: 40, uom: 'No', minStock: 20, closingQty: 7.00, createdDate: '16 03 2026 14:35:24', description: '' },
-  { partNo: 'VC-100122', partName: 'V1D 1.5" BOTTOM ROLLER', qty: 50, uom: 'No', minStock: 40, closingQty: 23.00, createdDate: '13-01-2026 09:13:26', description: '' },
-  { partNo: 'VC-100123', partName: '9MTR MASTER 4-1 CENTER 1.5" CHAIN ROLLE', qty: 20, uom: 'No', minStock: 10, closingQty: 9.00, createdDate: '09-04-2026 16:51:21', description: '' },
-  { partNo: 'VC-100234', partName: '1.5" CHAIN SINGLE CLAMP WITH HOLES', qty: 40, uom: 'No', minStock: 20, closingQty: 19.00, createdDate: '23-03-2026 10:55:16', description: '' },
-  { partNo: 'VC-103207', partName: 'FOOT CLAMP 180 TILTING JACKEY PIN', qty: 4, uom: 'No', minStock: 2, closingQty: 0.00, createdDate: '14-04-2026 14:59:18', description: '25 X 132' },
-  { partNo: 'VC-103514', partName: 'V1D TILTING JACKEY PIN', qty: 10, uom: 'No', minStock: 5, closingQty: 3.00, createdDate: '01-04-2026 12:29:05', description: '40 X 230 MM' },
-  { partNo: 'VC-101904', partName: 'TOP MRC ARM PIN 80MM DIA - 340MM', qty: 25, uom: "No's", minStock: 15, closingQty: 14.00, createdDate: '02-04-2026 13:37:20', description: '80 X 340MM' },
-  { partNo: 'VC-105387', partName: 'V1.6 6MTR LW MASTER 8" SINGLE ROPE PULL', qty: 10, uom: "No's", minStock: 12, closingQty: 0.00, createdDate: '14 04 2026 16:45:45', description: '' },
-  { partNo: 'VC-106260', partName: 'LW MAST CHAIN BOTTOM ROLLER BASE PLATE', qty: 5, uom: 'No', minStock: 3, closingQty: 2.00, createdDate: '15-04-2026 13:56:06', description: '' },
-  { partNo: 'VC-106262', partName: 'LW MAST BOTTOM ROLLER THREAD ROD', qty: 5, uom: 'No', minStock: 3, closingQty: 2.00, createdDate: '15-04-2026 13:56:06', description: '' },
-  { partNo: 'VC-106271', partName: 'WIRE CLAMP M8 BUSH', qty: 200, uom: 'No', minStock: 100, closingQty: 98.00, createdDate: '15-04-2026 09:58:06', description: '' },
-  { partNo: 'VC-106362', partName: 'WATER LINE ADAPTOR 1 1/4" X 1" BSP', qty: 10, uom: 'No', minStock: 5, closingQty: 0.00, createdDate: '01 04 2026 16:02:04', description: '' },
-  { partNo: 'VCS-300570', partName: 'V3 CHAIN SPROCKET FOR 705C2K DEVICE', qty: 6, uom: 'No', minStock: 3, closingQty: 2.00, createdDate: '12 01 2026 17:28:53', description: '' },
-  { partNo: 'VG-20114', partName: 'XL ROTATION MOTOR OIL PUMP BODY', qty: 20, uom: 'No', minStock: 15, closingQty: 13.00, createdDate: '13-03-2026 14:04:00', description: '' },
-  { partNo: 'VG-20141', partName: 'XL INNER SAVAREN TOP OIL SEAL FLANGE', qty: 3, uom: 'No', minStock: 2, closingQty: 0.00, createdDate: '24-01-2026 15:33:06', description: '' },
-  { partNo: 'VG-20493', partName: 'M2 HYDRAULIC MOTOR FLANGE 140', qty: 5, uom: 'No', minStock: 10, closingQty: 0.00, createdDate: '07 04 2026 15:25:27', description: '' },
-  { partNo: 'VGH-1000452', partName: 'V1D WATER PUMP FLANGE', qty: 40, uom: 'No', minStock: 20, closingQty: 0.00, createdDate: '25-03-2026 16:56:26', description: '' },
-  { partNo: 'VGH-1000918', partName: 'V10 CONTROL BOX 4,5,6 BANG PLATE 1', qty: 15, uom: 'No', minStock: 8, closingQty: 0.00, createdDate: '30-03-2026 10:45:07', description: '' },
-]
 
 export default function TechAutoJobEntry() {
   const toast = useToast()
@@ -66,32 +35,115 @@ export default function TechAutoJobEntry() {
     requiredDate: new Date().toISOString().split('T')[0],
   })
   const [parts, setParts] = useState([])
+  const [partsLoading, setPartsLoading] = useState(false)
   const [selectAll, setSelectAll] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [partImage, setPartImage] = useState(null)
   const [savedJobs, setSavedJobs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
   const imgRef = useRef(null)
+
+  // Load model list from Reference Master (same as JobCardEntry)
+  const { data: vehicleRes = [] } = useReferenceMaster('Vehicle_Type')
+  const { data: priorityRes = [] } = useReferenceMaster('Priority')
+
+  const vehicleTypes = useMemo(() => vehicleRes.map(r => r.description).filter(Boolean), [vehicleRes])
+  const priorities = useMemo(() => priorityRes.map(r => r.description).filter(Boolean).length > 0
+    ? priorityRes.map(r => r.description).filter(Boolean)
+    : PRIORITIES, [priorityRes])
 
   const u = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
+  // ── Fetch saved job cards from backend ──────────────────────────────────────
+  const fetchJobCards = async () => {
+    try {
+      const res = await api.get('/api/job-card', { skipGlobalLoader: true })
+      setSavedJobs(res.data?.data || [])
+    } catch (err) {
+      console.error('Error fetching job cards', err)
+    }
+  }
+
+  // ── Fetch next job number from backend ──────────────────────────────────────
+  const fetchNextJobNo = async () => {
+    try {
+      const res = await api.get('/api/job-card/next-no', { skipGlobalLoader: true })
+      const nextNo = res.data?.jobNo || '1'
+      setForm(f => ({ ...f, jobNo: nextNo }))
+    } catch (err) {
+      console.error('Error fetching next job number', err)
+    }
+  }
+
+  // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    setSavedJobs(saved)
+    const init = async () => {
+      setLoading(true)
+      try {
+        await Promise.all([fetchJobCards(), fetchNextJobNo()])
+      } catch (err) {
+        console.error('Error loading page data', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    init()
   }, [])
 
-  // Load parts when model changes
-  const handleModelChange = (e) => {
+  // ── Fetch parts from item master when model changes ─────────────────────────
+  const handleModelChange = async (e) => {
     const model = e.target.value
     setForm(f => ({ ...f, model }))
-    if (model) {
-      // Simulate fetching parts for this model - randomize a subset
-      const count = Math.floor(Math.random() * 8) + 6
-      const shuffled = [...PARTS_DB].sort(() => Math.random() - 0.5).slice(0, count)
-      setParts(shuffled)
-      setSelectedIds(new Set())
-      setSelectAll(false)
-    } else {
+    setSelectedIds(new Set())
+    setSelectAll(false)
+
+    if (!model) {
       setParts([])
+      return
+    }
+
+    setPartsLoading(true)
+    try {
+      // Fetch all items (with large limit) so we can filter by model client-side
+      const res = await api.get('/api/item-master', {
+        params: { limit: 5000, search: '' },
+        skipGlobalLoader: true,
+      })
+      const allItems = res.data?.data || []
+
+      // Filter by matching model name in partName, description, or brand fields
+      // Also load all if no model-specific filter is available in the API
+      const modelLower = model.toLowerCase().trim()
+      const filtered = allItems.filter(item =>
+        (item.partName && item.partName.toLowerCase().includes(modelLower)) ||
+        (item.description && item.description.toLowerCase().includes(modelLower)) ||
+        (item.brand && item.brand.toLowerCase().includes(modelLower))
+      )
+
+      // Use filtered if we have results, otherwise show all items for selection
+      const displayItems = filtered.length > 0 ? filtered : allItems.slice(0, 50)
+
+      setParts(displayItems.map(item => ({
+        id: item.id,
+        partNo: item.partNo || '',
+        partName: item.partName || '',
+        qty: item.reorderLevel || item.minStock || 0,
+        uom: item.uomName || item.uom || 'No',
+        minStock: item.minStock || 0,
+        closingQty: item.closingQty ?? 0,
+        createdDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : '',
+        description: item.description || item.size || '',
+        hasImage: item.hasImage || !!item.imageMimeType,
+        imagePath: item.imagePath,
+        imageId: item.id,
+      })))
+    } catch (err) {
+      console.error('Error fetching item master', err)
+      toast.error('Failed to load parts for selected model.')
+      setParts([])
+    } finally {
+      setPartsLoading(false)
     }
   }
 
@@ -111,6 +163,8 @@ export default function TechAutoJobEntry() {
       next.has(partNo) ? next.delete(partNo) : next.add(partNo)
       return next
     })
+    // Update selectAll state
+    setSelectAll(false)
   }
 
   const handleSelectAll = () => {
@@ -122,19 +176,44 @@ export default function TechAutoJobEntry() {
     setSelectAll(!selectAll)
   }
 
-  const handleSave = () => {
+  // ── Save to backend API ─────────────────────────────────────────────────────
+  const handleSave = async () => {
     if (!form.model) { toast.warning('Please select a Model.'); return }
     if (selectedIds.size === 0) { toast.warning('Please select at least one part.'); return }
+
     const selectedParts = parts.filter(p => selectedIds.has(p.partNo))
-    const job = {
-      ...form, parts: selectedParts, partImage,
-      id: Date.now(), savedAt: new Date().toISOString(),
+
+    const payload = {
+      jobNo: form.jobNo,
+      model: form.model,
+      priority: form.priority || null,
+      requiredDate: form.requiredDate || null,
+      note: form.note || null,
+      partImage: partImage || null,
+      selfStockIn: true,          // Auto Job Entries are treated as Self Stock In
+      selectedCustomers: null,
+      lineItems: selectedParts.map(p => ({
+        partNo: p.partNo,
+        partName: p.partName,
+        planQty: p.qty || 0,
+        uom: p.uom || '',
+      })),
     }
-    const updated = [job, ...savedJobs]
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-    setSavedJobs(updated)
-    toast.success('Auto Job Entry saved successfully!')
-    handleClear()
+
+    try {
+      const res = await api.post('/api/job-card', payload)
+      if (res.data?.success) {
+        toast.success('Auto Job Entry saved successfully!')
+        await fetchJobCards()
+        await fetchNextJobNo()
+        handleClear()
+      } else {
+        toast.error(res.data?.message || 'Failed to save Auto Job Entry.')
+      }
+    } catch (err) {
+      console.error('Error saving Auto Job Entry', err)
+      toast.error('Error saving: ' + (err.response?.data?.message || err.message))
+    }
   }
 
   const handleCreateRouteCard = () => {
@@ -143,19 +222,25 @@ export default function TechAutoJobEntry() {
   }
 
   const handleClear = () => {
-    setForm({ jobNo: '', model: '', priority: '', note: '', requiredDate: new Date().toISOString().split('T')[0] })
+    setForm(f => ({ ...f, model: '', priority: '', note: '', requiredDate: new Date().toISOString().split('T')[0] }))
     setParts([])
     setSelectedIds(new Set())
     setSelectAll(false)
     clearImage()
   }
 
+  // ── Filter saved jobs by search term ────────────────────────────────────────
+  const filtered = savedJobs.filter(j => {
+    if (!searchTerm) return true
+    const q = searchTerm.toLowerCase()
+    return j.jobNo?.toLowerCase().includes(q) || j.model?.toLowerCase().includes(q)
+  })
+
   return (
     <div className="bg-[#f4f6f8] min-h-full pb-6">
       <div className="px-6 py-6">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-[12px] text-slate-400 mb-5 uppercase font-bold tracking-tight">
-          {/* <span>Dashboard</span><ChevronRight size={12} /> */}
           <span>Technical</span><ChevronRight size={12} /><span className="text-[#0097A7]">Auto Job Entry</span>
         </div>
 
@@ -180,11 +265,21 @@ export default function TechAutoJobEntry() {
                 <div className="grid grid-cols-12 gap-4 items-end">
                   <div className="col-span-3">
                     <Label required>Job No</Label>
-                    <Input value={form.jobNo} onChange={u('jobNo')} placeholder="Enter Job No..." />
+                    <Input value={form.jobNo} readOnly className="!font-bold text-[#0097A7]" placeholder="Auto-generated" />
                   </div>
                   <div className="col-span-5">
                     <Label required>Model</Label>
-                    <Select options={MODELS} value={form.model} onChange={handleModelChange} placeholder="--- Select Model ---" />
+                    <Select
+                      options={vehicleTypes.length > 0 ? vehicleTypes : [
+                        'V2I', 'V4', 'V4I', 'V7', 'V3i', 'V9', 'VEDC', 'RC', 'V10', 'POWERPACK', 'VELSON',
+                        'Velson customer requirement', 'GRIPPER', 'GEARBOX', 'SAMP', 'COMMON', 'UNDERGROUND DRILL',
+                        'Consumables', 'V3 XL', 'COMPRESSOR', 'EQUALIZER BEAM', 'VEM', 'CORE DRILL', 'HDE',
+                        'GRADE CONTROL MACHINE', 'MICROBLAST', 'MINICORE', 'HD 300', 'AUTO JOB', 'HMD',
+                      ]}
+                      value={form.model}
+                      onChange={handleModelChange}
+                      placeholder="--- Select Model ---"
+                    />
                   </div>
                   <div className="col-span-4 flex gap-2">
                     <div className="flex-1">
@@ -196,7 +291,7 @@ export default function TechAutoJobEntry() {
                 <div className="grid grid-cols-12 gap-4 items-end">
                   <div className="col-span-3">
                     <Label>Priority</Label>
-                    <Select options={PRIORITIES} value={form.priority} onChange={u('priority')} placeholder="--- Select ---" />
+                    <Select options={priorities} value={form.priority} onChange={u('priority')} placeholder="--- Select ---" />
                   </div>
                   <div className="col-span-5">
                     <Label>Note</Label>
@@ -252,19 +347,28 @@ export default function TechAutoJobEntry() {
                           {selectAll ? <CheckSquare size={14} className="text-[#0097A7]" /> : <Square size={14} className="text-slate-400" />}
                         </button>
                       </th>
-                      <th className="px-3 py-2.5 border-r border-slate-200 w-8 text-center"></th>
+                      <th className="px-3 py-2.5 border-r border-slate-200 w-8 text-center">#</th>
                       <th className="px-3 py-2.5 border-r border-slate-200">Part No</th>
                       <th className="px-3 py-2.5 border-r border-slate-200">Part Name</th>
                       <th className="px-3 py-2.5 border-r border-slate-200 w-16 text-center">Qty</th>
                       <th className="px-3 py-2.5 border-r border-slate-200 w-16 text-center">UOM</th>
-                      <th className="px-3 py-2.5 border-r border-slate-200 w-20 text-center">Min_Stock</th>
-                      <th className="px-3 py-2.5 border-r border-slate-200 w-24 text-center">Closing_Qty</th>
-                      <th className="px-3 py-2.5 border-r border-slate-200 w-40">Created_Date</th>
+                      <th className="px-3 py-2.5 border-r border-slate-200 w-20 text-center">Min Stock</th>
+                      <th className="px-3 py-2.5 border-r border-slate-200 w-24 text-center">Closing Qty</th>
+                      <th className="px-3 py-2.5 border-r border-slate-200 w-40">Created Date</th>
                       <th className="px-3 py-2.5">Description</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {parts.length === 0 ? (
+                    {partsLoading ? (
+                      <tr>
+                        <td colSpan={10} className="py-16 text-center text-slate-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-6 h-6 border-2 border-[#0097A7] border-t-transparent rounded-full animate-spin" />
+                            <p className="text-[12px] font-bold uppercase tracking-widest">Loading parts...</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : parts.length === 0 ? (
                       <tr>
                         <td colSpan={10} className="py-20 text-center text-slate-300">
                           <Search size={40} strokeWidth={1} className="mx-auto mb-2 opacity-30" />
@@ -276,20 +380,24 @@ export default function TechAutoJobEntry() {
                         const isSelected = selectedIds.has(p.partNo)
                         return (
                           <tr
-                            key={p.partNo}
+                            key={p.partNo || i}
                             className={`h-9 hover:bg-slate-50 transition-colors cursor-pointer ${isSelected ? 'bg-[#0097A7]/5' : ''}`}
                             onClick={() => toggleSelect(p.partNo)}
                           >
                             <td className="px-2 py-1 border-r border-slate-200 text-center">
                               {isSelected ? <CheckSquare size={14} className="text-[#0097A7]" /> : <Square size={14} className="text-slate-300" />}
                             </td>
-                            <td className="px-3 py-1 border-r border-slate-200 text-center text-[11px] text-slate-300 font-bold">{i === 0 && isSelected ? '▸' : ''}</td>
+                            <td className="px-3 py-1 border-r border-slate-200 text-center text-[11px] text-slate-400 font-bold">{i + 1}</td>
                             <td className="px-3 py-1 border-r border-slate-200 text-[12px] font-bold text-[#0097A7]">{p.partNo}</td>
                             <td className="px-3 py-1 border-r border-slate-200 text-[12px] text-slate-700 font-semibold">{p.partName}</td>
-                            <td className="px-3 py-1 border-r border-slate-200 text-center text-[12px] font-bold text-slate-600">{p.qty.toFixed(2)}</td>
+                            <td className="px-3 py-1 border-r border-slate-200 text-center text-[12px] font-bold text-slate-600">
+                              {typeof p.qty === 'number' ? p.qty.toFixed(2) : p.qty || '0.00'}
+                            </td>
                             <td className="px-3 py-1 border-r border-slate-200 text-center text-[12px] text-slate-500">{p.uom}</td>
                             <td className="px-3 py-1 border-r border-slate-200 text-center text-[12px] text-slate-600">{p.minStock}</td>
-                            <td className="px-3 py-1 border-r border-slate-200 text-center text-[12px] text-slate-500">{p.closingQty.toFixed(2)}</td>
+                            <td className="px-3 py-1 border-r border-slate-200 text-center text-[12px] text-slate-500">
+                              {typeof p.closingQty === 'number' ? p.closingQty.toFixed(2) : p.closingQty ?? '0.00'}
+                            </td>
                             <td className="px-3 py-1 border-r border-slate-200 text-[11px] text-slate-400">{p.createdDate}</td>
                             <td className="px-3 py-1 text-[12px] text-slate-400 italic">{p.description || ''}</td>
                           </tr>
@@ -304,9 +412,73 @@ export default function TechAutoJobEntry() {
             {/* Footer status */}
             <div className="flex items-center justify-between mt-3 px-1">
               <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                {parts.length > 0 ? `${parts.length} parts loaded · ${selectedIds.size} selected` : 'Ready'}
+                {loading ? 'Loading...' : parts.length > 0 ? `${parts.length} parts loaded · ${selectedIds.size} selected` : 'Ready'}
               </p>
               <p className="text-[10px] text-red-500 font-bold">* Are Mandatory</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Saved Job Cards Table ── */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <h3 className="text-[12px] font-black text-slate-800 uppercase tracking-widest border-l-4 border-[#0097A7] pl-3">Saved Auto Jobs</h3>
+              <span className="bg-[#0097A7]/10 text-[#0097A7] px-2 py-0.5 rounded text-[10px] font-bold">{filtered.length} Records</span>
+            </div>
+            <div className="relative w-60">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search jobs..."
+                className="w-full pl-9 pr-3 py-1.5 text-[12px] border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7]" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wider text-slate-500 border-b bg-slate-50">
+                    <th className="px-4 py-3 font-semibold">Job No</th>
+                    <th className="px-4 py-3 font-semibold">Model</th>
+                    <th className="px-4 py-3 font-semibold">Priority</th>
+                    <th className="px-4 py-3 font-semibold">Required Date</th>
+                    <th className="px-4 py-3 font-semibold text-center">Parts</th>
+                    <th className="px-4 py-3 font-semibold">Note</th>
+                    <th className="px-4 py-3 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-slate-400 italic text-[12px]">Loading...</td>
+                    </tr>
+                  ) : filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-slate-400 italic text-[12px]">No job cards found</td>
+                    </tr>
+                  ) : (
+                    filtered.map(job => (
+                      <tr key={job.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 font-semibold text-[#0097A7] text-[13px]">{job.jobNo}</td>
+                        <td className="px-4 py-3 text-slate-600 text-[12px]">{job.model || '—'}</td>
+                        <td className="px-4 py-3">
+                          {job.priority
+                            ? <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{job.priority}</span>
+                            : <span className="text-slate-400">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-[12px]">{job.requiredDate || '—'}</td>
+                        <td className="px-4 py-3 text-center text-slate-600 text-[12px] font-bold">{job.lineItems?.length || 0}</td>
+                        <td className="px-4 py-3 text-slate-500 text-[12px] italic">{job.note || '—'}</td>
+                        <td className="px-4 py-3">
+                          {job.status
+                            ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${job.status === 'Completed' || job.status === 'Closed' ? 'bg-green-100 text-green-700' : job.status === 'In Process' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{job.status}</span>
+                            : <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">Pending</span>}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

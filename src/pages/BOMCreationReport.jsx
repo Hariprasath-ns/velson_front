@@ -440,10 +440,10 @@ export default function BOMCreationReport() {
       doc.setTextColor(15, 23, 42)
       doc.setFont('Helvetica', 'normal')
       doc.text(row.assemblyPartNo || 'N/A', 65, currentY + 4.5)
-      
+
       const partName = partNames[row.assemblyPartNo] || 'N/A'
       doc.text(partName.length > 35 ? partName.substring(0, 35) + '...' : partName, 115, currentY + 4.5)
-      
+
       doc.text(row.date ? row.date.split('T')[0] : 'N/A', 195, currentY + 4.5)
       doc.text(row.createdBy || 'superadmin', 230, currentY + 4.5)
 
@@ -624,26 +624,26 @@ export default function BOMCreationReport() {
             </thead>
             <tbody>
               ${bomRecord.excelRows.map((row, idx) => {
-                const canonical = getCanonicalRowData(row);
-                return `
+      const canonical = getCanonicalRowData(row);
+      return `
                 <tr>
                   <td class="text-center">${idx + 1}</td>
                   ${CANONICAL_HEADERS.map(h => {
-                    const val = canonical[h];
-                    const valStr = String(val || '').trim();
-                    const isImg = h === 'Image' || valStr.startsWith('http://') ||
-                      valStr.startsWith('https://') ||
-                      valStr.startsWith('/api/') ||
-                      valStr.startsWith('/uploads/') ||
-                      valStr.startsWith('data:image/');
-                    if (isImg && valStr) {
-                      return `<td><img src="${valStr}" style="max-height: 40px; max-width: 80px; object-fit: contain;" /></td>`;
-                    }
-                    return `<td>${valStr}</td>`;
-                  }).join('')}
+        const val = canonical[h];
+        const valStr = String(val || '').trim();
+        const isImg = h === 'Image' || valStr.startsWith('http://') ||
+          valStr.startsWith('https://') ||
+          valStr.startsWith('/api/') ||
+          valStr.startsWith('/uploads/') ||
+          valStr.startsWith('data:image/');
+        if (isImg && valStr) {
+          return `<td><img src="${valStr}" style="max-height: 40px; max-width: 80px; object-fit: contain;" /></td>`;
+        }
+        return `<td>${valStr}</td>`;
+      }).join('')}
                 </tr>
                 `;
-              }).join('')}
+    }).join('')}
             </tbody>
           </table>
           <div class="footer">

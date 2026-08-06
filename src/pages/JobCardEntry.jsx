@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { ChevronRight, Save, Trash2, X, Plus, RotateCcw, Search, Image as ImageIcon } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
@@ -107,8 +107,8 @@ export default function JobCardEntry() {
       setLoading(true)
       try {
         const [jobsRes, nextRes] = await Promise.all([
-          api.get('/api/job-card').catch(() => ({ data: { data: [] } })),
-          api.get('/api/job-card/next-no').catch(() => ({ data: { jobNo: '1' } }))
+          api.get('/api/job-card', { skipGlobalLoader: true }).catch(() => ({ data: { data: [] } })),
+          api.get('/api/job-card/next-no', { skipGlobalLoader: true }).catch(() => ({ data: { jobNo: '1' } }))
         ])
 
         setSavedJobs(jobsRes.data?.data || [])
