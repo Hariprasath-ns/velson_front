@@ -48,7 +48,7 @@ export default function LoginPage({ onLogin }) {
       if (response.ok) {
         onLogin(data)
       } else {
-        setError(data.error || 'Login failed')
+        setError(data.message || data.error || 'Login failed')
         refresh()
       }
     } catch {
