@@ -27,29 +27,6 @@ const Select = ({ options, placeholder, value, onChange, className = "" }) => (
   </div>
 )
 
-const parseNoteMetadata = (noteStr) => {
-  if (!noteStr) return { isSelfStock: false, customersText: '', cleanNote: '' }
-
-  if (noteStr.startsWith('[Self Stock In]')) {
-    return {
-      isSelfStock: true,
-      customersText: '',
-      cleanNote: noteStr.replace('[Self Stock In]', '').trim()
-    }
-  }
-
-  const custMatch = noteStr.match(/^\[Customers:\s*([^\]]+)\]/)
-  if (custMatch) {
-    return {
-      isSelfStock: false,
-      customersText: custMatch[1],
-      cleanNote: noteStr.replace(custMatch[0], '').trim()
-    }
-  }
-
-  return { isSelfStock: false, customersText: '', cleanNote: noteStr }
-}
-
 export default function JobCardEntry() {
   const toast = useToast()
   const [form, setForm] = useState({
@@ -58,11 +35,10 @@ export default function JobCardEntry() {
     priority: '', requiredDate: new Date().toISOString().split('T')[0],
     note: '',
   })
-  const [lineItems, setLineItems] = useState([{ id: Date.now(), partNo: '', partName: '', planQty: '', uom: '' }])
+  const [lineItems, setLineItems] = useState(() => [{ id: Date.now(), partNo: '', partName: '', planQty: '', uom: '' }])
   const [savedJobs, setSavedJobs] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [partImage, setPartImage] = useState(null)
-  const [loading, setLoading] = useState(true)
 
   // Customer states
   const { data: customers = [] } = useCustomers()
@@ -80,7 +56,6 @@ export default function JobCardEntry() {
   const vehicleTypes = useMemo(() => vehicleRes.map(r => r.description).filter(Boolean), [vehicleRes])
   const priorities = useMemo(() => priorityRes.map(r => r.description).filter(Boolean), [priorityRes])
   const uoms = useMemo(() => uomsRes.map(r => r.description).filter(Boolean), [uomsRes])
-  const [nextJobNo, setNextJobNo] = useState('1')
 
   const fetchJobCards = async () => {
     try {
@@ -95,7 +70,6 @@ export default function JobCardEntry() {
     try {
       const res = await api.get('/api/job-card/next-no')
       const nextNo = res.data?.jobNo || '1'
-      setNextJobNo(nextNo)
       setForm(f => ({ ...f, jobNo: nextNo }))
     } catch (err) {
       console.error('Error fetching next job number', err)
@@ -104,7 +78,6 @@ export default function JobCardEntry() {
 
   useEffect(() => {
     const loadAllData = async () => {
-      setLoading(true)
       try {
         const [jobsRes, nextRes] = await Promise.all([
           api.get('/api/job-card', { skipGlobalLoader: true }).catch(() => ({ data: { data: [] } })),
@@ -113,17 +86,14 @@ export default function JobCardEntry() {
 
         setSavedJobs(jobsRes.data?.data || [])
         const nextNo = nextRes.data?.jobNo || '1'
-        setNextJobNo(nextNo)
         setForm(f => ({ ...f, jobNo: nextNo }))
       } catch (err) {
         console.error('Error loading page data', err)
         toast.error('Failed to load job card data')
-      } finally {
-        setLoading(false)
       }
     }
     loadAllData()
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -227,11 +197,17 @@ export default function JobCardEntry() {
       return
     }
 
+    const validLineItems = lineItems.filter(l => l.partNo || l.partName)
+    if (validLineItems.length === 0) {
+      toast.warning('Please add at least one line item with a Part No or Part Name.')
+      return
+    }
+
     try {
       const payload = {
         ...form,
         partImage,
-        lineItems: lineItems.filter(l => l.partNo),
+        lineItems: validLineItems,
         selfStockIn,
         selectedCustomers,
       }
@@ -659,10 +635,11 @@ export default function JobCardEntry() {
                                   let list = [];
 
                                   try {
-                                    list =
+                                    const parsed =
                                       typeof job.selectedCustomers === "string"
                                         ? JSON.parse(job.selectedCustomers)
-                                        : job.selectedCustomers || [];
+                                        : job.selectedCustomers;
+                                    list = Array.isArray(parsed) ? parsed : [];
                                   } catch {
                                     list = [];
                                   }
