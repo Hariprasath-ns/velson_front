@@ -143,19 +143,84 @@ u {
   text-decoration: underline !important;
 }
 
-/* Global Table Row Hover Effect */
-tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover {
+/* Table Row Hover Highlight - ONLY for rows where user has option to select data */
+tbody tr.cursor-pointer:hover,
+tbody tr.selectable:hover,
+tbody tr[data-selectable="true"]:hover,
+tbody tr:has(input[type="checkbox"]):hover,
+tbody tr:has(input[type="radio"]):hover,
+tbody tr:has(button.select-btn):hover,
+tbody tr:has(button[data-action="select"]):hover {
   background-color: #0097A7 !important;
   color: #ffffff !important;
 }
 
-tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td,
-tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td span,
-tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td div,
-tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td p,
-tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td b,
-tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td strong,
-tbody tr:not(.no-hover):not(:has(table)):not(:has(td[colspan])):hover td a {
+tbody tr.cursor-pointer:hover td,
+tbody tr.cursor-pointer:hover td span,
+tbody tr.cursor-pointer:hover td div,
+tbody tr.cursor-pointer:hover td p,
+tbody tr.cursor-pointer:hover td b,
+tbody tr.cursor-pointer:hover td strong,
+tbody tr.cursor-pointer:hover td a,
+tbody tr.selectable:hover td,
+tbody tr.selectable:hover td span,
+tbody tr.selectable:hover td div,
+tbody tr.selectable:hover td p,
+tbody tr.selectable:hover td b,
+tbody tr.selectable:hover td strong,
+tbody tr.selectable:hover td a,
+tbody tr[data-selectable="true"]:hover td,
+tbody tr[data-selectable="true"]:hover td span,
+tbody tr[data-selectable="true"]:hover td div,
+tbody tr[data-selectable="true"]:hover td p,
+tbody tr[data-selectable="true"]:hover td b,
+tbody tr[data-selectable="true"]:hover td strong,
+tbody tr[data-selectable="true"]:hover td a,
+tbody tr:has(input[type="checkbox"]):hover td,
+tbody tr:has(input[type="checkbox"]):hover td span,
+tbody tr:has(input[type="checkbox"]):hover td div,
+tbody tr:has(input[type="checkbox"]):hover td p,
+tbody tr:has(input[type="checkbox"]):hover td b,
+tbody tr:has(input[type="checkbox"]):hover td strong,
+tbody tr:has(input[type="checkbox"]):hover td a,
+tbody tr:has(input[type="radio"]):hover td,
+tbody tr:has(input[type="radio"]):hover td span,
+tbody tr:has(input[type="radio"]):hover td div,
+tbody tr:has(input[type="radio"]):hover td p,
+tbody tr:has(input[type="radio"]):hover td b,
+tbody tr:has(input[type="radio"]):hover td strong,
+tbody tr:has(input[type="radio"]):hover td a {
   color: #ffffff !important;
+}
+
+/* Ensure typed text inside inputs, selects, and textareas inside table rows remains dark slate and 100% visible on hover/focus */
+tbody tr input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+tbody tr select,
+tbody tr textarea,
+tbody tr:hover input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+tbody tr:hover select,
+tbody tr:hover textarea,
+tbody tr:hover td input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+tbody tr:hover td select,
+tbody tr:hover td textarea,
+tbody tr td input:focus,
+tbody tr td select:focus,
+tbody tr td textarea:focus,
+tbody tr:hover td input:focus,
+tbody tr:hover td select:focus,
+tbody tr:hover td textarea:focus {
+  color: #1e293b !important;
+  -webkit-text-fill-color: #1e293b !important;
+}
+
+tbody tr input::placeholder,
+tbody tr select::placeholder,
+tbody tr textarea::placeholder,
+tbody tr:hover input::placeholder,
+tbody tr:hover select::placeholder,
+tbody tr:hover textarea::placeholder,
+tbody tr:hover td input::placeholder {
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
 }
 

@@ -206,14 +206,42 @@ export default function GRNEntry() {
   const [gateSearch, setGateSearch] = useState('')
   const [gateLoading, setGateLoading] = useState(false)
 
-  const openGateSearch = () => {
+  const handleCloseForm = () => {
+    window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'GRNEntryReport' } }))
+  }
+
+  const openGateSearch = async () => {
     setShowGateModal(true)
     setGateSearch('')
     setGateLoading(true)
-    api.get('/api/gate-master', { skipGlobalLoader: true })
-      .then(res => setGateEntries(res.data.data || []))
-      .catch(() => setGateEntries([]))
-      .finally(() => setGateLoading(false))
+    try {
+      const [gateRes, grnRes] = await Promise.all([
+        api.get('/api/gate-master?limit=10000', { skipGlobalLoader: true }),
+        api.get('/api/grn-master?limit=10000', { skipGlobalLoader: true }),
+      ])
+      const allGates = gateRes.data.data || []
+      const allGrns = grnRes.data.data || []
+
+      const usedGateNos = new Set(
+        allGrns
+          .filter(g => g.id !== editId)
+          .map(g => (g.gateEntryNo || '').trim())
+          .filter(Boolean)
+      )
+
+      const activeGates = allGates.filter(e => {
+        const st = (e.status || '').toLowerCase()
+        const isClosedOrSubmitted = st === 'closed' || st === 'completed' || st === 'submitted'
+        const isAlreadyUsed = usedGateNos.has((e.gateEntryNo || '').trim())
+        return !isClosedOrSubmitted && !isAlreadyUsed
+      })
+
+      setGateEntries(activeGates)
+    } catch {
+      setGateEntries([])
+    } finally {
+      setGateLoading(false)
+    }
   }
 
   const calcItemRow = (row) => {
@@ -594,7 +622,7 @@ export default function GRNEntry() {
       <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
         <div className="bg-[--color-main] px-4 py-2.5 flex items-center justify-between">
           <h2 className="text-white font-semibold text-[14px]">{editId ? 'Edit' : 'Create'} - GRN Entry</h2>
-          <button className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors">Close</button>
+          <button onClick={handleCloseForm} className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-[12px] rounded transition-colors">Close</button>
         </div>
 
         {refLoading && (
@@ -811,7 +839,7 @@ export default function GRNEntry() {
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Send className="w-3.5 h-3.5"/>}
                   {submitting ? 'Submitting...' : 'Submit'}
                 </button>
-                <button className="flex items-center gap-1 px-5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><X className="w-3.5 h-3.5"/> Cancel</button>
+                <button onClick={handleCloseForm} className="flex items-center gap-1 px-5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><X className="w-3.5 h-3.5"/> Cancel</button>
               </div>
             </div>
             <div className="space-y-2">

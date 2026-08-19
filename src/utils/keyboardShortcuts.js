@@ -16,7 +16,13 @@ export function initializeKeyboardShortcuts() {
     const key = (e.key || '').toLowerCase();
 
     let action = null;
-    if (isCtrl && !isAlt && key === 's') {
+    if (isCtrl && !isAlt && key === 'i') {
+      e.preventDefault();
+      e.stopPropagation();
+      const fullUrl = window.location.origin + '/item-masters/item-master';
+      window.open(fullUrl, '_blank');
+      return;
+    } else if (isCtrl && !isAlt && key === 's') {
       action = 'save';
     } else if (!isCtrl && isAlt && key === 'c') {
       action = 'create';

@@ -5,52 +5,43 @@ import api from '../services/api'
 export default function ItemSearchInput({
   value = '',
   onChange,
-  placeholder = 'Search part no or name...',
+  placeholder = 'Search Part No...',
   className = '',
   displayField = 'partNo',
   disabled = false,
 }) {
-  const [search, setSearch]         = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')  // ADD
-  const [isOpen, setIsOpen]         = useState(false)
-  const [highlightedIdx, setHighlightedIdx] = useState(-1)   // ADD for keyboard nav
+  const [search, setSearch] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const [highlightedIdx, setHighlightedIdx] = useState(-1)
   const containerRef = useRef(null)
-  const listRef      = useRef(null)                           // ADD for scroll
+  const listRef = useRef(null)
 
-  // Sync external value to internal input
+  // Sync external value to internal search input
   useEffect(() => {
     setSearch(value || '')
   }, [value])
 
-  // Debounce — wait 300ms after user stops typing before firing query
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search)
-    }, 300)
-    return () => clearTimeout(timer)   // cancel if user types again within 300ms
-  }, [search])
-
-  // Reset highlight when results change
-  useEffect(() => {
-    setHighlightedIdx(-1)
-  }, [debouncedSearch])
-
-  // Query uses debouncedSearch — not raw search
+  // Fetch Item Master matching items dynamically from backend database
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ['items-search', debouncedSearch],
+    queryKey: ['items-search-query', search.trim()],
     queryFn: async () => {
-      if (!debouncedSearch.trim()) return []
-      const res = await api.get(
-        `/api/item-master?search=${encodeURIComponent(debouncedSearch)}&limit=20`,
-        { skipGlobalLoader: true }
-      )
+      const q = search.trim()
+      const url = q
+        ? `/api/item-master?search=${encodeURIComponent(q)}&limit=100`
+        : `/api/item-master?limit=50`
+      const res = await api.get(url, { skipGlobalLoader: true })
       return res.data?.data || []
     },
-    enabled: isOpen && debouncedSearch.trim().length >= 2,  // min 2 chars
-    staleTime: 30 * 1000,
+    enabled: isOpen && !disabled,
+    staleTime: 5 * 1000,
   })
 
-  // Click outside
+  // Reset keyboard highlight index when search or items change
+  useEffect(() => {
+    setHighlightedIdx(-1)
+  }, [search, items])
+
+  // Click outside listener
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -61,9 +52,9 @@ export default function ItemSearchInput({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Select an item — shared by click and keyboard Enter
+  // Select an item
   const selectItem = (item) => {
-    const selectVal = item[displayField] || ''
+    const selectVal = item[displayField] || item.partNo || ''
     setSearch(selectVal)
     setIsOpen(false)
     setHighlightedIdx(-1)
@@ -78,7 +69,6 @@ export default function ItemSearchInput({
       e.preventDefault()
       setHighlightedIdx(i => {
         const next = Math.min(i + 1, items.length - 1)
-        // Scroll highlighted item into view
         listRef.current?.children[next]?.scrollIntoView({ block: 'nearest' })
         return next
       })
@@ -111,40 +101,54 @@ export default function ItemSearchInput({
           onChange(val, null)
         }}
         onFocus={() => { if (!disabled) setIsOpen(true) }}
-        onKeyDown={handleKeyDown}        // ADD
+        onKeyDown={handleKeyDown}
         className={className}
         autoComplete="off"
       />
 
-      {isOpen && !disabled && search.trim().length > 0 && (
-        <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded border border-slate-200 bg-white py-1 shadow-lg text-[12px] text-left">
-
-          {/* Show hint while debounce is pending */}
-          {search !== debouncedSearch || debouncedSearch.trim().length < 2 ? (
-            <div className="px-3 py-2 text-slate-400 text-center text-[11px]">
-              {debouncedSearch.trim().length < 2 ? 'Type at least 2 characters...' : 'Searching...'}
+      {isOpen && !disabled && (
+        <div className="absolute left-0 min-w-[280px] z-[9999] mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-300 bg-white py-1 shadow-2xl text-[12px] text-left">
+          {isLoading ? (
+            <div className="px-3 py-2.5 text-slate-400 text-center text-[11px] italic">
+              Searching Item Master for "{search}"...
             </div>
-          ) : isLoading ? (
-            <div className="px-3 py-2 text-slate-500 text-center">Searching...</div>
           ) : items.length === 0 ? (
-            <div className="px-3 py-2 text-slate-500 text-center">No items found</div>
+            <div className="px-3 py-2.5 text-slate-400 text-center text-[11px] italic">
+              No items found matching "{search}"
+            </div>
           ) : (
             <div ref={listRef}>
               {items.map((item, idx) => (
                 <button
-                  key={item.id}
+                  key={item.id || idx}
                   type="button"
-                  onClick={() => selectItem(item)}
-                  className={`w-full text-left px-3 py-1.5 focus:outline-none transition-colors border-b border-slate-50 last:border-0
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    selectItem(item);
+                  }}
+                  className={`w-full text-left px-3 py-2 focus:outline-none transition-colors border-b border-slate-100 last:border-0
                     ${idx === highlightedIdx
-                      ? 'bg-[#0097A7]/10 border-l-2 border-l-[#0097A7]'  // highlighted row
-                      : 'hover:bg-slate-100'
+                      ? 'bg-[#0097A7]/15 border-l-4 border-l-[#0097A7]'
+                      : 'hover:bg-[#0097A7]/10'
                     }`}
                 >
-                  <div className="font-semibold text-[#0097A7]">{item.partNo}</div>
-                  <div className="text-slate-600 text-[11px] truncate">{item.partName}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-[#0097A7]">{item.partNo}</span>
+                    {(item.uom || item.uomName) && (
+                      <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded uppercase font-semibold shrink-0">
+                        {item.uom || item.uomName}
+                      </span>
+                    )}
+                  </div>
+                  {item.partName && (
+                    <div className="text-slate-700 text-[11px] font-medium truncate mt-0.5">
+                      {item.partName}
+                    </div>
+                  )}
                   {item.description && (
-                    <div className="text-slate-400 text-[10px] truncate">{item.description}</div>
+                    <div className="text-slate-400 text-[10px] truncate">
+                      {item.description}
+                    </div>
                   )}
                 </button>
               ))}

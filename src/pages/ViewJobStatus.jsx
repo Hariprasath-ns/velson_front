@@ -873,10 +873,12 @@ export default function ViewJobStatus() {
           workingStartDate: jc.workingStartDate || '',
           workingEndDate: jc.workingEndDate || '',
           priority: jc.priority || '',
-          technicalApprovalDate: jc.approvedDate ? formatPDDate(jc.approvedDate) : '—',
-          approvalPerson: jc.approvedBy || '—',
+          technicalApprovalDate: jc.approvedDate ? formatPDDate(jc.approvedDate) : (jc.technicalApprovalDate ? formatPDDate(jc.technicalApprovalDate) : '—'),
+          approvalPerson: jc.approvedBy || jc.approvalPerson || '—',
+          note: jc.note || jc.remarks || jc.remark || '—',
           stage: jobStage,
           status: jc.status || 'Pending',
+          isApproved: jc.isApproved || jc.status === 'Approved' || jc.status === 'Closed' || !!jc.approvedBy || !!jc.approvedDate,
           partImage: jc.partImage || null,
           partsList
         })
@@ -915,7 +917,11 @@ export default function ViewJobStatus() {
   }, [])
 
   const filtered = jobs.filter(j => {
-    if (activeTab === 'active' && j.status === 'Closed') return false;
+    if (activeTab === 'active') {
+      if (j.status === 'Closed') return false;
+      const isJobApproved = j.isApproved || j.status === 'Approved' || j.status === 'In Process' || j.status === 'Completed' || (j.approvalPerson && j.approvalPerson !== '—') || (j.technicalApprovalDate && j.technicalApprovalDate !== '—');
+      if (!isJobApproved) return false;
+    }
     if (activeTab === 'closed' && j.status !== 'Closed') return false;
 
     const productNameLower = (j.productName || '').toLowerCase()
@@ -1095,11 +1101,13 @@ export default function ViewJobStatus() {
   }
 
   const stageColor = (s) => {
-    if (s === 'Completed') return 'bg-emerald-100 text-emerald-700'
-    if (s === 'In Process') return 'bg-sky-100 text-sky-700'
-    if (s === 'Waiting') return 'bg-amber-100 text-amber-700'
-    if (s === 'Cancelled') return 'bg-red-100 text-red-600'
-    return 'bg-slate-100 text-slate-500'
+    if (s === 'Completed' || s === 'Close') return 'bg-emerald-100 text-emerald-950 border border-emerald-400 font-extrabold'
+    if (s === 'In Process') return 'bg-sky-100 text-sky-950 border border-sky-400 font-extrabold'
+    if (s === 'Waiting' || s === 'Pending') return 'bg-amber-200 text-amber-950 border border-amber-400 font-extrabold'
+    if (s === 'QC Check' || s === 'QC Pending') return 'bg-purple-100 text-purple-950 border border-purple-400 font-extrabold'
+    if (s === 'Closed Route Card' || s === 'Closed') return 'bg-rose-100 text-rose-950 border border-rose-400 font-extrabold'
+    if (s === 'Cancelled') return 'bg-slate-200 text-slate-950 border border-slate-400 font-extrabold'
+    return 'bg-slate-100 text-slate-950 border border-slate-300 font-extrabold'
   }
 
   const priColor = (p) => {
@@ -1317,22 +1325,23 @@ export default function ViewJobStatus() {
                       <th className="px-3 py-2.5 border-r border-red-400 w-12 text-center">Qty</th>
                       <th className="px-3 py-2.5 border-r border-red-400 w-24 text-center">Plan Date</th>
                       <th className="px-3 py-2.5 border-r border-red-400 w-24 text-center">Required Date</th>
-                      <th className="px-3 py-2.5 border-r border-red-400 w-28 text-center">Working Start Date</th>
-                      <th className="px-3 py-2.5 border-r border-red-400 w-28 text-center">Working End Date</th>
-                      <th className="px-3 py-2.5 border-r border-red-400 w-28 text-center">Tech. Approval Date</th>
+                      <th className="px-3 py-2.5 border-r border-red-400 w-28 text-center">Tech. Approved Date</th>
+                      <th className="px-3 py-2.5 border-r border-red-400 w-28 text-center">Work Start Date</th>
+                      <th className="px-3 py-2.5 border-r border-red-400 w-28 text-center">Work End Date</th>
                       <th className="px-3 py-2.5 border-r border-red-400 w-24">Approved By</th>
+                      <th className="px-3 py-2.5 w-36">Note</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700 bg-white">
                     {loading ? (
                       <tr>
-                        <td colSpan={16} className="py-20 text-center text-slate-400">
+                        <td colSpan={17} className="py-20 text-center text-slate-400">
                           <p className="text-[12px] font-bold uppercase tracking-widest animate-pulse">Loading jobs...</p>
                         </td>
                       </tr>
                     ) : filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={16} className="py-20 text-center text-slate-300">
+                        <td colSpan={17} className="py-20 text-center text-slate-300">
                           <Search size={40} strokeWidth={1} className="mx-auto mb-2 opacity-30" />
                           <p className="text-[12px] font-bold uppercase tracking-widest">No jobs found</p>
                           <p className="text-[11px] text-slate-400 mt-1">Try adjusting your search or filters</p>
@@ -1345,7 +1354,7 @@ export default function ViewJobStatus() {
                           <Fragment key={j.id}>
                             <tr
                               onClick={() => setSelectedRow(j.id)}
-                              className={`h-8 transition-colors cursor-pointer text-[12px] ${selectedRow === j.id ? 'bg-[#1565C0] text-white' : i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-100/50'}`}
+                              className={`h-8 transition-colors cursor-pointer text-[12px] ${selectedRow === j.id ? 'bg-[#bae6fd]/60 text-slate-900 font-semibold' : i % 2 === 0 ? 'bg-white hover:bg-sky-50' : 'bg-slate-50/70 hover:bg-sky-50'}`}
                             >
                               <td
                                 className="px-2 py-1 border-r border-slate-100 text-center"
@@ -1354,28 +1363,26 @@ export default function ViewJobStatus() {
                                   setExpandedRow(isExpanded ? null : j.id)
                                 }}
                               >
-                                <button className="p-0.5 rounded hover:bg-slate-200/20 text-slate-400 hover:text-white transition-all flex items-center justify-center mx-auto">
+                                <button className="p-0.5 rounded hover:bg-slate-200/20 text-slate-400 hover:text-slate-700 transition-all flex items-center justify-center mx-auto">
                                   {isExpanded ? (
-                                    <ChevronDown size={14} className={selectedRow === j.id ? "text-white" : "text-[#0097A7]"} />
+                                    <ChevronDown size={14} className="text-[#0097A7]" />
                                   ) : (
-                                    <ChevronRight size={14} className={selectedRow === j.id ? "text-white" : "text-slate-400"} />
+                                    <ChevronRight size={14} className="text-slate-400" />
                                   )}
                                 </button>
                               </td>
-                              <td className={`px-3 py-1 border-r border-slate-100 font-bold ${selectedRow === j.id ? '' : 'text-slate-700'}`}>{j.jobNo}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 font-semibold ${selectedRow === j.id ? '' : 'text-slate-600'}`}>{j.vehicleType}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 font-mono text-[11px] ${selectedRow === j.id ? '' : 'text-[#0097A7]'}`}>{j.partNo}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 font-bold truncate max-w-[250px] ${selectedRow === j.id ? '' : 'text-slate-700'}`}>
+                              <td className="px-3 py-1 border-r border-slate-100 font-bold text-slate-800">{j.jobNo}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 font-semibold text-slate-700">{j.vehicleType}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 font-mono text-[11px] font-bold text-[#0097A7]">{j.partNo}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 font-bold truncate max-w-[250px] text-slate-800">
                                 {j.productName || '—'}
                               </td>
-                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${selectedRow === j.id ? '' : pctColor(j.completedPct)}`}>{j.completedPct.toFixed(2)}</td>
+                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${pctColor(j.completedPct)}`}>{j.completedPct.toFixed(2)}</td>
                               <td className="px-3 py-1 text-center font-bold">
                                 {j.status === 'Closed' ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase whitespace-nowrap bg-rose-100 text-rose-800 border border-rose-200">Closed Route Card</span>
-                                ) : selectedRow === j.id ? (
-                                  <span className="text-[10px] font-bold uppercase whitespace-nowrap">{j.stage}</span>
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase whitespace-nowrap bg-rose-100 text-rose-800 border border-rose-300">Closed Route Card</span>
                                 ) : (
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${stageColor(j.stage)}`}>{j.stage}</span>
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${stageColor(j.stage)}`}>{j.stage}</span>
                                 )}
                               </td>
                               <td className="px-3 py-1 border-r border-slate-100 text-center">
@@ -1385,27 +1392,25 @@ export default function ViewJobStatus() {
                                     setSelectedPartIndex(0)
                                     setFlowModalJob(j)
                                   }}
-                                  className={`p-1 rounded-md transition-all inline-flex items-center justify-center hover:scale-110 active:scale-95 ${selectedRow === j.id
-                                    ? 'text-white bg-white/20 hover:bg-white/30'
-                                    : 'text-[#0097A7] bg-slate-100 hover:bg-[#0097A7]/10'
-                                    }`}
+                                  className="p-1 rounded-md transition-all inline-flex items-center justify-center hover:scale-110 active:scale-95 text-[#0097A7] bg-white border border-slate-200 hover:bg-[#0097A7]/10"
                                   title="View Detailed Process Flow Chart & Analytics"
                                 >
                                   <PieChartIcon size={14} />
                                 </button>
                               </td>
-                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${selectedRow === j.id ? 'font-bold' : priColor(j.priority)}`}>{j.priority || '-'}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 text-center font-bold ${selectedRow === j.id ? '' : 'text-slate-600'}`}>{j.qty}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${selectedRow === j.id ? '' : 'text-slate-505'}`}>{j.planDate}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${selectedRow === j.id ? '' : 'text-slate-505'}`}>{j.requiredDate}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${selectedRow === j.id ? '' : 'text-slate-600 font-semibold'}`}>{j.workingStartDate || '—'}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${selectedRow === j.id ? '' : 'text-slate-600 font-semibold'}`}>{j.workingEndDate || '—'}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${selectedRow === j.id ? '' : 'text-slate-400 text-[11px]'}`}>{j.technicalApprovalDate}</td>
-                              <td className={`px-3 py-1 border-r border-slate-100 ${selectedRow === j.id ? '' : 'text-slate-600 font-semibold'}`}>{j.approvalPerson}</td>
+                              <td className={`px-3 py-1 border-r border-slate-100 text-center ${priColor(j.priority)}`}>{j.priority || '-'}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-center font-bold text-slate-800">{j.qty}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-center text-slate-600">{j.planDate}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-center text-slate-600">{j.requiredDate}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-center text-slate-600 text-[11px]">{j.technicalApprovalDate}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-center text-slate-700 font-semibold">{j.workingStartDate || '—'}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-center text-slate-700 font-semibold">{j.workingEndDate || '—'}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-slate-700 font-semibold">{j.approvalPerson}</td>
+                              <td className="px-3 py-1 text-slate-600">{j.note || '—'}</td>
                             </tr>
                             {isExpanded && (
                               <tr className="bg-slate-50/50">
-                                <td colSpan={16} className="px-6 py-4">
+                                <td colSpan={17} className="px-6 py-4">
                                   <div className="space-y-6">
                                     {(j.partsList || []).map((partDetail, pdIdx) => (
                                       <div key={pdIdx} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 overflow-hidden max-w-full animate-in fade-in slide-in-from-top-2 duration-200">

@@ -7,6 +7,7 @@ import {
 import { useToast } from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { SpinnerLoader } from '../components/LocalLoader'
+import AuthenticatedImage from '../components/AuthenticatedImage'
 
 import globalApi from '../services/api'
 
@@ -369,8 +370,141 @@ const REQUIRED = [
 
 const MOCK_MODE = false
 
+function AuthenticatedPdf({ src, className }) {
+  const [pdfUrl, setPdfUrl] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
-// ── Mock uploads (per item id, mirrors ImagePdf details screen) ────
+  useEffect(() => {
+    if (!src) {
+      setLoading(false)
+      return
+    }
+
+    let isMounted = true
+    let blobUrl = null
+
+    const fetchPdf = async () => {
+      setLoading(true)
+      setError(false)
+      try {
+        const response = await globalApi.get(src, { responseType: 'blob', skipGlobalLoader: true })
+        if (isMounted) {
+          blobUrl = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+          setPdfUrl(blobUrl)
+        }
+      } catch (err) {
+        console.error('Failed to load authenticated PDF:', src, err)
+        if (isMounted) setError(true)
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    fetchPdf()
+
+    return () => {
+      isMounted = false
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
+  }, [src])
+
+  if (loading) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-white rounded-lg border border-slate-200">
+        <Loader2 className="w-8 h-8 text-[#0097A7] animate-spin" />
+        <span className="text-[12px] font-semibold text-slate-500">Loading PDF Document...</span>
+      </div>
+    )
+  }
+
+  if (error || !pdfUrl) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-white rounded-lg border border-slate-200 p-6 text-center">
+        <FileX className="w-12 h-12 text-slate-300" />
+        <p className="text-[13px] font-bold text-slate-600">Unable to load PDF document</p>
+        <a href={src} target="_blank" rel="noreferrer" download className="px-4 py-2 bg-[#0097A7] text-white text-xs font-bold rounded-lg shadow-sm">
+          Download PDF Directly
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <iframe
+      src={pdfUrl}
+      title="PDF Preview"
+      className={className || "w-full h-full rounded-lg border border-slate-200 bg-white shadow-inner"}
+    />
+  )
+}
+
+function AttachmentPreviewModal({ open, type, src, title, partNo, onClose }) {
+  if (!open || !src) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[10000] bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 transition-all"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-5xl h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-3.5 bg-slate-900 text-white border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            {type === 'pdf' ? (
+              <div className="w-8 h-8 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center font-bold text-xs uppercase border border-red-500/30">
+                PDF
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-[#0097A7]/20 text-[#0097A7] flex items-center justify-center font-bold text-xs uppercase border border-[#0097A7]/30">
+                IMG
+              </div>
+            )}
+            <div>
+              <h3 className="text-[14px] font-bold text-white tracking-wide">{title || 'Attachment Preview'}</h3>
+              {partNo && <p className="text-[11px] text-slate-400 font-mono">Part No: {partNo}</p>}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <a
+              href={src}
+              target="_blank"
+              rel="noreferrer"
+              download
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-[12px] font-semibold transition-colors border border-slate-700 shadow-sm"
+            >
+              <Download className="w-3.5 h-3.5" /> Open / Download
+            </a>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white flex items-center justify-center transition-colors font-bold text-base shadow-sm"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Content Body */}
+        <div className="flex-1 bg-slate-100 p-4 overflow-hidden flex items-center justify-center relative">
+          {type === 'pdf' ? (
+            <AuthenticatedPdf src={src} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <AuthenticatedImage
+                src={src}
+                alt="Attachment Preview"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── Index (table) view ────────────────────────────────────────────
 function IndexView({ onCreate, onEdit, onView, dropdowns }) {
@@ -384,6 +518,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
   const [loading, setLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [hoverImage, setHoverImage] = useState(null) // { src, x, y }
+  const [previewModal, setPreviewModal] = useState({ open: false, type: 'image', src: '', title: '', partNo: '' })
   const [activeFilter, setActiveFilter] = useState(null) // null | 'hasUploads' | 'noImage' | 'noPdf'
   const [filterItems, setFilterItems] = useState([])
   const [filterLoading, setFilterLoading] = useState(false)
@@ -627,16 +762,19 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                       <td className={tdCls}>
                         <div className="flex items-center justify-center">
                           {item.hasImage
-                            ? <div
-                              className="w-8 h-8 rounded bg-[#0097A7]/80 flex items-center justify-center shadow-sm cursor-pointer"
+                            ? <button
+                              type="button"
+                              onClick={() => setPreviewModal({ open: true, type: 'image', src: `/api/item-master/${item.id}/download-image`, title: item.partName || 'Item Image', partNo: item.partNo })}
                               onMouseEnter={e => {
                                 const r = e.currentTarget.getBoundingClientRect()
                                 setHoverImage({ src: `/api/item-master/${item.id}/download-image`, x: r.left + r.width / 2, y: r.top })
                               }}
                               onMouseLeave={() => setHoverImage(null)}
+                              className="w-8 h-8 rounded bg-[#0097A7] hover:bg-[#007a87] flex items-center justify-center shadow-sm text-white transition-all hover:scale-105 active:scale-95"
+                              title="Click for full-screen preview"
                             >
-                              <ImageIcon className="w-4 h-4 text-white/70" />
-                            </div>
+                              <ImageIcon className="w-4 h-4 text-white" />
+                            </button>
                             : <span className="text-slate-300 text-[10px]">—</span>
                           }
                         </div>
@@ -646,11 +784,16 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                       <td className={tdCls}>
                         <div className="flex items-center justify-center">
                           {item.hasPdf
-                            ? <a href={`/api/item-master/${item.id}/download-pdf`} target="_blank" rel="noreferrer" className="w-8 h-8 rounded bg-red-100 flex items-center justify-center shadow-sm" title="View PDF">
-                              <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            ? <button
+                              type="button"
+                              onClick={() => setPreviewModal({ open: true, type: 'pdf', src: `/api/item-master/${item.id}/download-pdf`, title: `${item.partName || 'Drawing PDF'}`, partNo: item.partNo })}
+                              className="w-8 h-8 rounded bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-sm text-white transition-all hover:scale-105 active:scale-95"
+                              title="Click for full-screen PDF preview"
+                            >
+                              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>
-                            </a>
+                            </button>
                             : <span className="text-slate-300 text-[10px]">—</span>
                           }
                         </div>
@@ -739,7 +882,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
           style={{ left: hoverImage.x, top: hoverImage.y - 10, transform: 'translate(-50%, -100%)' }}
         >
           <div className="bg-white rounded-xl shadow-2xl border-2 border-[#0097A7] p-2">
-            <img src={hoverImage.src} alt="preview" className="w-64 h-44 object-contain rounded-lg" />
+            <AuthenticatedImage src={hoverImage.src} alt="preview" className="w-64 h-44 object-contain rounded-lg" />
           </div>
           <div className="flex justify-center">
             <div className="w-3 h-3 bg-white border-r-2 border-b-2 border-[#0097A7] rotate-45 -mt-1.5" />
@@ -753,6 +896,15 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
         message={`Delete "${deleteTarget?.partName}"? This cannot be undone.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <AttachmentPreviewModal
+        open={previewModal.open}
+        type={previewModal.type}
+        src={previewModal.src}
+        title={previewModal.title}
+        partNo={previewModal.partNo}
+        onClose={() => setPreviewModal({ open: false, type: 'image', src: '', title: '', partNo: '' })}
       />
     </div>
   )
@@ -1470,7 +1622,7 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
 
 // ── Preview view ──────────────────────────────────────────────────
 function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit }) {
-  const [showPopup, setShowPopup] = useState(false)
+  const [previewModal, setPreviewModal] = useState({ open: false, type: 'image', src: '', title: '', partNo: '' })
   if (!item) return null
 
   const resolve = (list, id, key = 'description', fallback = '—') =>
@@ -1557,7 +1709,7 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
                   <div className="w-[70%]">
                     <div
                       className={`w-full max-w-[340px] aspect-[16/10] rounded-lg shadow-inner flex items-center justify-center border-[6px] border-white drop-shadow-md relative overflow-hidden bg-[#0097A7]/20 ${item.hasImage ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
-                      onClick={() => item.hasImage && setShowPopup(true)}
+                      onClick={() => item.hasImage && setPreviewModal({ open: true, type: 'image', src: `/api/item-master/${item.id}/download-image`, title: item.partName, partNo: item.partNo })}
                     >
                       {item.hasImage
                         ? <img src={`/api/item-master/${item.id}/download-image`} alt="item" className="w-full h-full object-contain" />
@@ -1568,11 +1720,20 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
                 </div>
                 <div className="flex items-center">
                   <div className="w-[30%] text-right pr-4 font-bold text-slate-800 text-[13px]">Drawing PDF :</div>
-                  <div className="w-[70%] text-[13px] text-slate-500">
-                    {item.hasPdf
-                      ? <a href={`/api/item-master/${item.id}/download-pdf`} target="_blank" rel="noreferrer" className="text-[#0097A7] underline">View PDF Document</a>
-                      : 'No PDF Uploaded For Drawing.'
-                    }
+                  <div className="w-[70%] text-[13px]">
+                    {item.hasPdf ? (
+                      <button
+                        onClick={() => setPreviewModal({ open: true, type: 'pdf', src: `/api/item-master/${item.id}/download-pdf`, title: `${item.partName} - Drawing PDF`, partNo: item.partNo })}
+                        className="text-[#0097A7] font-bold hover:underline flex items-center gap-1.5 bg-sky-50 border border-sky-200 px-3 py-1.5 rounded-lg shadow-sm"
+                      >
+                        <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Full-Screen View PDF Document
+                      </button>
+                    ) : (
+                      <span className="text-slate-400">No PDF Uploaded For Drawing.</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1597,30 +1758,14 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
         </div>
       </div>
 
-      {/* Image Popup Modal */}
-      {showPopup && item.hasImage && (
-        <div
-          className="fixed inset-0 z-[10000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setShowPopup(false)}
-        >
-          <div
-            className="relative max-w-4xl max-h-[90vh] bg-white rounded-lg p-2 shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowPopup(false)}
-              className="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md transition-colors z-10"
-            >
-              ✕
-            </button>
-            <img
-              src={`/api/item-master/${item.id}/download-image`}
-              alt="item full preview"
-              className="max-w-full max-h-[80vh] object-contain rounded"
-            />
-          </div>
-        </div>
-      )}
+      <AttachmentPreviewModal
+        open={previewModal.open}
+        type={previewModal.type}
+        src={previewModal.src}
+        title={previewModal.title}
+        partNo={previewModal.partNo}
+        onClose={() => setPreviewModal({ open: false, type: 'image', src: '', title: '', partNo: '' })}
+      />
     </div>
   )
 }
@@ -1629,6 +1774,7 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
 function ImagePdfDetailsView({ item, onBack }) {
   const [uploads, setUploads] = useState([])
   const [loading, setLoading] = useState(true)
+  const [previewModal, setPreviewModal] = useState({ open: false, type: 'image', src: '', title: '', partNo: '' })
 
   useEffect(() => {
     if (!item) return
@@ -1652,23 +1798,18 @@ function ImagePdfDetailsView({ item, onBack }) {
         </button>
         <h1 className="text-[26px] font-normal text-slate-700 mb-6">Item Details</h1>
         <h2 className="text-[17px] font-normal text-slate-800 mb-6">{item.partName}</h2>
-        <div className="flex flex-col gap-1 mb-10 ml-8 text-[13px] font-bold text-slate-800">
-          <div className="flex items-center">
-            <span className="w-28 text-right pr-3">Part Number :</span>
-            <span className="font-normal">{item.partNo}</span>
-          </div>
-          <div className="flex items-center">
-            <span className="w-28 text-right pr-3">Description :</span>
-            <span className="font-normal">{item.description || ''}</span>
-          </div>
+        <div className="flex items-center gap-2 mb-8 ml-8 text-[13px] font-bold text-slate-800">
+          <span className="text-slate-500">Part Number :</span>
+          <span className="font-mono text-[#0097A7] text-[14px]">{item.partNo}</span>
         </div>
         <h3 className="text-[20px] font-normal text-slate-700 mb-4">Images and PDF Documents</h3>
         <div className="border border-slate-200 rounded-sm overflow-hidden">
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                <th className={thCls} style={{ width: '80px' }}>S.No</th>
-                <th className={thCls} style={{ width: '200px' }}>Image</th>
+                <th className={thCls} style={{ width: '60px' }}>S.No</th>
+                <th className={thCls} style={{ width: '160px' }}>Part Number</th>
+                <th className={thCls} style={{ width: '180px' }}>Image</th>
                 <th className={thCls}>PDF Document</th>
                 <th className={thCls}>Updated By</th>
                 <th className={thCls}>Updated Date</th>
@@ -1677,13 +1818,13 @@ function ImagePdfDetailsView({ item, onBack }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center">
+                  <td colSpan={6} className="py-8 text-center">
                     <Loader2 className="w-5 h-5 text-[#0097A7] animate-spin mx-auto" />
                   </td>
                 </tr>
               ) : uploads.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-400 text-[13px]">
+                  <td colSpan={6} className="py-8 text-center text-slate-400 text-[13px]">
                     No uploads found for this item.
                   </td>
                 </tr>
@@ -1691,21 +1832,33 @@ function ImagePdfDetailsView({ item, onBack }) {
                 uploads.map((u, idx) => (
                   <tr key={u.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     <td className={tdCls}>{idx + 1}</td>
+                    <td className={`${tdCls} font-mono font-bold text-[#0097A7]`}>{item.partNo}</td>
                     <td className={tdCls}>
                       {u.hasImage ? (
-                        <img src={`/api/item-master/upload/${u.id}/download-image`} alt="upload" className="w-[80px] h-[54px] object-contain rounded shadow-sm" />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModal({ open: true, type: 'image', src: `/api/item-master/upload/${u.id}/download-image`, title: item.partName, partNo: item.partNo })}
+                          className="group relative cursor-pointer"
+                        >
+                          <img src={`/api/item-master/upload/${u.id}/download-image`} alt="upload" className="w-[80px] h-[54px] object-contain rounded shadow-sm group-hover:opacity-80 transition-opacity" />
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white opacity-0 group-hover:opacity-100 text-[10px] font-bold rounded">Preview</span>
+                        </button>
                       ) : (
                         <span className="text-slate-400 text-[12px]">No Image</span>
                       )}
                     </td>
                     <td className={tdCls}>
                       {u.hasPdf ? (
-                        <a href={`/api/item-master/upload/${u.id}/download-pdf`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[#0097A7] font-medium hover:underline">
-                          <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModal({ open: true, type: 'pdf', src: `/api/item-master/upload/${u.id}/download-pdf`, title: `${item.partName} - PDF Document`, partNo: item.partNo })}
+                          className="flex items-center gap-1.5 text-[#0097A7] font-medium hover:underline bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg shadow-sm"
+                        >
+                          <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                           View PDF Document
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-slate-400 text-[12px]">No PDF</span>
                       )}
@@ -1719,6 +1872,15 @@ function ImagePdfDetailsView({ item, onBack }) {
           </table>
         </div>
       </div>
+
+      <AttachmentPreviewModal
+        open={previewModal.open}
+        type={previewModal.type}
+        src={previewModal.src}
+        title={previewModal.title}
+        partNo={previewModal.partNo}
+        onClose={() => setPreviewModal({ open: false, type: 'image', src: '', title: '', partNo: '' })}
+      />
     </div>
   )
 }

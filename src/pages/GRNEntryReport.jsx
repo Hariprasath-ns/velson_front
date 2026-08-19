@@ -264,7 +264,20 @@ export default function GRNEntryReport() {
                     <td className="px-3 py-2 text-center">-</td>
                     <td className="px-3 py-2 text-center font-semibold text-slate-700">{fmtAmt(row.totalAmount)}</td>
                     <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusColor(row.status)}`}>{row.status}</span></td>
-                    <td className="px-3 py-2 text-center"><button onClick={(e)=>{e.stopPropagation(); handleEdit(row)}} className="px-2 py-1 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] rounded transition-colors"><Edit className="w-3.5 h-3.5"/></button></td>
+                    <td className="px-3 py-2 text-center">
+                      <button
+                        onClick={(e)=>{
+                          if (row.status === 'Completed' || row.status === 'Closed') return;
+                          e.stopPropagation();
+                          handleEdit(row);
+                        }}
+                        disabled={row.status === 'Completed' || row.status === 'Closed'}
+                        title={row.status === 'Completed' || row.status === 'Closed' ? 'Cannot edit completed/closed GRN' : 'Edit GRN'}
+                        className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${row.status === 'Completed' || row.status === 'Closed' ? 'bg-slate-300 cursor-not-allowed' : 'bg-[#0097A7] hover:bg-[#007a87]'}`}
+                      >
+                        <Edit className="w-3.5 h-3.5"/>
+                      </button>
+                    </td>
                     <td className="px-3 py-2 text-center">
                       <button
                         onClick={(e)=>{e.stopPropagation(); handleDelete(row.id)}}

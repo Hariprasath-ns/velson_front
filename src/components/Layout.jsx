@@ -1,6 +1,6 @@
 import { useState, useEffect, startTransition } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { NAV } from '../config/nav'
+import { NAV, PAGE_TO_PATH } from '../config/nav'
 import { useAuth } from '../context/AuthContext'
 import {
   ChevronRight, ChevronDown, User, LogOut,
@@ -41,6 +41,16 @@ export default function Layout({ children }) {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ctrl + I (or Cmd + I): Open Item Master in new window/tab while keeping current window active
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'i' || e.key === 'I' || e.code === 'KeyI')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const itemMasterPath = PAGE_TO_PATH['ItemMaster'] || '/item-masters/item-master';
+        const fullUrl = window.location.origin + itemMasterPath;
+        window.open(fullUrl, '_blank');
+        return;
+      }
+
       // Trigger on Alt key (without Ctrl or Meta to avoid conflicts)
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         let pressedKey = null;
