@@ -5,7 +5,7 @@ import { useModulePermission } from '../hooks/useModulePermission'
 
 const BASE = ''
 const today = new Date().toISOString().split('T')[0]
-const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
 const STATUS_OPTIONS = [
   { value: '',         label: 'All' },
@@ -99,7 +99,7 @@ const doPrint = data => {
 
 export default function PurchaseOrderDetails() {
   const { canEdit, canDelete, canPrint } = useModulePermission('purchase-order-details')
-  const [fromDate, setFromDate]     = useState(thirtyDaysAgo)
+  const [fromDate, setFromDate]     = useState(oneWeekAgo)
   const [toDate, setToDate]         = useState(today)
   const [statusFilter, setStatusFilter] = useState('')
   const [allRows, setAllRows]       = useState([])
@@ -134,11 +134,44 @@ export default function PurchaseOrderDetails() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  const applyFilter = (statusVal, fDate, tDate, baseList = allRows) => {
+    let result = baseList || []
+    if (statusVal) {
+      if (statusVal === 'Approval') {
+        result = result.filter(r => r.status === 'Approval' || r.status === 'Approved')
+      } else if (statusVal === 'Pending') {
+        result = result.filter(r => r.status === 'Pending' || r.status === 'Draft' || !r.status)
+      } else {
+        result = result.filter(r => r.status === statusVal)
+      }
+    }
+    if (fDate || tDate) {
+      result = result.filter(r => {
+        const d = r.poDate ? r.poDate.split('T')[0] : ''
+        if (fDate && d && d < fDate) return false
+        if (tDate && d && d > tDate) return false
+        return true
+      })
+    }
+    setRows(result)
+    setActiveRow(null)
+  }
+
+  const handleStatusFilterChange = (val) => {
+    setStatusFilter(val)
+    applyFilter(val, fromDate, toDate, allRows)
+  }
+
   useEffect(() => {
-    fetch(`${BASE}/api/purchase-master`)
+    setLoading(true)
+    fetch(`${BASE}/api/purchase-master?limit=10000`)
       .then(r => r.json())
       .then(json => {
-        if (json.success) { setAllRows(json.data); setRows(json.data) }
+        if (json.success) {
+          const list = json.data || []
+          setAllRows(list)
+          applyFilter(statusFilter, fromDate, toDate, list)
+        }
       })
       .catch(err => console.error('Error fetching POs:', err))
       .finally(() => setLoading(false))
@@ -146,18 +179,9 @@ export default function PurchaseOrderDetails() {
 
   const handleSearch = () => {
     setSearching(true)
-    setTimeout(() => {
-      let result = allRows
-      if (statusFilter) result = result.filter(r => r.status === statusFilter)
-      result = result.filter(r => {
-        const d = r.poDate ? r.poDate.split('T')[0] : ''
-        return d >= fromDate && d <= toDate
-      })
-      setRows(result)
-      setActiveRow(null)
-      setFilterText('')
-      setSearching(false)
-    }, 0)
+    applyFilter(statusFilter, fromDate, toDate, allRows)
+    setFilterText('')
+    setTimeout(() => setSearching(false), 150)
   }
 
   /* ── column visibility ── */
@@ -324,20 +348,20 @@ export default function PurchaseOrderDetails() {
               <label className={lbl}>To Date :</label>
               <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className={inp} />
             </div>
-            <div className="flex items-center gap-3">
-              {STATUS_OPTIONS.map(opt => (
-                <label key={opt.value} className="flex items-center gap-1 text-[12.5px] cursor-pointer whitespace-nowrap">
-                  <input type="radio" name="poStatus" value={opt.value} checked={statusFilter === opt.value}
-                    onChange={() => setStatusFilter(opt.value)} className="accent-[#0097A7]" />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
             <button onClick={handleSearch} disabled={searching || loading}
               className="flex items-center gap-1.5 px-4 py-1 border border-[#0097A7] text-[#0097A7] bg-white hover:bg-[#0097A7]/10 rounded text-[12px] font-medium transition-colors shadow-sm disabled:opacity-70">
               <span className="w-2 h-2 rounded-full bg-red-500" />
               {searching ? 'Searching…' : 'Search'}
             </button>
+            <div className="flex items-center gap-3 ml-2">
+              {STATUS_OPTIONS.map(opt => (
+                <label key={opt.value} className="flex items-center gap-1 text-[12.5px] cursor-pointer whitespace-nowrap">
+                  <input type="radio" name="poStatus" value={opt.value} checked={statusFilter === opt.value}
+                    onChange={() => handleStatusFilterChange(opt.value)} className="accent-[#0097A7]" />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* Export + utility */}
@@ -545,7 +569,7 @@ export default function PurchaseOrderDetails() {
                 <table className="w-full text-[11.5px] border border-slate-200 rounded">
                   <thead className="bg-slate-100 sticky top-0">
                     <tr>
-                      {['#','Item Code','Item Name','Description','UOM','Qty','Unit Price','Disc%','Amount','GST%','Net Amt'].map(h => (
+                      {['#','Item Code','Pur. Req No','Item Name','Description','UOM','Qty','Unit Price','Amount','GST%','Net Amt'].map(h => (
                         <th key={h} className="px-2 py-1 text-left font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>

@@ -4,6 +4,7 @@ import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useReferenceMaster } from '../hooks/useMasterData'
 import ItemSearchInput from '../components/ItemSearchInput'
+import AuthenticatedImage from '../components/AuthenticatedImage'
 
 const Label = ({ children, required }) => (
   <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase tracking-wider">
@@ -44,11 +45,17 @@ const Select = ({ options, placeholder, value, onChange, className = "" }) => (
   </div>
 )
 
+const getCurrTimeStr = () => {
+  const d = new Date()
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 const emptyLineItem = () => ({
   id: Date.now() + Math.random(),
   partNo: '',
   partName: '',
   description: '',
+  qtyV: '',
   planQty: '',
   uom: '',
 })
@@ -56,7 +63,7 @@ const emptyLineItem = () => ({
 const getStatusBadge = (status) => {
   const st = (status || 'Open').toLowerCase()
   if (st === 'completed' || st === 'close' || st === 'closed') {
-    return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1 inline-flex"><CheckCircle2 size={11} /> Completed</span>
+    return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1 inline-flex"><CheckCircle2 size={11} /> Closed</span>
   }
   if (st === 'in process' || st === 'started' || st === 'in-process') {
     return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1 inline-flex"><Clock size={11} /> In Process</span>
@@ -74,14 +81,15 @@ export default function JobCardEntry() {
     model: '',
     qtyV: '',
     currentDate: new Date().toISOString().split('T')[0],
+    currentTime: getCurrTimeStr(),
     priority: '',
     requiredDate: new Date().toISOString().split('T')[0],
+    requiredTime: getCurrTimeStr(),
     note: '',
   })
 
   const [lineItems, setLineItems] = useState([emptyLineItem()])
   const [savedJobs, setSavedJobs] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [partImage, setPartImage] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -125,7 +133,7 @@ export default function JobCardEntry() {
         setSavedJobs(jobsRes.data?.data || [])
         const nextNo = nextRes.data?.jobNo || '1'
         setNextJobNo(nextNo)
-        setForm(f => ({ ...f, jobNo: nextNo }))
+        setForm(f => ({ ...f, jobNo: nextNo, currentTime: getCurrTimeStr(), requiredTime: getCurrTimeStr() }))
       } catch (err) {
         console.error('Error loading page data', err)
         toast.error('Failed to load job card data')
@@ -165,6 +173,7 @@ export default function JobCardEntry() {
           partName: item ? (item.partName || '') : '',
           description: item ? (item.description || '') : '',
           uom: item ? (item.uom || item.uomName || '') : '',
+          qtyV: l.qtyV || form.qtyV || '',
         }
       }
       return l
@@ -176,30 +185,43 @@ export default function JobCardEntry() {
     return Array.from(new Set(lineItems.map(l => (l.partNo || '').trim()).filter(Boolean)))
   }, [lineItems])
 
-  // Real-time status and history of jobs matching selected Part Nos
+  // Real-time status and history of jobs matching selected Part Nos (sorted by Part No ascending and date)
   const partJobHistory = useMemo(() => {
     if (selectedPartNos.length === 0) return []
     const history = []
+    const seenKeys = new Set()
+
     savedJobs.forEach(job => {
       const matchingItems = (job.lineItems || []).filter(li => li.partNo && selectedPartNos.includes(li.partNo.trim()))
       if (matchingItems.length > 0) {
         matchingItems.forEach(mi => {
+          const uniqueKey = `${job.id}-${mi.partNo}-${mi.id || ''}`
+          if (seenKeys.has(uniqueKey)) return
+          seenKeys.add(uniqueKey)
+
+          const st = mi.state || mi.status || job.status || 'Open'
+          const isClosed = (st || '').toLowerCase() === 'closed' || (st || '').toLowerCase() === 'completed' || (st || '').toLowerCase() === 'close'
           history.push({
             jobId: job.id,
             jobNo: job.jobNo,
             partNo: mi.partNo,
             partName: mi.partName,
             model: job.model || '—',
-            planQty: mi.planQty != null ? mi.planQty : job.qtyV || 0,
+            qtyV: mi.qtyV != null ? mi.qtyV : (job.qtyV || 0),
+            planQty: mi.planQty != null ? mi.planQty : (job.qtyV || 0),
             uom: mi.uom || '—',
             currentDate: job.currentDate,
             priority: job.priority || '—',
-            status: mi.state || mi.status || job.status || 'Open',
+            status: isClosed ? 'Closed' : st,
           })
         })
       }
     })
-    return history
+    return history.sort((a, b) => {
+      const pCmp = (a.partNo || '').localeCompare(b.partNo || '')
+      if (pCmp !== 0) return pCmp
+      return new Date(b.currentDate || 0) - new Date(a.currentDate || 0)
+    })
   }, [savedJobs, selectedPartNos])
 
   const handleSave = async () => {
@@ -214,14 +236,25 @@ export default function JobCardEntry() {
       return
     }
 
+    // Deduplicate valid line items
+    const uniqueLines = []
+    const seenPartNos = new Set()
+    for (const l of validLines) {
+      if (!seenPartNos.has(l.partNo.trim().toLowerCase())) {
+        seenPartNos.add(l.partNo.trim().toLowerCase())
+        uniqueLines.push(l)
+      }
+    }
+
     try {
       const payload = {
         ...form,
         partImage,
-        lineItems: validLines.map(l => ({
+        lineItems: uniqueLines.map(l => ({
           partNo: l.partNo,
           partName: l.partName,
           description: l.description,
+          qtyV: parseFloat(l.qtyV) || parseFloat(form.qtyV) || 0,
           planQty: parseFloat(l.planQty) || 0,
           uom: l.uom,
         })),
@@ -243,47 +276,21 @@ export default function JobCardEntry() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this job entry?')) return
-    try {
-      const res = await api.delete(`/api/job-card/${id}`)
-      if (res.data?.success) {
-        toast.success('Job Entry Deleted Successfully!')
-        await fetchJobCards()
-        await fetchNextJobNo()
-      } else {
-        toast.error(res.data?.message || 'Failed to delete Job Entry.')
-      }
-    } catch (err) {
-      console.error('Error deleting Job Entry', err)
-      toast.error('Error deleting Job Entry: ' + (err.response?.data?.message || err.message))
-    }
-  }
-
   const handleClear = () => {
     setForm(f => ({
       ...f,
       model: '',
       qtyV: '',
       currentDate: new Date().toISOString().split('T')[0],
+      currentTime: getCurrTimeStr(),
       priority: '',
       requiredDate: new Date().toISOString().split('T')[0],
+      requiredTime: getCurrTimeStr(),
       note: ''
     }))
     setLineItems([emptyLineItem()])
     setPartImage(null)
   }
-
-  const filteredJobs = savedJobs.filter(j => {
-    let matchesParts = true
-    if (selectedPartNos.length > 0) {
-      matchesParts = j.lineItems?.some(li => li.partNo && selectedPartNos.includes(li.partNo.trim())) || false
-    }
-    if (!matchesParts) return false
-    if (!searchTerm) return true
-    const q = searchTerm.toLowerCase()
-    return j.jobNo?.toLowerCase().includes(q) || j.model?.toLowerCase().includes(q)
-  })
 
   return (
     <div className="bg-[#f4f6f8] min-h-full pb-10">
@@ -312,53 +319,67 @@ export default function JobCardEntry() {
 
           <div className="p-6">
             {/* Header Form Layout */}
-            <div className="grid grid-cols-12 gap-4 items-start">
-              <div className="col-span-2">
-                <Label required>Job No</Label>
-                <Input value={form.jobNo} readOnly className="!font-bold text-[#0097A7]" />
-              </div>
-              <div className="col-span-3">
-                <Label>Model</Label>
-                <Select options={vehicleTypes} value={form.model} onChange={u('model')} placeholder="Select Model..." />
-              </div>
-              <div className="col-span-2">
-                <Label>Qty / V</Label>
-                <Input type="number" value={form.qtyV} onChange={u('qtyV')} placeholder="0" />
-              </div>
-              <div className="col-span-2">
-                <Label>Current Date</Label>
-                <Input type="date" value={form.currentDate} onChange={u('currentDate')} />
+            <div className="grid grid-cols-12 gap-5 items-stretch">
+              {/* Left Side: Form Fields (9 cols) */}
+              <div className="col-span-12 lg:col-span-9 space-y-3 flex flex-col justify-between">
+                {/* Row 1: Job No, Model, Current Date, Current Time */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  <div>
+                    <Label required>Job No</Label>
+                    <Input value={form.jobNo} readOnly className="!font-bold text-[#0097A7]" />
+                  </div>
+                  <div>
+                    <Label>Model</Label>
+                    <Select options={vehicleTypes} value={form.model} onChange={u('model')} placeholder="Select Model..." />
+                  </div>
+                  <div>
+                    <Label>Current Date</Label>
+                    <Input type="date" value={form.currentDate} readOnly className="bg-slate-50 text-slate-600 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <Label>Current Time</Label>
+                    <Input value={form.currentTime} readOnly className="bg-slate-50 font-mono text-slate-600" />
+                  </div>
+                </div>
+
+                {/* Row 2: Priority, Required Date, Required Time */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <Label>Priority</Label>
+                    <Select options={priorities} value={form.priority} onChange={u('priority')} placeholder="Select Priority..." />
+                  </div>
+                  <div>
+                    <Label>Required Date</Label>
+                    <Input type="date" value={form.requiredDate} onChange={u('requiredDate')} />
+                  </div>
+                  <div>
+                    <Label>Required Time</Label>
+                    <Input type="time" value={form.requiredTime} onChange={u('requiredTime')} />
+                  </div>
+                </div>
+
+                {/* Row 3: Note (Compact on the left) */}
+                <div className="bg-[#e8f5e9] p-2.5 rounded-lg border border-green-200 flex items-center gap-3">
+                  <div className="w-12 text-[11px] font-bold text-green-800 uppercase shrink-0">Note</div>
+                  <div className="flex-1">
+                    <Input value={form.note} onChange={u('note')} placeholder="Enter notes..." className="!py-1.5 !text-xs" />
+                  </div>
+                </div>
               </div>
 
-              {/* Part Image on the right */}
-              <div className="col-span-3 row-span-3">
+              {/* Right Side: Part Image Only (3 cols, extends down to Note) */}
+              <div className="col-span-12 lg:col-span-3 flex flex-col self-stretch">
                 <Label>Part Image</Label>
                 {partImage ? (
-                  <div className="relative bg-slate-50 border border-slate-200 rounded-xl overflow-hidden group">
-                    <img src={partImage} alt="Part" className="w-full h-[180px] object-contain p-2" />
+                  <div className="flex-1 relative bg-slate-50 border border-slate-200 rounded-xl overflow-hidden group min-h-[170px] flex items-center justify-center p-2 shadow-inner">
+                    <AuthenticatedImage src={partImage} alt="Part" className="w-full h-full object-contain" fallback={<ImageIcon size={32} className="text-slate-400" />} />
                   </div>
                 ) : (
-                  <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center h-[180px] gap-2 text-slate-300 transition-all group">
-                    <ImageIcon size={22} strokeWidth={1.5} className="text-slate-400" />
+                  <div className="flex-1 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center min-h-[170px] gap-2 text-slate-300 transition-all group">
+                    <ImageIcon size={30} strokeWidth={1.5} className="text-slate-400" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Part Image</span>
                   </div>
                 )}
-              </div>
-
-              <div className="col-span-3">
-                <Label>Priority</Label>
-                <Select options={priorities} value={form.priority} onChange={u('priority')} placeholder="Select..." />
-              </div>
-              <div className="col-span-3">
-                <Label>Required Date</Label>
-                <Input type="date" value={form.requiredDate} onChange={u('requiredDate')} />
-              </div>
-
-              <div className="col-span-9 bg-[#e8f5e9] p-3 rounded-lg border border-green-200 flex items-center gap-4 mt-1">
-                <div className="w-16 text-[11px] font-bold text-green-800 uppercase shrink-0">Note</div>
-                <div className="flex-1">
-                  <Input value={form.note} onChange={u('note')} placeholder="Enter notes..." />
-                </div>
               </div>
             </div>
 
@@ -367,7 +388,7 @@ export default function JobCardEntry() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <h3 className="text-[12px] font-black text-slate-800 uppercase tracking-widest border-l-4 border-[#0097A7] pl-3">Line Items</h3>
-                  <span className="text-[11px] text-slate-400 italic">(Item details fetched from Item Master. Only "Plan Qty" is editable.)</span>
+                  <span className="text-[11px] text-slate-400 italic">(Item details fetched from Item Master. Manual entry for QTY/V and Plan Qty.)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={addLine} className="flex items-center gap-1.5 px-3 py-[7px] bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded-lg transition-all shadow-sm active:scale-95">
@@ -391,6 +412,7 @@ export default function JobCardEntry() {
                       <th className="px-2 py-3 border-r border-slate-200 w-36">Part No</th>
                       <th className="px-2 py-3 border-r border-slate-200 w-44">Part Name</th>
                       <th className="px-2 py-3 border-r border-slate-200 w-48">Description</th>
+                      <th className="px-2 py-3 border-r border-slate-200 w-24 text-center">QTY / V</th>
                       <th className="px-2 py-3 border-r border-slate-200 w-24 text-center">Plan Qty <span className="text-red-500">*</span></th>
                       <th className="px-2 py-3 w-20 text-center">UOM</th>
                     </tr>
@@ -427,6 +449,15 @@ export default function JobCardEntry() {
                             readOnly
                             placeholder="Auto-populated description..."
                             className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-slate-50 text-slate-700 cursor-not-allowed truncate"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 border-r border-slate-200">
+                          <input
+                            type="number"
+                            value={li.qtyV}
+                            onChange={e => updateLine(li.id, 'qtyV', e.target.value)}
+                            placeholder="0"
+                            className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0097A7]/20 focus:border-[#0097A7] text-center font-bold text-slate-800"
                           />
                         </td>
                         <td className="px-2 py-1.5 border-r border-slate-200">
@@ -490,6 +521,7 @@ export default function JobCardEntry() {
                             <th className="px-3 py-2">Part No</th>
                             <th className="px-3 py-2">Part Name</th>
                             <th className="px-3 py-2">Model</th>
+                            <th className="px-3 py-2 text-center">QTY / V</th>
                             <th className="px-3 py-2 text-center">Plan Qty</th>
                             <th className="px-3 py-2">Date</th>
                             <th className="px-3 py-2 text-center">Live Status</th>
@@ -499,9 +531,10 @@ export default function JobCardEntry() {
                           {partJobHistory.map((h, i) => (
                             <tr key={i} className="hover:bg-slate-50 transition-colors">
                               <td className="px-3 py-1.5 font-bold text-[#0097A7]">{h.jobNo}</td>
-                              <td className="px-3 py-1.5 font-mono text-[11px]">{h.partNo}</td>
+                              <td className="px-3 py-1.5 font-mono text-[11px] font-semibold">{h.partNo}</td>
                               <td className="px-3 py-1.5 font-medium text-slate-700">{h.partName}</td>
                               <td className="px-3 py-1.5 text-slate-600">{h.model}</td>
+                              <td className="px-3 py-1.5 text-center text-slate-700">{h.qtyV}</td>
                               <td className="px-3 py-1.5 text-center font-bold text-slate-800">{h.planQty}</td>
                               <td className="px-3 py-1.5 text-slate-500">{h.currentDate}</td>
                               <td className="px-3 py-1.5 text-center">{getStatusBadge(h.status)}</td>
@@ -514,104 +547,6 @@ export default function JobCardEntry() {
                 )}
               </div>
             )}
-
-            {/* ── Saved Job Cards Table ── */}
-            <div className="mt-10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-[12px] font-black text-slate-800 uppercase tracking-widest border-l-4 border-[#0097A7] pl-3">
-                    Saved Job Cards
-                  </h3>
-                  <span className="bg-[#0097A7]/10 text-[#0097A7] px-2 py-0.5 rounded text-[10px] font-bold">
-                    {filteredJobs.length} Records
-                  </span>
-                  {selectedPartNos.length > 0 && (
-                    <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold">
-                      Filtered by Selected Part(s)
-                    </span>
-                  )}
-                </div>
-                <div className="relative w-64">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Search jobs..."
-                    className="w-full pl-9 pr-3 py-1.5 text-[12px] border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7]"
-                  />
-                </div>
-              </div>
-
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-[11px] uppercase tracking-wider text-slate-500 border-b bg-slate-50">
-                        <th className="px-4 py-3 font-semibold">Job No</th>
-                        <th className="px-4 py-3 font-semibold">Model</th>
-                        <th className="px-4 py-3 font-semibold text-center">Qty / V</th>
-                        <th className="px-4 py-3 font-semibold">Priority</th>
-                        <th className="px-4 py-3 font-semibold">Date</th>
-                        <th className="px-4 py-3 font-semibold text-center">Line Items</th>
-                        <th className="px-4 py-3 font-semibold text-center">Status</th>
-                        <th className="px-4 py-3 font-semibold text-center">Actions</th>
-                      </tr>
-                    </thead>
-
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredJobs.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-12 text-center text-slate-400 italic">
-                            No job cards found
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredJobs.map((job) => (
-                          <tr key={job.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 font-bold text-[#0097A7]">
-                              {job.jobNo}
-                            </td>
-                            <td className="px-4 py-3 text-slate-600 font-medium">
-                              {job.model || "—"}
-                            </td>
-                            <td className="px-4 py-3 text-center font-bold text-slate-700">
-                              {job.qtyV || "—"}
-                            </td>
-                            <td className="px-4 py-3">
-                              {job.priority ? (
-                                <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
-                                  {job.priority}
-                                </span>
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-slate-500 text-xs">
-                              {job.currentDate}
-                            </td>
-                            <td className="px-4 py-3 text-center font-bold text-slate-700">
-                              {job.lineItems?.length || 0}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {getStatusBadge(job.status)}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <button
-                                onClick={() => handleDelete(job.id)}
-                                className="text-slate-400 hover:text-red-600 transition p-1 rounded hover:bg-red-50"
-                                title="Delete Job Card"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

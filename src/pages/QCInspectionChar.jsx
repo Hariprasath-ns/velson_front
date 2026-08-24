@@ -238,14 +238,14 @@ export default function QCInspectionChar() {
         </div>
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200">
           <div className="flex items-center gap-2 text-[12px] text-slate-600">
-            Search:
-            <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="border border-slate-300 rounded px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-36" />
+            <span className="font-semibold">Search:</span>
+            <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search..."
+              className="border border-slate-300 rounded px-2.5 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] w-72 bg-white" />
           </div>
-          <div className="flex items-center gap-2 text-[12px] text-slate-600">
+          <div className="flex items-center gap-2 text-[12px] text-slate-600 ml-auto">
             Show
             <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
-              className="border border-slate-300 rounded px-1 py-0.5 text-[12px]">
+              className="border border-slate-300 rounded px-1.5 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white">
               {PAGE_SIZES.map(s => <option key={s}>{s}</option>)}
             </select>
             entries

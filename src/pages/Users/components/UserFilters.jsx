@@ -18,7 +18,7 @@ export default function UserFilters({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search users..."
-            className="border border-slate-300 rounded pl-8 pr-3 py-1 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-48 shadow-sm transition-all"
+            className="border border-slate-300 rounded pl-8 pr-3 py-1.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] w-72 shadow-sm transition-all"
           />
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>

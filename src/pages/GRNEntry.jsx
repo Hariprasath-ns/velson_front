@@ -45,6 +45,8 @@ export default function GRNEntry() {
   const [editId, setEditId] = useState(null)
   const [suppliersData, setSuppliersData] = useState([])
   const [itemsData, setItemsData] = useState([])
+  const [entryStatus, setEntryStatus] = useState('Open')
+  const isClosed = entryStatus === 'Closed' || entryStatus === 'Completed'
 
   useEffect(() => {
     setRefLoading(true)
@@ -125,6 +127,7 @@ export default function GRNEntry() {
       const grn = res.data.data
       if (!grn) return
       setEditId(grn.id)
+      setEntryStatus(grn.status || 'Open')
       setForm({
         grnType:       grn.grnType       || '',
         gateEntryNo:   grn.gateEntryNo   || '',
@@ -734,6 +737,12 @@ export default function GRNEntry() {
                 {/* <button onClick={()=>{if(items.length>1)setItems(r=>r.slice(0,-1))}} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap"><Trash2 className="w-3.5 h-3.5"/> Delete Selected Item</button> */}
               </div>
 
+              {isClosed && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg text-xs font-semibold flex items-center justify-between">
+                  <span>This GRN Entry is {entryStatus} and cannot be edited.</span>
+                </div>
+              )}
+
           {/* Items */}
           <div className="mt-2">
             <div className="bg-slate-700 px-3 py-1.5 rounded-t flex items-center justify-between">
@@ -765,27 +774,25 @@ export default function GRNEntry() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row,idx)=>(
-                    <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''}`}>
-                      {/* <td className="px-2 py-1 text-center"><input type="checkbox" className="accent-[#0097A7]"/></td> */}
-                      <td className="px-1.5 py-1 text-center text-slate-500">{idx+1}</td>
-                      <td className="px-0.5 py-1"><input value={row.itemCode} onChange={e=>setItemField(idx,'itemCode',e.target.value)} className={`${inp()} w-20`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.itemName} onChange={e=>setItemField(idx,'itemName',e.target.value)} className={`${inp()} w-24`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.qcType} onChange={e=>setItemField(idx,'qcType',e.target.value)} className={`${inp()} w-20`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.supplierPartNo} onChange={e=>setItemField(idx,'supplierPartNo',e.target.value)} className={`${inp()} w-20`}/></td>
-                      {/* <td className="px-1 py-1"><input value={row.description} onChange={e=>setItemField(idx,'description',e.target.value)} className={`${inp()} min-w-[100px]`}/></td> */}
-                      <td className="px-0.5 py-1"><input value={row.hsnCode} onChange={e=>setItemField(idx,'hsnCode',e.target.value)} className={`${inp()} w-16`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.unit} onChange={e=>setItemField(idx,'unit',e.target.value)} className={`${inp()} w-10`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.stockQty} onChange={e=>setItemField(idx,'stockQty',e.target.value)} className={`${inp()} w-12`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.orderQty} onChange={e=>setItemField(idx,'orderQty',e.target.value)} className={`${inp()} w-12`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.qty} onChange={e=>setItemField(idx,'qty',e.target.value)} className={`${inp()} w-10`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.unitPrice} onChange={e=>setItemField(idx,'unitPrice',e.target.value)} className={`${inp()} w-16 min-w-[70px]`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.total} readOnly className={`${inp()} bg-slate-50 w-20 min-w-[85px]`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.discPer} onChange={e=>setItemField(idx,'discPer',e.target.value)} className={`${inp()} w-10`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.discAmt} readOnly className={`${inp()} bg-slate-50 w-14 min-w-[70px]`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.finalPrice} readOnly className={`${inp()} bg-slate-50 w-20 min-w-[85px]`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.taxPer} onChange={e=>setItemField(idx,'taxPer',e.target.value)} className={`${inp()} w-10`}/></td>
-                      <td className="px-0.5 py-1"><input value={row.netAmt} readOnly className={`${inp()} bg-slate-50 w-24 min-w-[100px]`}/></td>
+                  {items.map((row, idx) => (
+                    <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                      <td className="px-1.5 py-1 text-center text-slate-500 font-medium">{idx + 1}</td>
+                      <td className="px-0.5 py-1"><input value={row.itemCode} readOnly tabIndex={-1} className={`${inp()} w-20 bg-slate-100 text-slate-600 font-medium text-[#0097A7] cursor-not-allowed`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.itemName} title={row.itemName || ''} readOnly tabIndex={-1} className={`${inp()} w-24 bg-slate-100 text-slate-600 cursor-not-allowed`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.qcType} readOnly tabIndex={-1} className={`${inp()} w-20 bg-slate-100 text-slate-600 cursor-not-allowed`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.supplierPartNo} disabled={isClosed} onChange={e => setItemField(idx, 'supplierPartNo', e.target.value)} placeholder="Part No" className={`${inp()} w-20 font-medium ${isClosed ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.hsnCode} readOnly tabIndex={-1} className={`${inp()} w-16 bg-slate-100 text-slate-600 cursor-not-allowed`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.unit} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-600 cursor-not-allowed text-center`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.stockQty} readOnly tabIndex={-1} className={`${inp()} w-12 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.orderQty} readOnly tabIndex={-1} className={`${inp()} w-12 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.qty} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-700 cursor-not-allowed text-right font-semibold`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.unitPrice} disabled={isClosed} onChange={e => setItemField(idx, 'unitPrice', e.target.value)} placeholder="0.00" className={`${inp()} w-16 min-w-[70px] text-right font-bold text-slate-800 ${isClosed ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.total} readOnly tabIndex={-1} className={`${inp()} bg-slate-100 text-slate-600 w-20 min-w-[85px] text-right font-medium cursor-not-allowed`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.discPer} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.discAmt} readOnly tabIndex={-1} className={`${inp()} bg-slate-100 text-slate-600 w-14 min-w-[70px] text-right cursor-not-allowed`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.finalPrice} readOnly tabIndex={-1} className={`${inp()} bg-slate-100 text-slate-600 w-20 min-w-[85px] text-right cursor-not-allowed`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.taxPer} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.netAmt} readOnly tabIndex={-1} className={`${inp()} bg-slate-100 text-slate-700 w-24 min-w-[100px] text-right font-bold cursor-not-allowed`} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -810,30 +817,30 @@ export default function GRNEntry() {
             <div className="space-y-2">
               <div className="flex items-start gap-2">
                 <label className={`${lbl} w-[90px] shrink-0 pt-1`}>Remark's :</label>
-                <textarea rows={3} value={remarks} onChange={e=>setRemarks(e.target.value)} className="flex-1 border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] resize-none bg-white"/>
+                <textarea rows={3} disabled={isClosed} value={remarks} onChange={e=>setRemarks(e.target.value)} className={`flex-1 border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] resize-none ${isClosed?'bg-slate-50 cursor-not-allowed':'bg-white'}`}/>
               </div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Currency Total :</label>
-                <input value={currencyTotal} onChange={e=>setCurrencyTotal(e.target.value)} className={inp()}/>
+                <input value={currencyTotal} disabled={isClosed} onChange={e=>setCurrencyTotal(e.target.value)} className={`${inp()} ${isClosed?'bg-slate-50 cursor-not-allowed':''}`}/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Round off :</label>
-                <input value={roundOff} onChange={e=>setRoundOff(e.target.value)} className={inp()}/>
+                <input value={roundOff} disabled={isClosed} onChange={e=>setRoundOff(e.target.value)} className={`${inp()} ${isClosed?'bg-slate-50 cursor-not-allowed':''}`}/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Freight Ledger :</label>
-                <select value={freightLedger} onChange={e=>setFreightLedger(e.target.value)} className={inp()}><option>FREIGHT A/C</option></select>
+                <select value={freightLedger} disabled={isClosed} onChange={e=>setFreightLedger(e.target.value)} className={`${inp()} ${isClosed?'bg-slate-50 cursor-not-allowed':''}`}><option>FREIGHT A/C</option></select>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>TCS Ledger :</label>
-                <select value={tcsLedger} onChange={e=>setTcsLedger(e.target.value)} className={inp()}><option>TCS A/C</option></select>
+                <select value={tcsLedger} disabled={isClosed} onChange={e=>setTcsLedger(e.target.value)} className={`${inp()} ${isClosed?'bg-slate-50 cursor-not-allowed':''}`}><option>TCS A/C</option></select>
               </div>
               <div className="flex gap-2 pt-5">
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || isClosed}
                   className="flex items-center gap-1 px-5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-semibold rounded transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Send className="w-3.5 h-3.5"/>}

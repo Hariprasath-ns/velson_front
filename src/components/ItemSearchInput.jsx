@@ -27,13 +27,13 @@ export default function ItemSearchInput({
     queryFn: async () => {
       const q = search.trim()
       const url = q
-        ? `/api/item-master?search=${encodeURIComponent(q)}&limit=100`
-        : `/api/item-master?limit=50`
+        ? `/api/item-master?search=${encodeURIComponent(q)}&limit=10000`
+        : `/api/item-master?limit=10000`
       const res = await api.get(url, { skipGlobalLoader: true })
       return res.data?.data || []
     },
     enabled: isOpen && !disabled,
-    staleTime: 5 * 1000,
+    staleTime: 10 * 1000,
   })
 
   // Reset keyboard highlight index when search or items change
@@ -45,12 +45,18 @@ export default function ItemSearchInput({
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
+        if (items.length > 0 && search) {
+          const exactMatch = items.find(it => (it.partNo || '').toLowerCase() === search.toLowerCase().trim())
+          if (exactMatch) {
+            selectItem(exactMatch)
+          }
+        }
         setIsOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [items, search])
 
   // Select an item
   const selectItem = (item) => {
@@ -63,6 +69,21 @@ export default function ItemSearchInput({
 
   // Keyboard navigation
   const handleKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      if (isOpen && items.length > 0) {
+        if (highlightedIdx >= 0 && highlightedIdx < items.length) {
+          selectItem(items[highlightedIdx])
+        } else {
+          const exactMatch = items.find(it => (it.partNo || '').toLowerCase() === search.toLowerCase().trim())
+          if (exactMatch) {
+            selectItem(exactMatch)
+          }
+        }
+      }
+      setIsOpen(false)
+      return
+    }
+
     if (!isOpen || items.length === 0) return
 
     if (e.key === 'ArrowDown') {
@@ -87,6 +108,15 @@ export default function ItemSearchInput({
     }
   }
 
+  const handleBlur = () => {
+    if (items.length > 0 && search) {
+      const exactMatch = items.find(it => (it.partNo || '').toLowerCase() === search.toLowerCase().trim())
+      if (exactMatch) {
+        selectItem(exactMatch)
+      }
+    }
+  }
+
   return (
     <div ref={containerRef} className="relative w-full">
       <input
@@ -101,6 +131,7 @@ export default function ItemSearchInput({
           onChange(val, null)
         }}
         onFocus={() => { if (!disabled) setIsOpen(true) }}
+        onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         className={className}
         autoComplete="off"

@@ -48,6 +48,21 @@ const formatPDDate = (dtStr) => {
   }
 }
 
+const getProcessInDate = (savedLi) => {
+  if (!savedLi) return '—'
+  const dt = savedLi.workingStartDate || savedLi.createdAt || savedLi.processDate
+  return dt ? formatPDDate(dt) : '—'
+}
+
+const getProcessOutDate = (savedLi) => {
+  if (!savedLi) return '—'
+  if (savedLi.workingEndDate) return formatPDDate(savedLi.workingEndDate)
+  if (savedLi.state === 'OUT' || savedLi.state === 'QC') {
+    return formatPDDate(savedLi.updatedAt || savedLi.processDate)
+  }
+  return '—'
+}
+
 const formatDate = (d) => {
   if (!d) return '-'
   try {
@@ -151,7 +166,8 @@ const printJobProcessDetails = (job, processMasters = []) => {
 
       const empName = savedLi?.empName || '—'
       const machineName = savedLi?.machineName || pm.Machine_Name || '—'
-      const processDate = savedLi?.processDate ? formatPDDate(savedLi.processDate) : '—'
+      const processInDate = getProcessInDate(savedLi)
+      const processOutDate = getProcessOutDate(savedLi)
       const remarks = savedLi?.remarks || '—'
 
       return `
@@ -161,7 +177,8 @@ const printJobProcessDetails = (job, processMasters = []) => {
           <td class="text-center"><span style="${stateStyle}">${stateText}</span></td>
           <td>${empName}</td>
           <td>${machineName}</td>
-          <td class="text-center font-mono">${processDate}</td>
+          <td class="text-center font-mono" style="font-size: 10px;">${processInDate}</td>
+          <td class="text-center font-mono" style="font-size: 10px;">${processOutDate}</td>
           <td>${remarks}</td>
         </tr>
       `
@@ -176,12 +193,13 @@ const printJobProcessDetails = (job, processMasters = []) => {
         <table class="details-table">
           <thead>
             <tr>
-              <th style="width: 5%;">S.No</th>
-              <th style="width: 20%;">Process Name</th>
-              <th style="width: 10%;">State</th>
-              <th style="width: 20%;">Employee Name</th>
-              <th style="width: 20%;">Machine Name</th>
-              <th style="width: 15%;">Process Date</th>
+              <th style="width: 4%;">S.No</th>
+              <th style="width: 18%;">Process Name</th>
+              <th style="width: 8%;">State</th>
+              <th style="width: 15%;">Employee Name</th>
+              <th style="width: 15%;">Machine Name</th>
+              <th style="width: 15%;">Process In Date</th>
+              <th style="width: 15%;">Process Out Date</th>
               <th style="width: 10%;">Remarks</th>
             </tr>
           </thead>
@@ -690,14 +708,20 @@ const ProcessTimeline = ({ processes, lineItems }) => {
                       {savedLi?.machineName || pm.Machine_Name || '—'}
                     </span>
                   </div>
-                  <div className="col-span-2 md:col-span-1">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider block text-[8px]">Process Date</span>
-                    <span className="text-slate-550 font-semibold block mt-0.5">
-                      {savedLi?.processDate ? formatPDDate(savedLi.processDate) : '—'}
+                  <div>
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block text-[8px]">Process In Date</span>
+                    <span className="text-slate-550 font-semibold block mt-0.5 text-[10.5px]">
+                      {getProcessInDate(savedLi)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block text-[8px]">Process Out Date</span>
+                    <span className="text-slate-550 font-semibold block mt-0.5 text-[10.5px]">
+                      {getProcessOutDate(savedLi)}
                     </span>
                   </div>
                   {savedLi?.remarks && (
-                    <div className="col-span-2 md:col-span-3 mt-1 bg-white/40 p-2 rounded-lg border border-slate-200/10">
+                    <div className="col-span-2 md:col-span-4 mt-1 bg-white/40 p-2 rounded-lg border border-slate-200/10">
                       <span className="text-slate-400 font-bold uppercase tracking-wider block text-[8px]">Remarks</span>
                       <span className="text-slate-650 italic block mt-0.5">{savedLi.remarks}</span>
                     </div>
@@ -926,7 +950,16 @@ export default function ViewJobStatus() {
 
     const productNameLower = (j.productName || '').toLowerCase()
     const partNoLower = (j.partNo || '').toLowerCase()
-    const matchSearch = !search || productNameLower.includes(search.toLowerCase()) || partNoLower.includes(search.toLowerCase()) || String(j.jobNo).includes(search)
+    const noteLower = (j.note || '').toLowerCase()
+    const stageLower = (j.stage || '').toLowerCase()
+    const q = (search || '').toLowerCase().trim()
+    const matchSearch = !q ||
+      productNameLower.includes(q) ||
+      partNoLower.includes(q) ||
+      String(j.jobNo).toLowerCase().includes(q) ||
+      noteLower.includes(q) ||
+      stageLower.includes(q)
+
     const matchStage = activeTab === 'closed' || processStage === 'All' || (processStage === 'In Process' && j.stage === 'In Process') || (processStage === 'Waiting for Process' && j.stage === 'Waiting') || (processStage === 'Close' && j.stage === 'Completed') || (processStage === 'Cancel' && j.stage === 'Cancelled')
     const matchCompleted = activeTab === 'closed' || !showCompleted || j.completedPct >= 100
     const matchDate = (!fromDate || j.planDate >= fromDate) && (!toDate || j.planDate <= toDate)
@@ -984,7 +1017,8 @@ export default function ViewJobStatus() {
     partNo: '',
     partName: '',
     processName: '',
-    processDate: '',
+    processInDate: '',
+    processOutDate: '',
     state: 'IN',
     empName: 'admin',
     machineName: '',
@@ -1006,6 +1040,7 @@ export default function ViewJobStatus() {
 
     const pIdx = partProcesses.findIndex(pm => pm.id === processMaster.id)
 
+    // Sequential Stage Enforcement: Check preceding stages
     let isUnlocked = true
     for (let k = 0; k < pIdx; k++) {
       const precedingPm = partProcesses[k]
@@ -1016,9 +1051,50 @@ export default function ViewJobStatus() {
       }
     }
 
+    if (!isUnlocked) {
+      toast.error('Complete the previous stage first')
+      return
+    }
+
     setIsUnlockedModal(isUnlocked)
 
     const savedLi = lineItems.find(li => li.processName === processMaster.PM_Process_Name)
+
+    // State machine: Once state is QC, modal does not open
+    if (savedLi?.state === 'QC') {
+      toast.info('This process has already completed QC and is locked.')
+      return
+    }
+
+    // State progression: IN -> OUT -> QC
+    let nextState = 'IN'
+    if (savedLi?.state === 'IN') {
+      nextState = 'OUT'
+    } else if (savedLi?.state === 'OUT') {
+      nextState = 'QC'
+    }
+
+    const formatToLocalISO = (dateVal) => {
+      if (!dateVal) return ''
+      try {
+        const d = new Date(dateVal)
+        if (isNaN(d.getTime())) return ''
+        const offsetMs = d.getTimezoneOffset() * 60000
+        return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16)
+      } catch {
+        return ''
+      }
+    }
+
+    const currentLocalISO = (() => {
+      const now = new Date()
+      const offsetMs = now.getTimezoneOffset() * 60000
+      return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16)
+    })()
+
+    const inDateVal = formatToLocalISO(savedLi?.workingStartDate || savedLi?.createdAt || savedLi?.processDate) || currentLocalISO
+    const outDateVal = formatToLocalISO(savedLi?.workingEndDate) || ((nextState === 'OUT' || nextState === 'QC') ? currentLocalISO : '')
+
     setSelectedRow(jobRow.id)
     setPopupForm({
       lineItemId: savedLi ? savedLi.id : null,
@@ -1026,12 +1102,9 @@ export default function ViewJobStatus() {
       partNo: partNo,
       partName: partName,
       processName: processMaster.PM_Process_Name,
-      processDate: savedLi?.processDate || (() => {
-        const now = new Date();
-        const offsetMs = now.getTimezoneOffset() * 60000;
-        return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
-      })(),
-      state: savedLi?.state === 'IN' ? 'OUT' : (savedLi?.state || 'IN'),
+      processInDate: inDateVal,
+      processOutDate: outDateVal,
+      state: nextState,
       empName: savedLi?.empName || 'admin',
       machineName: savedLi?.machineName || processMaster.Machine_Name || '',
       workCenterNo: savedLi?.workCenterNo || processMaster.Machine_Code || '',
@@ -1048,7 +1121,9 @@ export default function ViewJobStatus() {
         partNo: popupForm.partNo,
         partName: popupForm.partName,
         processName: popupForm.processName,
-        processDate: popupForm.processDate,
+        processInDate: popupForm.processInDate,
+        processOutDate: popupForm.processOutDate,
+        processDate: popupForm.processInDate,
         state: popupForm.state,
         empName: popupForm.empName,
         machineName: popupForm.machineName,
@@ -1250,7 +1325,7 @@ export default function ViewJobStatus() {
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-slate-600 uppercase whitespace-nowrap">Search :</span>
-                    <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Job No / Part No / Product Name..." className="w-56" />
+                    <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by Job No / Part No / Product / Stage / Note..." className="w-80" />
                   </div>
                   {activeTab === 'active' && (
                     <div className="flex items-center gap-2">
@@ -1359,8 +1434,8 @@ export default function ViewJobStatus() {
                               <td
                                 className="px-2 py-1 border-r border-slate-100 text-center"
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  setExpandedRow(isExpanded ? null : j.id)
+                                   e.stopPropagation()
+                                   setExpandedRow(isExpanded ? null : j.id)
                                 }}
                               >
                                 <button className="p-0.5 rounded hover:bg-slate-200/20 text-slate-400 hover:text-slate-700 transition-all flex items-center justify-center mx-auto">
@@ -1374,7 +1449,30 @@ export default function ViewJobStatus() {
                               <td className="px-3 py-1 border-r border-slate-100 font-bold text-slate-800">{j.jobNo}</td>
                               <td className="px-3 py-1 border-r border-slate-100 font-semibold text-slate-700">{j.vehicleType}</td>
                               <td className="px-3 py-1 border-r border-slate-100 font-mono text-[11px] font-bold text-[#0097A7]">{j.partNo}</td>
-                              <td className="px-3 py-1 border-r border-slate-100 font-bold truncate max-w-[250px] text-slate-800">
+                              <td
+                                className="px-3 py-1 border-r border-slate-100 font-bold truncate max-w-[250px] text-[#0097A7] hover:underline cursor-pointer"
+                                title="Click Part Name to open Production Details"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const partDetail = (j.partsList || [])[0]
+                                  const partProcesses = partDetail && partDetail.processMenus && partDetail.processMenus.length > 0
+                                    ? partDetail.processMenus
+                                    : processMasters
+                                      .filter(pm => pm.PM_Part_Name === (partDetail ? partDetail.productName : j.productName))
+                                      .sort((a, b) => (Number(a.PM_Process_Order) || 0) - (Number(b.PM_Process_Order) || 0))
+
+                                  if (partProcesses && partProcesses.length > 0) {
+                                    const lineItems = partDetail ? partDetail.lineItems : j.lineItems || []
+                                    const targetProc = partProcesses.find(pm => {
+                                      const li = lineItems.find(l => l.processName === pm.PM_Process_Name)
+                                      return !li || (li.state !== 'QC' && !li.notApplicable)
+                                    }) || partProcesses[0]
+                                    handleOpenPDProcessModal(j, targetProc, partDetail)
+                                  } else {
+                                    setExpandedRow(expandedRow === j.id ? null : j.id)
+                                  }
+                                }}
+                              >
                                 {j.productName || '—'}
                               </td>
                               <td className={`px-3 py-1 border-r border-slate-100 text-center ${pctColor(j.completedPct)}`}>{j.completedPct.toFixed(2)}</td>
@@ -1427,7 +1525,8 @@ export default function ViewJobStatus() {
                                                 <th className="px-3 py-2 border-r border-slate-200 text-center w-20 bg-slate-50">State</th>
                                                 <th className="px-3 py-2 border-r border-slate-200 bg-slate-50">Employee Name</th>
                                                 <th className="px-3 py-2 border-r border-slate-200 bg-slate-50">Machine Name</th>
-                                                <th className="px-3 py-2 border-r border-slate-200 text-center bg-slate-50">Process Date</th>
+                                                <th className="px-3 py-2 border-r border-slate-200 text-center bg-slate-50">Process In Date</th>
+                                                <th className="px-3 py-2 border-r border-slate-200 text-center bg-slate-50">Process Out Date</th>
                                                 <th className="px-3 py-2 bg-slate-50">Remarks</th>
                                               </tr>
                                             </thead>
@@ -1476,8 +1575,11 @@ export default function ViewJobStatus() {
                                                       <td className="px-3 py-2 border-r border-slate-100 text-slate-600">
                                                         {savedLi?.machineName || pm.Machine_Name || '—'}
                                                       </td>
-                                                      <td className="px-3 py-2 border-r border-slate-100 text-center text-slate-500 font-medium">
-                                                        {savedLi?.processDate ? formatPDDate(savedLi.processDate) : '—'}
+                                                      <td className="px-3 py-2 border-r border-slate-100 text-center text-slate-500 font-medium text-[11px] whitespace-nowrap font-mono">
+                                                        {getProcessInDate(savedLi)}
+                                                      </td>
+                                                      <td className="px-3 py-2 border-r border-slate-100 text-center text-slate-500 font-medium text-[11px] whitespace-nowrap font-mono">
+                                                        {getProcessOutDate(savedLi)}
                                                       </td>
                                                       <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]" title={savedLi?.remarks || ''}>
                                                         {savedLi?.remarks || '—'}
@@ -1488,7 +1590,7 @@ export default function ViewJobStatus() {
                                               })()}
                                               {processMasters.filter(pm => pm.PM_Part_Name === partDetail.productName).length === 0 && (
                                                 <tr>
-                                                  <td colSpan={7} className="text-center py-6 text-slate-400 italic">
+                                                  <td colSpan={8} className="text-center py-6 text-slate-400 italic">
                                                     No processes defined in Process Master for this part.
                                                   </td>
                                                 </tr>
@@ -1555,15 +1657,28 @@ export default function ViewJobStatus() {
                 </div>
               )}
 
-              {/* Process Date */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Process Date :</label>
-                <input
-                  type="datetime-local"
-                  value={popupForm.processDate}
-                  onChange={e => setPopupForm(prev => ({ ...prev, processDate: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all"
-                />
+              {/* Process In Date & Process Out Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Process In Date :</label>
+                  <input
+                    type="datetime-local"
+                    value={popupForm.processInDate}
+                    onChange={e => setPopupForm(prev => ({ ...prev, processInDate: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">Created / In Date & Time</span>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Process Out Date :</label>
+                  <input
+                    type="datetime-local"
+                    value={popupForm.processOutDate}
+                    onChange={e => setPopupForm(prev => ({ ...prev, processOutDate: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">Completed / Out Date & Time</span>
+                </div>
               </div>
 
               {/* State Radios */}

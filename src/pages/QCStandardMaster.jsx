@@ -65,8 +65,8 @@ export default function QCStandardMaster(){
       <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
         <div className="bg-[--color-main] px-4 py-2.5"><h2 className="text-white text-center font-semibold text-[14px]">QC Standard Master Details</h2></div>
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <div className="flex items-center gap-2 text-[13px] text-slate-600">Search:<input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} className="border border-slate-300 rounded px-3 py-1 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-40"/></div>
-          <div className="flex items-center gap-2 text-[13px] text-slate-600">Show<select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}} className="border border-slate-300 rounded px-2 py-1 text-[13px]">{PAGE_SIZES.map(s=><option key={s}>{s}</option>)}</select>entries</div>
+          <div className="flex items-center gap-2 text-[13px] text-slate-600"><span className="font-semibold">Search:</span><input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="Search..." className="border border-slate-300 rounded px-3 py-1.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] w-72 bg-white"/></div>
+          <div className="flex items-center gap-2 text-[13px] text-slate-600 ml-auto">Show<select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}} className="border border-slate-300 rounded px-2 py-1 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white">{PAGE_SIZES.map(s=><option key={s}>{s}</option>)}</select>entries</div>
         </div>
         <div className="overflow-x-auto w-full">
           <table className="min-w-full text-[13px]">

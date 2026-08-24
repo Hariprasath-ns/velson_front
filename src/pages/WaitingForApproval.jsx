@@ -42,13 +42,18 @@ export default function WaitingForApproval() {
   const [jobs, setJobs] = useState([])
   const [processes, setProcesses] = useState([])
   const [selectedRow, setSelectedRow] = useState(null)
-  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('PENDING')
   const [page, setPage] = useState(1)
   const pageSize = 13
+
+  // Rejection Modal State
+  const [rejectJob, setRejectJob] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   // Cancellation Modal State
   const [cancelJob, setCancelJob] = useState(null)
   const [cancelReason, setCancelReason] = useState('')
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   // Expanded rows state
   const [expandedRows, setExpandedRows] = useState({})
@@ -79,6 +84,7 @@ export default function WaitingForApproval() {
           jobCardId: jc.id,
           jobNo: jc.jobNo,
           vehicleType: jc.model || '—',
+          qtyV: jc.qtyV || 0,
           planDate: planDateStr,
           requiredDate: requiredDateStr,
           note: jc.note || '',
@@ -131,7 +137,11 @@ export default function WaitingForApproval() {
     }
   }
 
-  const handleReject = async (jobCardId, jobNo) => {
+  const handleRejectSubmit = async (jobCardId, jobNo) => {
+    if (!rejectReason.trim()) {
+      toast.warning('Please provide a rejection reason.')
+      return
+    }
     try {
       const payload = {
         status: 'Rejected',
@@ -139,11 +149,13 @@ export default function WaitingForApproval() {
         approvedBy: null,
         rejectedDate: new Date().toISOString(),
         cancelledDate: null,
-        cancellationReason: null
+        cancellationReason: rejectReason.trim()
       };
       
       await api.put(`/api/job-card/${jobCardId}`, payload, { loadingMessage: 'Rejecting Job Card...' })
       toast.warning(`Job #${jobNo} rejected.`)
+      setRejectJob(null)
+      setRejectReason('')
       await fetchAllData()
     } catch (err) {
       console.error('Error rejecting Job Card:', err)
@@ -151,8 +163,22 @@ export default function WaitingForApproval() {
     }
   }
 
+  const handleCancelClick = (job) => {
+    const hasCompletedStages = job.lineItems?.some(li => li.state === 'OUT' || li.state === 'QC')
+    setCancelJob(job)
+    setCancelReason('')
+    if (hasCompletedStages) {
+      setShowCancelConfirm(true)
+    } else {
+      setShowCancelConfirm(false)
+    }
+  }
+
   const handleCancelSubmit = async (jobCardId, jobNo) => {
-    if (!cancelReason.trim()) return
+    if (!cancelReason.trim()) {
+      toast.warning('Please provide a cancellation reason.')
+      return
+    }
     try {
       const payload = {
         status: 'Cancelled',
@@ -167,6 +193,7 @@ export default function WaitingForApproval() {
       toast.error(`Job #${jobNo} has been cancelled.`)
       setCancelJob(null)
       setCancelReason('')
+      setShowCancelConfirm(false)
       await fetchAllData()
     } catch (err) {
       console.error('Error cancelling Job Card:', err)
@@ -176,13 +203,11 @@ export default function WaitingForApproval() {
 
   // Filter logic: combining search and status filter
   const filtered = jobs.filter(j => {
-    // 1. Status filter
     if (statusFilter === 'PENDING' && j.status !== 'Pending') return false
     if (statusFilter === 'APPROVED' && j.status !== 'Approved') return false
     if (statusFilter === 'REJECTED' && j.status !== 'Rejected') return false
     if (statusFilter === 'CANCELLED' && j.status !== 'Cancelled') return false
 
-    // 2. Search query filter
     if (!search) return true
     const q = search.toLowerCase()
     const matchesLineItems = j.lineItems.some(li => 
@@ -192,6 +217,7 @@ export default function WaitingForApproval() {
 
     return String(j.jobNo).toLowerCase().includes(q) ||
       j.vehicleType.toLowerCase().includes(q) ||
+      (j.note || '').toLowerCase().includes(q) ||
       matchesLineItems;
   })
 
@@ -236,8 +262,9 @@ export default function WaitingForApproval() {
           </div>
 
           <div className="p-3 space-y-3">
-            {/* ── Search bar & Filters ── */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-slate-50/50 p-2 rounded-lg border border-slate-100">
+            {/* ── Search bar (Left) & Filter Buttons (Right) ── */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
+              {/* Left: Search Bar */}
               <div className="flex items-center gap-3">
                 <span className="text-[11px] font-bold text-slate-600 uppercase whitespace-nowrap">Search :</span>
                 <div className="relative">
@@ -254,56 +281,51 @@ export default function WaitingForApproval() {
                 )}
               </div>
 
-              {/* Status Filter Chips */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  onClick={() => { setStatusFilter('ALL'); setPage(1); }}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all active:scale-95 ${statusFilter === 'ALL'
-                      ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
-                      : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-300'
-                    }`}
-                >
-                  All ({jobs.length})
-                </button>
+              {/* Right: Status Filter Buttons */}
+              <div className="flex items-center gap-2 ml-auto flex-wrap">
                 <button
                   onClick={() => { setStatusFilter('PENDING'); setPage(1); }}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all active:scale-95 flex items-center gap-1 ${statusFilter === 'PENDING'
-                      ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                      : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
-                    }`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer ${
+                    statusFilter === 'PENDING'
+                      ? 'bg-amber-500 text-white ring-2 ring-amber-500/30'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
                 >
-                  <Clock size={11} />
+                  <Clock size={12} />
                   {pendingCount} Pending
                 </button>
                 <button
                   onClick={() => { setStatusFilter('APPROVED'); setPage(1); }}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all active:scale-95 flex items-center gap-1 ${statusFilter === 'APPROVED'
-                      ? 'bg-[#2ecc71] text-white border-[#2ecc71] shadow-sm'
-                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
-                    }`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer ${
+                    statusFilter === 'APPROVED'
+                      ? 'bg-emerald-600 text-white ring-2 ring-emerald-600/30'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
                 >
-                  <CheckCircle2 size={11} />
-                  {approvedCount} Approved
+                  <CheckCircle2 size={12} />
+                  Approved
                 </button>
                 <button
                   onClick={() => { setStatusFilter('REJECTED'); setPage(1); }}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all active:scale-95 flex items-center gap-1 ${statusFilter === 'REJECTED'
-                      ? 'bg-[#e74c3c] text-white border-[#e74c3c] shadow-sm'
-                      : 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200'
-                    }`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer ${
+                    statusFilter === 'REJECTED'
+                      ? 'bg-rose-600 text-white ring-2 ring-rose-600/30'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
                 >
-                  <XCircle size={11} />
-                  {rejectedCount} Rejected
+                  <XCircle size={12} />
+                  Rejected
                 </button>
                 <button
                   onClick={() => { setStatusFilter('CANCELLED'); setPage(1); }}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all active:scale-95 flex items-center gap-1 ${statusFilter === 'CANCELLED'
-                      ? 'bg-slate-500 text-white border-slate-500 shadow-sm'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                    }`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer ${
+                    statusFilter === 'CANCELLED'
+                      ? 'bg-slate-700 text-white ring-2 ring-slate-700/30'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
                 >
-                  <Ban size={11} />
-                  {cancelledCount} Cancelled
+                  <Ban size={12} />
+                  Cancelled
                 </button>
               </div>
             </div>
@@ -311,7 +333,7 @@ export default function WaitingForApproval() {
             {/* ── Table ── */}
             <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse" style={{ minWidth: `${minTableWidth}px` }}>
+                <table className="w-full text-left border-collapse" style={{ minWidth: '1000px' }}>
                   <thead>
                     <tr className="bg-[#1565C0] text-white text-[11px] uppercase font-bold">
                       <th className="px-4 py-2 border-r border-blue-400 w-16 bg-[#1565C0]">J.No</th>
@@ -319,23 +341,21 @@ export default function WaitingForApproval() {
                       <th className="px-3 py-2 border-r border-blue-400 w-28 bg-[#1565C0]">Part No</th>
                       <th className="px-3 py-2 border-r border-blue-400 bg-[#1565C0]">Part Name</th>
                       <th className="px-3 py-2 border-r border-blue-400 w-16 text-center bg-[#1565C0]">Qty/V</th>
+                      <th className="px-3 py-2 border-r border-blue-400 w-16 text-center bg-[#1565C0]">Plan Qty</th>
                       <th className="px-3 py-2 border-r border-blue-400 w-24 text-center bg-[#1565C0]">Plan Date</th>
                       <th className="px-3 py-2 border-r border-blue-400 w-24 text-center bg-[#1565C0]">Required Date</th>
                       <th className="px-3 py-2 border-r border-blue-400 w-32 bg-[#1565C0]">Note</th>
-                      {showApprovedCol && <th className="px-3 py-2 border-r border-blue-400 w-40 text-center bg-[#1565C0]">Approved Date</th>}
-                      {showRejectedCol && <th className="px-3 py-2 border-r border-blue-400 w-40 text-center bg-[#1565C0]">Rejected Date</th>}
-                      {showCancelledCol && <th className="px-3 py-2 border-r border-blue-400 w-40 text-center bg-[#1565C0]">Cancelled Date</th>}
-                      {showReasonCol && <th className="px-3 py-2 border-r border-blue-400 w-48 bg-[#1565C0]">Reason</th>}
+                      <th className="px-3 py-2 border-r border-blue-400 w-36 bg-[#1565C0]">Reason</th>
                       <th className="px-3 py-2 text-center bg-[#1565C0] w-48">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {pagedJobs.length === 0 ? (
                       <tr>
-                        <td colSpan={9 + (showApprovedCol ? 1 : 0) + (showRejectedCol ? 1 : 0) + (showCancelledCol ? 1 : 0) + (showReasonCol ? 1 : 0)} className="py-16 text-center text-slate-300">
+                        <td colSpan={11} className="py-16 text-center text-slate-300">
                           <Clock size={36} strokeWidth={1} className="mx-auto mb-2 opacity-30" />
-                          <p className="text-[12px] font-bold uppercase tracking-widest">No jobs found</p>
-                          <p className="text-[11px] text-slate-400 mt-1">Try adjusting search or filters</p>
+                          <p className="text-[12px] font-bold uppercase tracking-widest">No pending jobs found</p>
+                          <p className="text-[11px] text-slate-400 mt-1">All job cards are up to date</p>
                         </td>
                       </tr>
                     ) : (
@@ -356,9 +376,9 @@ export default function WaitingForApproval() {
                         const hasLineItems = j.lineItems && j.lineItems.length > 0;
                         const activeItem = hasLineItems && activeIndex >= 0 ? j.lineItems[activeIndex] : null;
 
-                        const partNoVal = activeItem ? activeItem.partNo : '—';
-                        const partNameVal = activeItem ? activeItem.partName : '—';
-                        const qtyVal = activeItem ? (activeItem.planQty || 0) : (j.qtyV || 0);
+                        const partNoVal = activeItem ? activeItem.partNo : (j.lineItems?.[0]?.partNo || '—');
+                        const partNameVal = activeItem ? activeItem.partName : (j.lineItems?.[0]?.partName || '—');
+                        const planQtyVal = activeItem ? (activeItem.planQty || 0) : (j.qtyV || 0);
 
                         const itemProcesses = processes
                           .filter(p => p.PM_Part_Name && partNameVal && p.PM_Part_Name.toLowerCase().trim() === partNameVal.toLowerCase().trim())
@@ -376,80 +396,37 @@ export default function WaitingForApproval() {
                               <td className="px-3 py-1 border-r border-slate-100 text-[12px] font-bold text-slate-700">{j.jobNo}</td>
                               <td className="px-3 py-1 border-r border-slate-100 text-[12px] font-semibold text-slate-600">{j.vehicleType}</td>
                               
-                              {/* Part No Column */}
-                              <td className="px-3 py-1 border-r border-slate-100 text-[11px] font-mono text-[#0097A7]">
-                                {j.lineItems.length > 1 ? (
-                                  <select
-                                    value={j.activeLineItemIndex}
-                                    onClick={e => e.stopPropagation()}
-                                    onChange={e => {
-                                      e.stopPropagation();
-                                      handleActiveItemChange(j.id, e.target.value);
-                                    }}
-                                    className="px-2 py-0.5 border border-slate-200 rounded bg-white focus:outline-none text-[11px] text-[#0097A7] font-mono cursor-pointer max-w-[130px]"
-                                  >
-                                    {j.lineItems.map((li, idx) => (
-                                      <option key={li.id || idx} value={idx}>{li.partNo}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  partNoVal
-                                )}
+                              {/* Part No Column (Clean Text) */}
+                              <td className="px-3 py-1 border-r border-slate-100 text-[11px] font-mono font-bold text-[#0097A7]">
+                                {partNoVal}
                               </td>
 
-                              {/* Part Name Column */}
-                              <td className="px-3 py-1 border-r border-slate-100 text-[12px] text-slate-700 max-w-[280px]">
+                              {/* Part Name Column (Clean Text) */}
+                              <td className="px-3 py-1 border-r border-slate-100 text-[12px] font-medium text-slate-700 max-w-[280px]">
                                 <div className="flex items-center gap-1.5 w-full">
                                   {itemProcesses.length > 0 && (
                                     <span className="text-[#0097A7] hover:text-[#007a87] transition-colors shrink-0">
                                       {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                     </span>
                                   )}
-                                  
-                                  {j.lineItems.length > 1 ? (
-                                    <select
-                                      value={j.activeLineItemIndex}
-                                      onClick={e => e.stopPropagation()}
-                                      onChange={e => {
-                                        e.stopPropagation();
-                                        handleActiveItemChange(j.id, e.target.value);
-                                      }}
-                                      className="flex-1 min-w-0 px-2 py-0.5 border border-slate-200 rounded bg-white focus:outline-none text-[12px] text-slate-700 cursor-pointer truncate max-w-[240px]"
-                                    >
-                                      {j.lineItems.map((li, idx) => (
-                                        <option key={li.id || idx} value={idx}>{li.partName}</option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <span title={partNameVal} className="truncate">{partNameVal}</span>
-                                  )}
+                                  <span title={partNameVal} className="truncate">{partNameVal}</span>
                                 </div>
                               </td>
 
-                              <td className="px-3 py-1 border-r border-slate-100 text-center text-[12px] font-bold text-slate-600">{qtyVal}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-center text-[12px] font-bold text-slate-600">{j.qtyV || 0}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-center text-[12px] font-bold text-slate-800">{planQtyVal}</td>
                               <td className="px-3 py-1 border-r border-slate-100 text-center text-[11px] text-slate-500">{j.planDate}</td>
                               <td className="px-3 py-1 border-r border-slate-100 text-center text-[11px] text-slate-500">{j.requiredDate}</td>
-                              <td className="px-3 py-1 border-r border-slate-100 text-[11px] text-slate-400 italic">{j.note || '—'}</td>
-                              {showApprovedCol && (
-                                <td className="px-3 py-1 border-r border-slate-100 text-center text-[11px] text-slate-500 font-medium">
-                                  {j.approvedDate || '—'}
-                                </td>
-                              )}
-                              {showRejectedCol && (
-                                <td className="px-3 py-1 border-r border-slate-100 text-center text-[11px] text-slate-500 font-medium">
-                                  {j.rejectedDate || '—'}
-                                </td>
-                              )}
-                              {showCancelledCol && (
-                                <td className="px-3 py-1 border-r border-slate-100 text-center text-[11px] text-slate-500 font-medium">
-                                  {j.cancelledDate || '—'}
-                                </td>
-                              )}
-                              {showReasonCol && (
-                                <td className="px-3 py-1 border-r border-slate-100 text-[11px] text-slate-500 truncate max-w-[200px]" title={j.cancellationReason}>
-                                  {j.cancellationReason || '—'}
-                                </td>
-                              )}
+                              <td className="px-3 py-1 border-r border-slate-100 text-[11px] text-slate-400 italic" title={j.note || ''}>{j.note || '—'}</td>
+                              <td className="px-3 py-1 border-r border-slate-100 text-[11px] font-medium max-w-[160px]" title={j.cancellationReason || ''}>
+                                {j.cancellationReason ? (
+                                  <span className={`${j.rejected ? 'text-red-600 font-semibold' : j.cancelled ? 'text-slate-700 font-medium' : 'text-slate-600'} truncate block`}>
+                                    {j.cancellationReason}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
                               <td className="px-3 py-1 text-center">
                                 {j.approved ? (
                                   <div className="flex items-center justify-center gap-1.5">
@@ -457,7 +434,7 @@ export default function WaitingForApproval() {
                                       <CheckCircle2 size={11} /> Approved
                                     </span>
                                     <button
-                                      onClick={e => { e.stopPropagation(); setCancelJob(j); }}
+                                      onClick={e => { e.stopPropagation(); handleCancelClick(j); }}
                                       className="flex items-center gap-1 px-1.5 py-0.5 bg-[#f39c12] hover:bg-[#d35400] text-white text-[10px] font-bold rounded transition-all active:scale-95 shadow-sm"
                                     >
                                       <Ban size={10} /> Cancel
@@ -475,15 +452,21 @@ export default function WaitingForApproval() {
                                   <div className="flex items-center justify-center gap-1.5">
                                     <button
                                       onClick={e => { e.stopPropagation(); handleApprove(j.jobCardId, j.jobNo) }}
-                                      className="flex items-center gap-1 px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold rounded transition-all active:scale-95 shadow-sm"
+                                      className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10.5px] font-bold rounded transition-all active:scale-95 shadow-sm"
                                     >
                                       <CheckCircle2 size={11} /> Approve
                                     </button>
                                     <button
-                                      onClick={e => { e.stopPropagation(); handleReject(j.jobCardId, j.jobNo) }}
-                                      className="flex items-center gap-1 px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold rounded transition-all active:scale-95 shadow-sm"
+                                      onClick={e => { e.stopPropagation(); setRejectJob(j); setRejectReason(''); }}
+                                      className="flex items-center gap-1 px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white text-[10.5px] font-bold rounded transition-all active:scale-95 shadow-sm"
                                     >
                                       <XCircle size={11} /> Reject
+                                    </button>
+                                    <button
+                                      onClick={e => { e.stopPropagation(); handleCancelClick(j); }}
+                                      className="flex items-center gap-1 px-2 py-1 bg-slate-500 hover:bg-slate-600 text-white text-[10.5px] font-bold rounded transition-all active:scale-95 shadow-sm"
+                                    >
+                                      <Ban size={11} /> Cancel
                                     </button>
                                   </div>
                                 )}
@@ -493,7 +476,7 @@ export default function WaitingForApproval() {
                             {/* Collapsible Process Sequence Table */}
                             {isExpanded && (
                               <tr className="bg-slate-50/50">
-                                <td colSpan={9 + (showApprovedCol ? 1 : 0) + (showRejectedCol ? 1 : 0) + (showCancelledCol ? 1 : 0) + (showReasonCol ? 1 : 0)} className="px-6 py-3">
+                                <td colSpan={11} className="px-6 py-3">
                                   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 overflow-x-auto">
                                     <div className="flex items-center gap-2 mb-3">
                                       <Clock size={14} className="text-[#0097A7]" />
@@ -599,6 +582,57 @@ export default function WaitingForApproval() {
         </div>
       </div>
 
+      {/* Rejection Reason Modal */}
+      {rejectJob !== null && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden transform transition-all scale-100">
+            <div className="bg-gradient-to-r from-red-600 to-rose-600 px-5 py-4 flex items-center justify-between text-white">
+              <h3 className="font-bold text-[14px] uppercase tracking-wide flex items-center gap-2">
+                <XCircle size={16} /> Rejection Reason Required
+              </h3>
+              <button
+                onClick={() => { setRejectJob(null); setRejectReason(''); }}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-slate-600">Please provide a mandatory reason for rejecting Job <strong>#{rejectJob.jobNo}</strong>:</p>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                  Reason for Rejection <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Enter rejection reason..."
+                  rows={4}
+                  className="w-full px-3 py-2 text-[12px] border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all placeholder-slate-400 text-slate-800 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border-t border-slate-100 px-5 py-3 flex items-center justify-end gap-2">
+              <button
+                onClick={() => { setRejectJob(null); setRejectReason(''); }}
+                className="px-4 py-2 border border-slate-300 rounded text-[11px] font-bold text-slate-600 hover:bg-slate-100 transition-colors uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleRejectSubmit(rejectJob.jobCardId, rejectJob.jobNo)}
+                disabled={!rejectReason.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[11px] font-bold rounded shadow transition-all active:scale-95 uppercase tracking-wider"
+              >
+                Confirm Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cancellation Reason Modal */}
       {cancelJob !== null && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -609,7 +643,7 @@ export default function WaitingForApproval() {
                 <Ban size={16} /> Cancellation Reason Required
               </h3>
               <button
-                onClick={() => { setCancelJob(null); setCancelReason(''); }}
+                onClick={() => { setCancelJob(null); setCancelReason(''); setShowCancelConfirm(false); }}
                 className="text-white/80 hover:text-white transition-colors"
               >
                 <X size={18} strokeWidth={2.5} />
@@ -618,6 +652,11 @@ export default function WaitingForApproval() {
 
             {/* Modal Body */}
             <div className="p-5 space-y-4">
+              {showCancelConfirm && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                  ⚠️ Warning: One or more process stages for Job <strong>#{cancelJob.jobNo}</strong> are already completed. Are you sure you want to cancel this Job Card?
+                </div>
+              )}
               <div className="space-y-1">
                 <label className="text-[12px] font-bold text-slate-600 uppercase tracking-wider block">
                   Reason for Cancellation <span className="text-red-500">*</span>
@@ -635,7 +674,7 @@ export default function WaitingForApproval() {
             {/* Modal Footer */}
             <div className="bg-slate-50 border-t border-slate-100 px-5 py-3 flex items-center justify-end gap-2">
               <button
-                onClick={() => { setCancelJob(null); setCancelReason(''); }}
+                onClick={() => { setCancelJob(null); setCancelReason(''); setShowCancelConfirm(false); }}
                 className="px-4 py-2 border border-slate-300 rounded text-[11px] font-bold text-slate-600 hover:bg-slate-100 transition-colors uppercase tracking-wider"
               >
                 Close
@@ -645,7 +684,7 @@ export default function WaitingForApproval() {
                 disabled={!cancelReason.trim()}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[11px] font-bold rounded shadow transition-all active:scale-95 uppercase tracking-wider"
               >
-                Submit
+                Submit Cancellation
               </button>
             </div>
           </div>

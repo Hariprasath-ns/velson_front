@@ -227,14 +227,14 @@ export default function VehicleServiceMaster() {
 
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
           <div className="flex items-center gap-2 text-[13px] text-slate-600">
-            Search:
-            <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="border border-slate-300 rounded px-3 py-1 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-40" />
+            <span className="font-semibold">Search:</span>
+            <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search..."
+              className="border border-slate-300 rounded px-3 py-1.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] w-72 bg-white" />
           </div>
-          <div className="flex items-center gap-2 text-[13px] text-slate-600">
+          <div className="flex items-center gap-2 text-[13px] text-slate-600 ml-auto">
             Show
             <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
-              className="border border-slate-300 rounded px-2 py-1 text-[13px]">
+              className="border border-slate-300 rounded px-2 py-1 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white">
               {PAGE_SIZES.map(s => <option key={s}>{s}</option>)}
             </select>
             entries

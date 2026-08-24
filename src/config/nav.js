@@ -221,7 +221,7 @@ export const NAV = [
       // { id: 'rejected-job-list',    label: 'Rejected Job List',    page: 'RejectedJobList' },
       { id: 'process-completed', label: 'Process Completed', page: 'ProcessCompleted' },
       // { id: 'file-uploads',         label: 'File Uploads',         page: 'FileUploads' },
-      // { id: 'mr-approval',          label: 'MR Approval',          page: 'MRApproval' },
+      { id: 'mr-approval', label: 'MR Approval', page: 'MRApproval' },
       { id: 'nc-job-created', label: 'NC Job Created', page: 'NCJobCreated' },
       { id: 'nc-approval', label: 'NC Approval', page: 'NCApproval' },
       // { id: 'job-entry-closed',     label: 'Job Entry Closed',     page: 'JobEntryClosed' },

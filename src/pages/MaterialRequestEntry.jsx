@@ -98,6 +98,10 @@ export default function MaterialRequestEntry() {
   const [fetchingTmp, setFetchingTmp] = useState(false)
   const [loadedMrId, setLoadedMrId] = useState(null)
   const [nextMrNo, setNextMrNo] = useState('')
+  const [approvedList, setApprovedList] = useState([])
+  const [showApprovedModal, setShowApprovedModal] = useState(false)
+  const [approvedSearch, setApprovedSearch] = useState('')
+  const [loadingApproved, setLoadingApproved] = useState(false)
 
   const [form, setForm] = useState({
     tempRequestNo: '', departmentTo: '', requestingUser: 'superadmin',
@@ -128,71 +132,152 @@ export default function MaterialRequestEntry() {
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const setItemField = (idx, k, v, item) => {
-    if (k === 'itemCode' && v) {
-      const isDuplicate = items.some((r, i) => i !== idx && r.itemCode === v)
+  const fetchItemMasterByCode = async (itemCode) => {
+    if (!itemCode) return null
+    try {
+      const res = await api.get(`/api/item-master?search=${encodeURIComponent(itemCode)}&limit=1`, { skipGlobalLoader: true })
+      const itms = res.data?.data || []
+      return itms.find(it => it.partNo === itemCode) || itms[0] || null
+    } catch (err) {
+      console.error(`Failed to fetch master info for itemCode ${itemCode}:`, err)
+      return null
+    }
+  }
+
+  const handleItemSelect = async (idx, val, item) => {
+    let resolvedItem = item
+    if (!resolvedItem && val && val.trim().length > 0) {
+      try {
+        resolvedItem = await fetchItemMasterByCode(val.trim())
+      } catch {
+        resolvedItem = null
+      }
+    }
+
+    if (val) {
+      const isDuplicate = items.some((r, i) => i !== idx && r.itemCode === val)
       if (isDuplicate) {
-        toast?.error ? toast.error('This item is already added') : alert('This item is already added')
+        toast.error('This item is already added')
         return
       }
     }
+
+    if (resolvedItem) {
+      const hasImg = resolvedItem.hasImage || !!resolvedItem.imageMimeType
+      if (hasImg) {
+        setPartImage(`/api/item-master/${resolvedItem.id}/download-image`)
+      } else if (resolvedItem.imagePath) {
+        setPartImage(resolvedItem.imagePath.startsWith('http') || resolvedItem.imagePath.startsWith('/') ? resolvedItem.imagePath : `/uploads/${resolvedItem.imagePath}`)
+      } else {
+        setPartImage(null)
+      }
+    } else if (items.every((l, i) => i === idx || !l.itemCode)) {
+      setPartImage(null)
+    }
+
     setItems(rows => rows.map((r, i) => {
       if (i !== idx) return r
-      if (k !== 'itemCode') return { ...r, [k]: v }
-      const master = item
-      setPartImage(master?.hasImage ? `/api/item-master/${master.id}/download-image` : (master?.imagePath || null))
+      if (!resolvedItem) {
+        return { ...r, itemCode: val }
+      }
       return {
         ...r,
-        itemCode: v,
-        itemName: master?.partName || '',
-        materialGrade: master?.materialGradeName || '',
-        unit: master?.uom || master?.uomName || '',
+        itemCode: resolvedItem.partNo || val || '',
+        itemName: resolvedItem.partName || '',
+        materialGrade: resolvedItem.materialGradeName || '',
+        unit: resolvedItem.uom || resolvedItem.uomName || '',
       }
+    }))
+  }
+
+  const setItemField = (idx, k, v) => {
+    setItems(rows => rows.map((r, i) => {
+      if (i !== idx) return r
+      return { ...r, [k]: v }
     }))
   }
 
   const addRow = () => setItems(r => [...r, emptyItem()])
   const removeRow = idx => setItems(r => r.filter((_, i) => i !== idx))
 
+  const openApprovedModal = async () => {
+    setShowApprovedModal(true)
+    setLoadingApproved(true)
+    try {
+      const res = await api.get('/api/material-request?limit=10000', { skipGlobalLoader: true })
+      const all = res.data?.data || []
+      const approvedOnly = all.filter(r => r.status === 'Approved')
+      setApprovedList(approvedOnly)
+    } catch {
+      toast.error('Failed to load approved material requests')
+    } finally {
+      setLoadingApproved(false)
+    }
+  }
+
+  const handleSelectApprovedMR = async (mr) => {
+    if (!mr) return
+    setLoadedMrId(mr.id)
+    setForm(f => ({
+      ...f,
+      tempRequestNo: mr.mrNo || '',
+      departmentTo: mr.departmentTo || '',
+      requestingUser: mr.requestingUser || 'superadmin',
+      team: mr.team || '',
+      requestingFor: mr.requestingFor || '',
+      requiredDays: mr.requiredDays || '',
+      storeName: mr.storeName || '',
+      bomPartName: mr.bomPartName || '',
+      vehicleName: mr.vehicleName || '',
+    }))
+    setRemarks(mr.remarks || '')
+
+    if (mr.details?.length) {
+      setItems(mr.details.map(det => ({
+        modelName: det.modelName || '',
+        itemCode: det.itemCode || '',
+        itemName: det.itemName || '',
+        requestedQty: det.requestedQty != null ? String(det.requestedQty) : '',
+        materialGrade: det.materialGrade || '',
+        unit: det.unit || '',
+        remarks: det.remarks || '',
+      })))
+      if (mr.details[0]?.itemCode) {
+        const itm = await fetchItemMasterByCode(mr.details[0].itemCode)
+        if (itm) {
+          const hasImg = itm.hasImage || !!itm.imageMimeType
+          if (hasImg) {
+            setPartImage(`/api/item-master/${itm.id}/download-image`)
+          } else if (itm.imagePath) {
+            setPartImage(itm.imagePath.startsWith('http') || itm.imagePath.startsWith('/') ? itm.imagePath : `/uploads/${itm.imagePath}`)
+          }
+        }
+      }
+    } else {
+      setItems([emptyItem()])
+    }
+    toast.success(`Approved Request ${mr.mrNo} loaded`)
+    setShowApprovedModal(false)
+  }
+
   const loadTemplate = async () => {
     const no = form.tempRequestNo.trim()
-    if (!no) return
+    if (!no) {
+      openApprovedModal()
+      return
+    }
     setFetchingTmp(true)
     try {
       const res = await api.get(`/api/material-request/by-no/${encodeURIComponent(no)}`, { skipGlobalLoader: true })
       const d = res.data?.data
       if (!d) { toast.error('Request not found'); return }
-
-      setLoadedMrId(d.id)
-      setForm(f => ({
-        ...f,
-        departmentTo: d.departmentTo || '',
-        requestingUser: d.requestingUser || 'superadmin',
-        team: d.team || '',
-        requestingFor: d.requestingFor || '',
-        requiredDays: d.requiredDays || '',
-        storeName: d.storeName || '',
-        bomPartName: d.bomPartName || '',
-        vehicleName: d.vehicleName || '',
-      }))
-      setRemarks(d.remarks || '')
-
-      if (d.details?.length) {
-        setItems(d.details.map(det => ({
-          modelName: det.modelName || '',
-          itemCode: det.itemCode || '',
-          itemName: det.itemName || '',
-          requestedQty: det.requestedQty != null ? String(det.requestedQty) : '',
-          materialGrade: det.materialGrade || '',
-          unit: det.unit || '',
-          remarks: det.remarks || '',
-        })))
-      } else {
-        setItems([emptyItem()])
+      if (d.status !== 'Approved') {
+        toast.warning(`Request ${no} is not approved (Status: ${d.status || 'Pending'})`)
+        return
       }
-      toast.success(`Template loaded from ${no}`)
+      handleSelectApprovedMR(d)
     } catch (err) {
-      if (err.response?.status === 404) toast.error('Request not found')
+      if (err.response?.status === 404) toast.error('Approved request not found')
       else toast.error('Failed to load request')
     } finally {
       setFetchingTmp(false)
@@ -276,22 +361,24 @@ export default function MaterialRequestEntry() {
             {/* Column 1 */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[130px] shrink-0`}>Existing Request No :</label>
+                <label className={`${lbl} w-[130px] shrink-0 cursor-pointer`} onClick={openApprovedModal}>Existing Request No :</label>
                 <div className="flex flex-1 gap-1">
                   <input
                     value={form.tempRequestNo}
                     onChange={e => setField('tempRequestNo', e.target.value)}
+                    onClick={openApprovedModal}
                     onKeyDown={e => e.key === 'Enter' && loadTemplate()}
-                    placeholder="Enter & press Enter or click"
-                    className={inp()}
+                    placeholder="Click to select approved MR..."
+                    className={`${inp()} cursor-pointer bg-white`}
+                    readOnly
                   />
                   <button
-                    onClick={loadTemplate}
-                    disabled={fetchingTmp || !form.tempRequestNo.trim()}
-                    title="Load template from this request"
-                    className="px-2 py-1 bg-[#0097A7] hover:bg-[#007a87] disabled:opacity-40 text-white rounded transition-colors shrink-0"
+                    type="button"
+                    onClick={openApprovedModal}
+                    title="Select Approved Material Request"
+                    className="px-2.5 py-1 bg-[#0097A7] hover:bg-[#007a87] text-white rounded transition-colors shrink-0 flex items-center gap-1 text-[12px] font-medium shadow-xs"
                   >
-                    <Search className="w-3.5 h-3.5" />
+                    <Search className="w-3.5 h-3.5" /> Select
                   </button>
                 </div>
               </div>
@@ -418,11 +505,11 @@ export default function MaterialRequestEntry() {
             <div className="bg-slate-700 px-3 py-1.5 rounded-t">
               <h3 className="text-white text-[13px] font-semibold">Items</h3>
             </div>
-            <div className="overflow-x-auto border border-slate-200 rounded-b">
+            <div className="border border-slate-200 rounded-b overflow-visible relative z-30 shadow-sm">
               {loading ? (
                 <TableSkeleton rows={3} cols={['4%', '14%', '14%', '16%', '10%', '12%', '10%', '10%', '10%']} />
               ) : (
-                <table className="min-w-full text-[12.5px]">
+                <table className="min-w-full text-[12.5px] border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
                       <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">S.NO</th>
@@ -433,27 +520,27 @@ export default function MaterialRequestEntry() {
                   </thead>
                   <tbody>
                     {items.map((row, idx) => (
-                      <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                      <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''} relative`} style={{ zIndex: items.length - idx + 10 }}>
                         <td className="px-2 py-1 text-center text-slate-500">{idx + 1}</td>
-                        <td className="px-1 py-1">
+                        <td className="px-1 py-1 w-32">
                           <LoadingSelect loading={loading} value={row.modelName} onChange={e => setItemField(idx, 'modelName', e.target.value)} className={inp()}>
                             <option value="">Select</option>
                             {vehicleTypes.map(v => <option key={v}>{v}</option>)}
                           </LoadingSelect>
                         </td>
-                        <td className="px-1 py-1">
+                        <td className="px-1 py-1 w-36 min-w-[150px]">
                           <ItemSearchInput
                             value={row.itemCode}
-                            onChange={(val, item) => setItemField(idx, 'itemCode', val, item)}
+                            onChange={(val, item) => handleItemSelect(idx, val, item)}
                             displayField="partNo"
-                            placeholder="Select Part No"
-                            className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7]"
+                            placeholder="Search Part No..."
+                            className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7] font-semibold text-[#0097A7]"
                           />
                         </td>
-                        <td className="px-1 py-1"><input value={row.itemName} readOnly className={`${inp()} bg-slate-50 min-w-[150px]`} /></td>
-                        <td className="px-1 py-1"><input value={row.materialGrade} onChange={e => setItemField(idx, 'materialGrade', e.target.value)} className={`${inp()} bg-slate-50`} /></td>
-                        <td className="px-1 py-1"><input value={row.requestedQty} onChange={e => setItemField(idx, 'requestedQty', e.target.value)} className={inp()} /></td>
-                        <td className="px-1 py-1"><input value={row.unit} onChange={e => setItemField(idx, 'unit', e.target.value)} className={`${inp()} w-16`} /></td>
+                        <td className="px-1 py-1"><input value={row.itemName} readOnly className={`${inp()} bg-slate-50 min-w-[150px] cursor-not-allowed`} /></td>
+                        <td className="px-1 py-1"><input value={row.materialGrade} readOnly className={`${inp()} bg-slate-50 w-28 cursor-not-allowed`} /></td>
+                        <td className="px-1 py-1"><input value={row.requestedQty} onChange={e => setItemField(idx, 'requestedQty', e.target.value)} className={`${inp()} w-20 text-right font-medium`} /></td>
+                        <td className="px-1 py-1"><input value={row.unit} readOnly className={`${inp()} bg-slate-50 w-16 text-center cursor-not-allowed`} /></td>
                         <td className="px-1 py-1"><input value={row.remarks} onChange={e => setItemField(idx, 'remarks', e.target.value)} className={inp()} /></td>
                         <td className="px-2 py-1 text-center">
                           <button onClick={() => removeRow(idx)} className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] rounded transition-colors">Remove</button>
@@ -481,6 +568,146 @@ export default function MaterialRequestEntry() {
           </div>
         </div>
       </div>
+
+      {/* Modal to Select Approved Material Request */}
+      {showApprovedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-[#0097A7] to-[#00BCD4] px-5 py-3 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
+                <h3 className="text-[13px] font-bold uppercase tracking-wide">Select Approved Material Request</h3>
+              </div>
+              <button onClick={() => setShowApprovedModal(false)} className="text-white/80 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Search Bar */}
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-1 max-w-md">
+                <span className="text-[12px] font-bold text-slate-600">Search:</span>
+                <input
+                  value={approvedSearch}
+                  onChange={e => setApprovedSearch(e.target.value)}
+                  placeholder="Search by MR No, Department, User, Vehicle..."
+                  className="w-full border border-slate-300 rounded px-3 py-1.5 text-[12px] bg-white focus:outline-none focus:border-[#0097A7]"
+                  autoFocus
+                />
+              </div>
+              <span className="text-[11.5px] font-semibold text-slate-500">
+                {approvedList.filter(r => {
+                  if (!approvedSearch.trim()) return true
+                  const q = approvedSearch.toLowerCase()
+                  return (
+                    (r.mrNo || '').toLowerCase().includes(q) ||
+                    (r.departmentTo || '').toLowerCase().includes(q) ||
+                    (r.requestingUser || '').toLowerCase().includes(q) ||
+                    (r.vehicleName || '').toLowerCase().includes(q)
+                  )
+                }).length} Approved Requests
+              </span>
+            </div>
+
+            {/* Modal Table */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingApproved ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="w-7 h-7 text-[#0097A7] animate-spin" />
+                  <span className="text-[12px] text-slate-500 font-semibold">Loading approved requests...</span>
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-[12px] border-collapse">
+                    <thead className="bg-slate-100 text-slate-700 text-[11px] uppercase font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-2 text-center w-12">#</th>
+                        <th className="px-3 py-2">Request No</th>
+                        <th className="px-3 py-2 text-center">Req Date</th>
+                        <th className="px-3 py-2">Department</th>
+                        <th className="px-3 py-2">Requesting For</th>
+                        <th className="px-3 py-2">Vehicle Name</th>
+                        <th className="px-3 py-2 text-center">Status</th>
+                        <th className="px-3 py-2 text-center w-24">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {approvedList
+                        .filter(r => {
+                          if (!approvedSearch.trim()) return true
+                          const q = approvedSearch.toLowerCase()
+                          return (
+                            (r.mrNo || '').toLowerCase().includes(q) ||
+                            (r.departmentTo || '').toLowerCase().includes(q) ||
+                            (r.requestingUser || '').toLowerCase().includes(q) ||
+                            (r.vehicleName || '').toLowerCase().includes(q)
+                          )
+                        })
+                        .map((mr, idx) => (
+                          <tr
+                            key={mr.id}
+                            onClick={() => handleSelectApprovedMR(mr)}
+                            className="hover:bg-[#f0fdfe] cursor-pointer transition-colors"
+                          >
+                            <td className="px-3 py-2 text-center text-slate-400">{idx + 1}</td>
+                            <td className="px-3 py-2 font-bold text-[#0097A7]">{mr.mrNo}</td>
+                            <td className="px-3 py-2 text-center text-slate-500">
+                              {mr.requestDate ? new Date(mr.requestDate).toLocaleDateString('en-GB') : '—'}
+                            </td>
+                            <td className="px-3 py-2 font-medium text-slate-700">{mr.departmentTo || '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{mr.requestingFor || '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{mr.vehicleName || '—'}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                Approved
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-center" onClick={e => e.stopPropagation()}>
+                              <button
+                                onClick={() => handleSelectApprovedMR(mr)}
+                                className="px-3 py-1 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded shadow-xs transition-colors"
+                              >
+                                Select
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {approvedList.filter(r => {
+                        if (!approvedSearch.trim()) return true
+                        const q = approvedSearch.toLowerCase()
+                        return (
+                          (r.mrNo || '').toLowerCase().includes(q) ||
+                          (r.departmentTo || '').toLowerCase().includes(q) ||
+                          (r.requestingUser || '').toLowerCase().includes(q) ||
+                          (r.vehicleName || '').toLowerCase().includes(q)
+                        )
+                      }).length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="py-12 text-center text-slate-400 italic">
+                            No approved material requests found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowApprovedModal(false)}
+                className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-100 font-semibold text-[12px]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

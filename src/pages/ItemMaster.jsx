@@ -680,7 +680,18 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
 
           {/* Search + Show entries */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-            <div className="flex items-center gap-2 text-[12px] text-slate-600">
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-bold text-slate-600">Search:</span>
+              <div className="relative">
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search Part No / Name..."
+                  className="border border-slate-200 rounded px-3 py-1.5 text-[12px] w-72 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] bg-white"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[12px] text-slate-600 ml-auto">
               <span>Show</span>
               <select
                 value={showEntries}
@@ -690,14 +701,6 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                 {['10', '25', '50', '100'].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
               <span>entries</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] text-slate-500">Search:</span>
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="border border-slate-200 rounded px-3 py-1.5 text-[12px] w-48 focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white"
-              />
             </div>
           </div>
 
@@ -714,8 +717,8 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                   {/* <th className={thCls} style={{ width: 52  }}>ID</th> */}
                   <th className={thCls} style={{ width: 44 }}>S.No</th>
                   <th className={thCls} style={{ width: 90 }}>Part No</th>
-                  <th className={thCls} style={{ width: 100 }}>O.S.No.</th>
                   <th className={thCls} style={{ minWidth: 200 }}>Part Name</th>
+                  <th className={thCls} style={{ width: 100 }}>O.S.No.</th>
                   <th className={thCls} style={{ width: 80 }}>Model</th>
                   <th className={thCls} style={{ width: 70 }}>Brand</th>
                   <th className={thCls} style={{ width: 52 }}>R.O.L.</th>
@@ -745,8 +748,8 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                       {/* <td className={tdCls + ' font-medium text-slate-800'}>{item.id}</td> */}
                       <td className={tdCls}>{from + idx}</td>
                       <td className={tdCls + ' font-medium text-[#0097A7]'}>{item.partNo}</td>
-                      <td className={tdCls + ' text-slate-500'}>{item.outsourcePartNo || ''}</td>
                       <td className={`${tdCls} text-left font-medium`}>{item.partName}</td>
+                      <td className={tdCls + ' text-slate-500'}>{item.outsourcePartNo || ''}</td>
                       <td className={tdCls}>{resolveModel(item)}</td>
                       <td className={tdCls}>{item.brand || ''}</td>
                       <td className={tdCls}>{item.reorderLevel ?? 0}</td>
@@ -1712,7 +1715,7 @@ function PreviewView({ item, dropdowns, onBack, onCreate, onViewUploads, onEdit 
                       onClick={() => item.hasImage && setPreviewModal({ open: true, type: 'image', src: `/api/item-master/${item.id}/download-image`, title: item.partName, partNo: item.partNo })}
                     >
                       {item.hasImage
-                        ? <img src={`/api/item-master/${item.id}/download-image`} alt="item" className="w-full h-full object-contain" />
+                        ? <AuthenticatedImage src={`/api/item-master/${item.id}/download-image`} alt="item" className="w-full h-full object-contain" fallback={<ImageIcon className="w-16 h-16 text-[#0097A7]/40" />} />
                         : <ImageIcon className="w-16 h-16 text-[#0097A7]/40" />
                       }
                     </div>
@@ -1796,11 +1799,17 @@ function ImagePdfDetailsView({ item, onBack }) {
         <button onClick={onBack} className="mb-4 text-[#0097A7] hover:underline text-sm flex items-center gap-1">
           &larr; Back to Preview
         </button>
-        <h1 className="text-[26px] font-normal text-slate-700 mb-6">Item Details</h1>
-        <h2 className="text-[17px] font-normal text-slate-800 mb-6">{item.partName}</h2>
-        <div className="flex items-center gap-2 mb-8 ml-8 text-[13px] font-bold text-slate-800">
-          <span className="text-slate-500">Part Number :</span>
-          <span className="font-mono text-[#0097A7] text-[14px]">{item.partNo}</span>
+        <h1 className="text-[26px] font-normal text-slate-700 mb-4">Item Details</h1>
+        <h2 className="text-[17px] font-semibold text-slate-800 mb-4">{item.partName}</h2>
+        <div className="flex flex-wrap items-center gap-8 mb-8 ml-4 text-[13.5px] font-bold text-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 font-semibold">Part Number :</span>
+            <span className="font-mono text-[#0097A7] text-[14px]">{item.partNo}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 font-semibold">Part Name :</span>
+            <span className="text-slate-800 text-[14px] font-medium">{item.partName}</span>
+          </div>
         </div>
         <h3 className="text-[20px] font-normal text-slate-700 mb-4">Images and PDF Documents</h3>
         <div className="border border-slate-200 rounded-sm overflow-hidden">
@@ -1808,7 +1817,8 @@ function ImagePdfDetailsView({ item, onBack }) {
             <thead>
               <tr>
                 <th className={thCls} style={{ width: '60px' }}>S.No</th>
-                <th className={thCls} style={{ width: '160px' }}>Part Number</th>
+                <th className={thCls} style={{ width: '150px' }}>Part Number</th>
+                <th className={thCls} style={{ width: '220px' }}>Part Name</th>
                 <th className={thCls} style={{ width: '180px' }}>Image</th>
                 <th className={thCls}>PDF Document</th>
                 <th className={thCls}>Updated By</th>
@@ -1818,13 +1828,13 @@ function ImagePdfDetailsView({ item, onBack }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center">
+                  <td colSpan={7} className="py-8 text-center">
                     <Loader2 className="w-5 h-5 text-[#0097A7] animate-spin mx-auto" />
                   </td>
                 </tr>
               ) : uploads.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400 text-[13px]">
+                  <td colSpan={7} className="py-8 text-center text-slate-400 text-[13px]">
                     No uploads found for this item.
                   </td>
                 </tr>
@@ -1833,6 +1843,7 @@ function ImagePdfDetailsView({ item, onBack }) {
                   <tr key={u.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     <td className={tdCls}>{idx + 1}</td>
                     <td className={`${tdCls} font-mono font-bold text-[#0097A7]`}>{item.partNo}</td>
+                    <td className={`${tdCls} font-medium text-slate-800`}>{item.partName}</td>
                     <td className={tdCls}>
                       {u.hasImage ? (
                         <button
@@ -1840,7 +1851,7 @@ function ImagePdfDetailsView({ item, onBack }) {
                           onClick={() => setPreviewModal({ open: true, type: 'image', src: `/api/item-master/upload/${u.id}/download-image`, title: item.partName, partNo: item.partNo })}
                           className="group relative cursor-pointer"
                         >
-                          <img src={`/api/item-master/upload/${u.id}/download-image`} alt="upload" className="w-[80px] h-[54px] object-contain rounded shadow-sm group-hover:opacity-80 transition-opacity" />
+                          <AuthenticatedImage src={`/api/item-master/upload/${u.id}/download-image`} alt="upload" className="w-[80px] h-[54px] object-contain rounded shadow-sm group-hover:opacity-80 transition-opacity" />
                           <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white opacity-0 group-hover:opacity-100 text-[10px] font-bold rounded">Preview</span>
                         </button>
                       ) : (

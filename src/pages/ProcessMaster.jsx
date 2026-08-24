@@ -312,11 +312,26 @@ export default function ProcessMaster() {
     return orderA - orderB
   })
 
+  const activePartNo = (form.PM_Part_No || '').trim()
+  const activePartName = (form.PM_Part_Name || '').trim()
+
   const filtered = sortedRows.filter(r => {
     const matchesSearch = [r.PM_Part_Name, r.PM_Process_Name, r.PM_Process_Name1, r.TeamId, r.Machine_Name, r.Machine_Code].some(v =>
       String(v || '').toLowerCase().includes(search.toLowerCase())
     )
-    const matchesPart = partFilter ? r.PM_Part_Name === partFilter : true
+    let matchesPart = true
+    if (activePartName) {
+      matchesPart = (r.PM_Part_Name || '').toLowerCase() === activePartName.toLowerCase()
+    } else if (activePartNo) {
+      const item = partItems.find(i => (i.partNo || '').toLowerCase() === activePartNo.toLowerCase())
+      if (item && item.partName) {
+        matchesPart = (r.PM_Part_Name || '').toLowerCase() === item.partName.toLowerCase()
+      } else {
+        matchesPart = false
+      }
+    } else if (partFilter) {
+      matchesPart = r.PM_Part_Name === partFilter
+    }
     return matchesSearch && matchesPart
   })
 
@@ -764,36 +779,35 @@ export default function ProcessMaster() {
         </div>
 
         {/* Table Toolbar */}
-        <div className="bg-slate-50 border-b border-slate-200 px-5 py-2 flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-slate-50 border-b border-slate-200 px-5 py-2.5 flex flex-wrap items-center justify-between gap-3">
           
-          {/* Left: Search & Part Filter */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-[12.5px] font-bold text-slate-600">Search:</span>
-              <div className="relative">
-                <input
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setPage(1) }}
-                  placeholder="Search..."
-                  className="pl-3 pr-8 py-1 border border-slate-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-48 bg-white"
-                />
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
-              </div>
+          {/* Left: Search Bar with enlarged width */}
+          <div className="flex items-center gap-2">
+            <span className="text-[12.5px] font-bold text-slate-600">Search:</span>
+            <div className="relative">
+              <input
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+                placeholder="Search processes..."
+                className="pl-3 pr-8 py-1.5 border border-slate-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] w-72 bg-white"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-[12.5px] font-bold text-slate-600">Part Filter:</span>
-              <select
-                value={partFilter}
-                onChange={e => { setPartFilter(e.target.value); setPage(1) }}
-                className="border border-slate-300 rounded text-xs px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white max-w-[200px]"
-              >
-                <option value="">All Parts</option>
-                {Array.from(new Set(rows.map(r => r.PM_Part_Name).filter(Boolean))).map(name => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select>
-            </div>
+          {/* Right: Part Filter */}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-[12.5px] font-bold text-slate-600">Part Filter:</span>
+            <select
+              value={partFilter}
+              onChange={e => { setPartFilter(e.target.value); setPage(1) }}
+              className="border border-slate-300 rounded text-xs px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white min-w-[200px]"
+            >
+              <option value="">All Parts</option>
+              {Array.from(new Set(rows.map(r => r.PM_Part_Name).filter(Boolean))).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
           </div>
 
           {/* Right: Save/Edit/Delete/Clear Actions with standard palette colors */}

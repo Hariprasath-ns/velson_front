@@ -61,15 +61,22 @@ export default function GRNEntryReport() {
 
   const applyFilter = (rows, from, to, search) => {
     let r = rows
-    if (from) r = r.filter(x => x.grnDate && new Date(x.grnDate) >= new Date(from))
-    if (to)   r = r.filter(x => x.grnDate && new Date(x.grnDate) <= new Date(to + 'T23:59:59'))
+    if (from) {
+      const fromTime = new Date(from).setHours(0, 0, 0, 0)
+      r = r.filter(x => x.grnDate && new Date(x.grnDate).setHours(0, 0, 0, 0) >= fromTime)
+    }
+    if (to) {
+      const toTime = new Date(to).setHours(23, 59, 59, 999)
+      r = r.filter(x => x.grnDate && new Date(x.grnDate).setHours(0, 0, 0, 0) <= toTime)
+    }
     if (search.trim()) {
       const q = search.toLowerCase()
       r = r.filter(x =>
         (x.grnNo||'').toLowerCase().includes(q) ||
         (x.supplierName||'').toLowerCase().includes(q) ||
         (x.poNo||'').toLowerCase().includes(q) ||
-        (x.invoiceNo||'').toLowerCase().includes(q)
+        (x.invoiceNo||'').toLowerCase().includes(q) ||
+        (x.gateEntryNo||'').toLowerCase().includes(q)
       )
     }
     return r
@@ -77,11 +84,11 @@ export default function GRNEntryReport() {
 
   useEffect(() => {
     setLoading(true)
-    api.get('/api/grn-master')
+    api.get('/api/grn-master?limit=10000')
       .then(res => {
         const data = res.data.data || []
         setAllRows(data)
-        setFiltered(applyFilter(data, ago30, today, ''))
+        setFiltered(applyFilter(data, ago30, today, searchText))
       })
       .catch(() => toast.error('Failed to load GRN entries'))
       .finally(() => setLoading(false))
@@ -212,9 +219,18 @@ export default function GRNEntryReport() {
           </button>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
-          <div className="flex items-center gap-2 text-[12.5px] text-slate-600">Show <select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}} className={`${inp} w-16`}>{PAGE_SIZES.map(s=><option key={s}>{s}</option>)}</select> entries</div>
-          <div className="flex items-center gap-2"><label className="text-[12px] text-slate-600">Search:</label><input value={searchText} onChange={e=>setSearchText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSearch()} className={`${inp} w-40`}/></div>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <label className="text-[12px] font-bold text-slate-600">Search:</label>
+            <input
+              value={searchText}
+              onChange={e=>setSearchText(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&handleSearch()}
+              placeholder="Search GRN / Supplier / PO / Gate No..."
+              className={`${inp} w-72`}
+            />
+          </div>
+          <div className="flex items-center gap-2 text-[12.5px] text-slate-600 ml-auto">Show <select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}} className={`${inp} w-16`}>{PAGE_SIZES.map(s=><option key={s}>{s}</option>)}</select> entries</div>
         </div>
 
         {loading ? (

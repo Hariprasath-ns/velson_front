@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+/* eslint-disable */
+import React, { useState, useEffect } from 'react'
 import { ChevronRight, Search, Send, X } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
 import { SpinnerLoader } from '../components/LocalLoader'
 import { useModulePermission } from '../hooks/useModulePermission'
+import api from '../services/api'
 
-const BASE = ''
 const today = new Date().toISOString().split('T')[0]
 
 const emptyForm = () => ({
@@ -68,55 +69,44 @@ export default function GateEntry() {
     })
   }
 
-  /* ── on mount: next GE no + all POs ── */
-  useEffect(() => {
-    const init = async () => {
-      setLoadingInit(true)
-      try {
-        const [noRes, poRes, supRes, taxRes, gateRes] = await Promise.all([
-          fetch(`${BASE}/api/gate-master/next-no`),
-          fetch(`${BASE}/api/purchase-master`),
-          fetch(`${BASE}/api/supplier-master`),
-          fetch(`${BASE}/api/reference-master/${encodeURIComponent('Tax Type')}`),
-          fetch(`${BASE}/api/gate-master`),
-        ])
-        const [noJson, poJson, supJson, taxJson, gateJson] = await Promise.all([noRes.json(), poRes.json(), supRes.json(), taxRes.json(), gateRes.json()])
-        if (noJson.success) setForm(f => ({ ...f, gateEntryNo: noJson.gateEntryNo, financialYear: noJson.financialYear || '' }))
-        if (poJson.success) setAllPOs(poJson.data)
-        if (supJson.success) setSuppliers(supJson.data)
-        if (taxJson.data) setTaxTypeOptions(taxJson.data)
-        if (gateJson.success) setAllGateEntries(gateJson.data)
-      } catch { toast.error('Failed to load data') }
-      finally { setLoadingInit(false) }
+  const fetchInitialData = async () => {
+    setLoadingInit(true)
+    try {
+      const [noRes, poRes, supRes, taxRes, gateRes] = await Promise.all([
+        api.get('/api/gate-master/next-no'),
+        api.get('/api/purchase-master?limit=10000'),
+        api.get('/api/supplier-master'),
+        api.get(`/api/reference-master/${encodeURIComponent('Tax Type')}`),
+        api.get('/api/gate-master?limit=10000'),
+      ])
+      if (noRes.data?.success) setForm(f => ({ ...f, gateEntryNo: noRes.data.gateEntryNo, financialYear: noRes.data.financialYear || '' }))
+      if (poRes.data?.success) setAllPOs(poRes.data.data || [])
+      if (supRes.data?.success) setSuppliers(supRes.data.data || [])
+      if (taxRes.data?.data) setTaxTypeOptions(taxRes.data.data || [])
+      if (gateRes.data?.success) setAllGateEntries(gateRes.data.data || [])
+    } catch {
+      toast.error('Failed to load data')
+    } finally {
+      setLoadingInit(false)
     }
-
-    /* check for edit intent from GateEntryReport */
-    const editId = localStorage.getItem('velson:gate-edit')
-    if (editId) {
-      localStorage.removeItem('velson:gate-edit')
-      loadForEdit(parseInt(editId, 10))
-    } else {
-      init()
-    }
-  }, [])
+  }
 
   const loadForEdit = async (id) => {
     setLoadingInit(true)
     try {
       const [entryRes, poRes, supRes, taxRes, gateRes] = await Promise.all([
-        fetch(`${BASE}/api/gate-master/${id}`),
-        fetch(`${BASE}/api/purchase-master`),
-        fetch(`${BASE}/api/supplier-master`),
-        fetch(`${BASE}/api/reference-master/${encodeURIComponent('Tax Type')}`),
-        fetch(`${BASE}/api/gate-master`),
+        api.get(`/api/gate-master/${id}`),
+        api.get('/api/purchase-master?limit=10000'),
+        api.get('/api/supplier-master'),
+        api.get(`/api/reference-master/${encodeURIComponent('Tax Type')}`),
+        api.get('/api/gate-master?limit=10000'),
       ])
-      const [entryJson, poJson, supJson, taxJson, gateJson] = await Promise.all([entryRes.json(), poRes.json(), supRes.json(), taxRes.json(), gateRes.json()])
-      if (poJson.success) setAllPOs(poJson.data)
-      if (supJson.success) setSuppliers(supJson.data)
-      if (taxJson.data) setTaxTypeOptions(taxJson.data)
-      if (gateJson.success) setAllGateEntries(gateJson.data)
-      if (entryJson.success) {
-        const e = entryJson.data
+      if (poRes.data?.success) setAllPOs(poRes.data.data || [])
+      if (supRes.data?.success) setSuppliers(supRes.data.data || [])
+      if (taxRes.data?.data) setTaxTypeOptions(taxRes.data.data || [])
+      if (gateRes.data?.success) setAllGateEntries(gateRes.data.data || [])
+      if (entryRes.data?.success) {
+        const e = entryRes.data.data
         setEditId(e.id)
         setForm({
           poNo: e.poNo || '', prqNo: e.prqNo || '',
@@ -138,13 +128,59 @@ export default function GateEntry() {
           qty: d.qty != null ? String(d.qty) : '', recQty: d.recQty != null ? String(d.recQty) : '',
         })) : [emptyItem()])
       }
-    } catch { toast.error('Failed to load entry') }
-    finally { setLoadingInit(false) }
+    } catch {
+      toast.error('Failed to load entry')
+    } finally {
+      setLoadingInit(false)
+    }
   }
 
+  useEffect(() => {
+    const editIdLocal = localStorage.getItem('velson:gate-edit')
+    if (editIdLocal) {
+      localStorage.removeItem('velson:gate-edit')
+      loadForEdit(parseInt(editIdLocal, 10))
+    } else {
+      fetchInitialData()
+    }
+  }, [])
+
+  // Show all POs to which Gate Entry is not yet entered (excluding current editId if editing)
   const filteredPOs = allPOs
-    .filter(po => po.status === 'Approval' && po.poNo.toLowerCase().includes(poSearch.toLowerCase()))
-    .sort((a, b) => a.poNo.localeCompare(b.poNo))
+    .filter(po => {
+      const status = (po.status || '').trim().toLowerCase()
+      if (status === 'rejected' || status === 'cancelled' || status === 'cancel') return false
+      
+      // Check if Gate Entry is already entered for this PO
+      const isGateEntered = allGateEntries.some(ge => (editId == null || ge.id !== editId) && ge.poNo === po.poNo)
+      if (isGateEntered) return false
+
+      const matchesSearch = !poSearch.trim() ||
+        (po.poNo || '').toLowerCase().includes(poSearch.toLowerCase().trim()) ||
+        (po.supplier?.supplierName || '').toLowerCase().includes(poSearch.toLowerCase().trim())
+      return matchesSearch
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.poDate || a.createdAt || 0).getTime()
+      const dateB = new Date(b.poDate || b.createdAt || 0).getTime()
+      if (dateB !== dateA) return dateB - dateA
+      return (b.poNo || '').localeCompare(a.poNo || '')
+    })
+
+  const openPoModal = async () => {
+    setPoSearch('')
+    setShowPoModal(true)
+    try {
+      const [poRes, gateRes] = await Promise.all([
+        api.get('/api/purchase-master?limit=10000'),
+        api.get('/api/gate-master?limit=10000')
+      ])
+      if (poRes.data?.success && poRes.data?.data) setAllPOs(poRes.data.data)
+      if (gateRes.data?.success && gateRes.data?.data) setAllGateEntries(gateRes.data.data)
+    } catch (err) {
+      console.error('Failed to refresh POs for modal:', err)
+    }
+  }
 
   const extractPrqNo = (details) => {
     const nos = [...new Set(details.map(d => d.purchaseReqNo).filter(Boolean))]
@@ -155,7 +191,6 @@ export default function GateEntry() {
     setShowPoModal(false)
     setSelectedPoId(po.id)
 
-    // Reset fields immediately so stale values never linger
     setForm(f => ({
       ...f,
       poNo: po.poNo,
@@ -166,11 +201,10 @@ export default function GateEntry() {
     setItems([emptyItem()])
     setRecQtyErrors({})
 
-    // Always fetch full PO from API to get accurate purchaseReqNo per detail row
     setLoadingPOItems(true)
     try {
-      const res = await fetch(`${BASE}/api/purchase-master/${po.id}`)
-      const json = await res.json()
+      const res = await api.get(`/api/purchase-master/${po.id}`)
+      const json = res.data
       if (json.success) {
         const data = json.data
         const det = data.details || []
@@ -190,8 +224,11 @@ export default function GateEntry() {
           }
         }) : [emptyItem()])
       }
-    } catch { toast.error('Failed to fetch PO details') }
-    finally { setLoadingPOItems(false) }
+    } catch {
+      toast.error('Failed to fetch PO details')
+    } finally {
+      setLoadingPOItems(false)
+    }
   }
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -209,7 +246,7 @@ export default function GateEntry() {
             const isUnder = recQ < 0
             const isOver = prevRec + recQ > ordQ && recQ > 0
             if (isUnder || isOver) {
-              n[idx] = true
+              n[idx] = isUnder ? 'negative' : 'exceeds'
             } else {
               delete n[idx]
             }
@@ -222,19 +259,20 @@ export default function GateEntry() {
       return updated
     })
   }
-  const removeRow = idx => setItems(r => r.filter((_, i) => i !== idx))
 
-  const handleSupplierChange = name => {
-    const sup = suppliers.find(s => s.supplierName === name)
-    const addr = sup ? [sup.address, sup.address2, sup.address3, sup.address4, sup.city].filter(Boolean).join(', ') : ''
-    setForm(f => ({ ...f, supplierName: name, supplierAddress: addr }))
+  const handleSupplierChange = (name) => {
+    const s = suppliers.find(x => x.supplierName === name)
+    setForm(f => ({
+      ...f,
+      supplierName: name,
+      supplierAddress: s?.address || '',
+    }))
   }
 
   const fetchNextNo = async () => {
     try {
-      const res = await fetch(`${BASE}/api/gate-master/next-no`)
-      const json = await res.json()
-      if (json.success) setForm(f => ({ ...f, gateEntryNo: json.gateEntryNo, financialYear: json.financialYear || '' }))
+      const res = await api.get('/api/gate-master/next-no')
+      if (res.data?.success) setForm(f => ({ ...f, gateEntryNo: res.data.gateEntryNo, financialYear: res.data.financialYear || '' }))
     } catch { }
   }
 
@@ -274,46 +312,44 @@ export default function GateEntry() {
     setSubmitting(true)
     showLoader(editId ? 'Updating gate entry...' : 'Saving gate entry...')
     try {
-      const url = editId ? `${BASE}/api/gate-master/${editId}` : `${BASE}/api/gate-master`
-      const method = editId ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          poId: selectedPoId,
-          remarks,
-          createdBy: form.user,
-          updatedBy: form.user,
-          items: items.filter(r => r.itemCode || r.itemName).map(r => ({
-            ...r,
-            recQty: parseFloat(r.recQty) || 0,
-          })),
-        }),
-      })
-      const json = await res.json()
-      if (json.success) {
+      const payload = {
+        ...form,
+        poId: selectedPoId,
+        remarks,
+        createdBy: form.user,
+        updatedBy: form.user,
+        items: items.filter(r => r.itemCode || r.itemName).map(r => ({
+          ...r,
+          recQty: parseFloat(r.recQty) || 0,
+        })),
+      }
+      const res = editId
+        ? await api.put(`/api/gate-master/${editId}`, payload)
+        : await api.post('/api/gate-master', payload)
+      
+      if (res.data?.success) {
         toast.success(editId ? 'Gate Entry updated!' : 'Gate Entry submitted!')
         try {
-          const gateRes = await fetch(`${BASE}/api/gate-master`)
-          const gateJson = await gateRes.json()
-          if (gateJson.success) setAllGateEntries(gateJson.data)
+          const gateRes = await api.get('/api/gate-master?limit=10000')
+          if (gateRes.data?.success) setAllGateEntries(gateRes.data.data || [])
         } catch (err) {
           console.error('Failed to refresh gate entries:', err)
         }
         await resetForm()
       } else {
-        toast.error(json.message || 'Operation failed')
+        toast.error(res.data?.message || 'Operation failed')
       }
-    } catch { toast.error('Server error. Please try again.') }
-    finally { setSubmitting(false); hideLoader() }
+    } catch {
+      toast.error('Server error. Please try again.')
+    } finally {
+      setSubmitting(false)
+      hideLoader()
+    }
   }
 
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
       <div className="flex items-center gap-2 text-[12px] text-slate-400">
-        {/* <span className="hover:text-[#0097A7] cursor-pointer">Dashboard</span> */}
-        {/* <ChevronRight className="w-3 h-3"/> */}
         <span className="hover:text-[#0097A7] cursor-pointer">Stores</span>
         <ChevronRight className="w-3 h-3" />
         <span className="text-[#0097A7] font-semibold">Gate Entry</span>
@@ -334,7 +370,7 @@ export default function GateEntry() {
                 <label className={`${lbl} w-[130px] shrink-0`}>PO No :</label>
                 <input value={form.poNo} readOnly placeholder="Select PO..." className={`${inp()} flex-1 bg-slate-50`} />
                 <button
-                  onClick={() => { setPoSearch(''); setShowPoModal(true) }}
+                  onClick={openPoModal}
                   disabled={loadingInit}
                   className="px-3 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-[12px] rounded transition-colors shrink-0 flex items-center gap-1"
                 >
@@ -444,20 +480,23 @@ export default function GateEntry() {
                           value={row.recQty}
                           onChange={e => setItemField(idx, 'recQty', e.target.value)}
                           placeholder="0"
-                          className={`${inp(recQtyErrors[idx])} w-16 text-center`}
+                          className={`${inp(recQtyErrors[idx])} w-20 text-center font-semibold`}
                         />
-                        {(() => {
-                          const prevRec = getAlreadyReceivedQty(row.poNo, row.itemCode)
-                          return (
-                            <div className="space-y-0.5 mt-1 text-[10px] leading-tight text-center">
-                              <div className="text-slate-500 font-medium">
-                                Received: {prevRec}
-                              </div>
-                            </div>
-                          )
-                        })()}
+                        {recQtyErrors[idx] === 'negative' && (
+                          <span className="block text-[10px] text-red-500 mt-0.5 leading-tight">Cannot be negative</span>
+                        )}
+                        {recQtyErrors[idx] === 'exceeds' && (
+                          <span className="block text-[10px] text-red-500 mt-0.5 leading-tight">Exceeds ordered qty</span>
+                        )}
                       </td>
-                      <td className="px-2 py-1 text-center align-top pt-2"><button onClick={() => removeRow(idx)} className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] rounded transition-colors">Remove</button></td>
+                      <td className="px-1 py-1 align-top text-center pt-2.5">
+                        <button
+                          onClick={() => setItems(r => r.length > 1 ? r.filter((_, i) => i !== idx) : [emptyItem()])}
+                          className="text-slate-400 hover:text-red-500 transition-colors text-[11px]"
+                        >
+                          ✕
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -487,12 +526,13 @@ export default function GateEntry() {
           </div>
         </div>
       </div>
+
       {/* PO Search Modal */}
       {showPoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded shadow-xl w-[700px] max-h-[80vh] flex flex-col">
             <div className="bg-[--color-main] px-4 py-2.5 flex items-center justify-between rounded-t">
-              <h3 className="text-white font-semibold text-[14px]">Select Purchase Order</h3>
+              <h3 className="text-white font-semibold text-[14px]">Select Purchase Order (Pending Gate Entry)</h3>
               <button onClick={() => setShowPoModal(false)} className="text-white hover:text-white/70"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-3 border-b border-slate-200">
@@ -506,7 +546,7 @@ export default function GateEntry() {
             </div>
             <div className="overflow-auto flex-1">
               {filteredPOs.length === 0 ? (
-                <div className="p-6 text-center text-slate-400 text-[13px]">No purchase orders found.</div>
+                <div className="p-6 text-center text-slate-400 text-[13px]">No purchase orders pending gate entry found.</div>
               ) : (
                 <table className="min-w-full text-[12.5px]">
                   <thead className="sticky top-0">
@@ -517,35 +557,26 @@ export default function GateEntry() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPOs.map((po, i) => {
-                      const isFullyRec = isPoFullyReceived(po)
-                      return (
-                        <tr
-                          key={po.id}
-                          onClick={() => { if (!isFullyRec) selectPO(po) }}
-                          className={isFullyRec
-                            ? `border-b border-slate-100 bg-slate-100 text-slate-400 cursor-not-allowed`
-                            : `cursor-pointer border-b border-slate-100 hover:bg-[#0097A7]/10 ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}
-                        >
-                          <td className={`px-3 py-1.5 font-medium ${isFullyRec ? 'text-slate-400' : 'text-[#0097A7]'}`}>{po.poNo}</td>
-                          <td className="px-3 py-1.5">{po.poDate ? po.poDate.split('T')[0] : '-'}</td>
-                          <td className="px-3 py-1.5 text-slate-500">{po.supplier?.supplierName || '-'}</td>
-                          <td className="px-3 py-1.5">
-                            {isFullyRec ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-200 text-slate-500"> Qty Fully Received</span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-green-100 text-green-700">{po.status}</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {filteredPOs.map((po, i) => (
+                      <tr
+                        key={po.id}
+                        onClick={() => selectPO(po)}
+                        className={`cursor-pointer border-b border-slate-100 hover:bg-[#0097A7]/10 ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}
+                      >
+                        <td className="px-3 py-1.5 font-medium text-[#0097A7]">{po.poNo}</td>
+                        <td className="px-3 py-1.5">{po.poDate ? po.poDate.split('T')[0] : '-'}</td>
+                        <td className="px-3 py-1.5 text-slate-500">{po.supplier?.supplierName || '-'}</td>
+                        <td className="px-3 py-1.5">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-100 text-blue-800">{po.status || 'Active'}</span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
             </div>
             <div className="px-4 py-2 border-t border-slate-200 text-[11px] text-slate-400 text-right">
-              {filteredPOs.length} record{filteredPOs.length !== 1 ? 's' : ''}
+              {filteredPOs.length} record{filteredPOs.length !== 1 ? 's' : ''} pending gate entry
             </div>
           </div>
         </div>

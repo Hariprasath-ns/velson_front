@@ -22,11 +22,15 @@ export default function MRApproval() {
   const [loading, setLoading] = useState(true)
   const [selectedRowId, setSelectedRowId] = useState(null)
   const [activeItemCode, setActiveItemCode] = useState(null)
+  const [rejectModalOpen, setRejectModalOpen] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [rejecting, setRejecting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('Pending')
 
   const fetchRequests = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/api/material-request', { skipGlobalLoader: true })
+      const res = await api.get('/api/material-request?limit=10000', { skipGlobalLoader: true })
       setRows(res.data?.data || [])
     } catch {
       toast.error('Failed to load material requests')
@@ -75,7 +79,6 @@ export default function MRApproval() {
 
       await api.put(`/api/material-request/${selectedMR.id}`, payload)
       
-      // Update local state status
       setRows(prev => prev.map(r => r.id === selectedRowId ? { ...r, status: newStatus } : r))
       
       if (newStatus === 'Approved') {
@@ -85,6 +88,38 @@ export default function MRApproval() {
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update status')
+    }
+  }
+
+  const handleConfirmReject = async () => {
+    if (!selectedMR || !rejectionReason.trim()) return
+    setRejecting(true)
+    try {
+      const payload = {
+        departmentTo: selectedMR.departmentTo,
+        requestingUser: selectedMR.requestingUser,
+        team: selectedMR.team,
+        requestingFor: selectedMR.requestingFor,
+        requestDate: selectedMR.requestDate,
+        requiredDate: selectedMR.requiredDate,
+        requiredDays: selectedMR.requiredDays,
+        storeName: selectedMR.storeName,
+        bomPartName: selectedMR.bomPartName,
+        vehicleName: selectedMR.vehicleName,
+        remarks: selectedMR.remarks ? `${selectedMR.remarks} | Rejection Reason: ${rejectionReason.trim()}` : `Rejection Reason: ${rejectionReason.trim()}`,
+        status: 'Rejected',
+        items: selectedMR.details || []
+      }
+
+      await api.put(`/api/material-request/${selectedMR.id}`, payload)
+      setRows(prev => prev.map(r => r.id === selectedRowId ? { ...r, status: 'Rejected', remarks: payload.remarks } : r))
+      toast.warning(`Material Request ${selectedMR.mrNo} rejected.`)
+      setRejectModalOpen(false)
+      setRejectionReason('')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reject request')
+    } finally {
+      setRejecting(false)
     }
   }
 
@@ -420,7 +455,7 @@ export default function MRApproval() {
                         <CheckCircle2 size={14} /> Approve
                       </button>
                       <button
-                        onClick={() => handleUpdateStatus('Rejected')}
+                        onClick={() => { setRejectionReason(''); setRejectModalOpen(true) }}
                         className="flex items-center gap-1.5 px-6 py-2 bg-red-600 hover:bg-red-700 text-white text-[12px] font-bold rounded-lg transition-all active:scale-95 shadow-md"
                       >
                         <XCircle size={14} /> Reject
@@ -441,6 +476,55 @@ export default function MRApproval() {
           </div>
         </div>
       </div>
+          {/* Mandatory Rejection Reason Modal */}
+      {rejectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-red-600 px-4 py-3 text-white flex items-center justify-between">
+              <h3 className="text-[13px] font-bold">Reject Material Request — {selectedMR?.mrNo}</h3>
+              <button onClick={() => setRejectModalOpen(false)} className="text-white/80 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-[12.5px]">
+              <p className="text-slate-600 font-medium">
+                Please specify the mandatory rejection reason.
+              </p>
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  Rejection Reason <span className="text-red-500">*</span>:
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={rejectionReason}
+                  onChange={e => setRejectionReason(e.target.value)}
+                  placeholder="Enter detailed reason for rejection..."
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 resize-none bg-white"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectModalOpen(false)}
+                className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-100 font-semibold text-[12px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={rejecting || !rejectionReason.trim()}
+                className="px-5 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded font-bold text-[12px] shadow-sm"
+              >
+                {rejecting ? 'Rejecting…' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronRight, Plus, Trash2, Send, X, Save } from 'lucide-react'
+import { ChevronRight, Plus, Trash2, Send, X, Save, DollarSign } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useLoading } from '../context/LoadingContext'
 import { useModulePermission } from '../hooks/useModulePermission'
@@ -25,12 +25,19 @@ const buildSupplierAddress = (s) =>
   [s.address, s.address2, s.address3, s.address4, s.city, s.state, s.pinCode]
     .filter(Boolean).join(', ')
 
-const today = new Date().toISOString().split('T')[0]
+const formatDatetimeLocal = (isoDate) => {
+  const d = isoDate ? new Date(isoDate) : new Date()
+  if (isNaN(d.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const nowDatetime = formatDatetimeLocal(new Date())
 
 const emptyItem = () => ({
   itemId: null, itemCode:'', purchaseReqNo:'', supplierPartNo:'', itemName:'', description:'',
-  hsnCode:'', uom:'', qty:'', unitPrice:'', discPer:'', discAmt:'',
-  amount:'', gstPer:'', gstAmt:'', netAmt:'',
+  hsnCode:'', uom:'', qty:'', unitPrice:'',
+  amount:'', gstPer:'18', gstAmt:'', netAmt:'',
 })
 
 const inp = (err='') =>
@@ -54,10 +61,9 @@ export default function PurchaseOrderEntry() {
   const { show: showLoader, hide: hideLoader } = useLoading()
   const { canSave, canEdit } = useModulePermission('purchase-order')
 
-  // React Query hooks for Reference Master
+  // Master data
   const { data: suppliersRaw = [] } = useSuppliers()
-const { data: purchaseRequestsRaw = [] } = usePurchaseRequests()
-
+  const { data: purchaseRequestsRaw = [] } = usePurchaseRequests()
 
   const { data: poTypesRes = [] } = useReferenceMaster('PO Type')
   const { data: poFreightRes = [] } = useReferenceMaster('PO Freight')
@@ -67,7 +73,6 @@ const { data: purchaseRequestsRaw = [] } = usePurchaseRequests()
   const { data: poProjectRes = [] } = useReferenceMaster('PO Project')
   const { data: poModeOfDespatchRes = [] } = useReferenceMaster('PO Mode Of Despatch')
 
-  // Map to simple description arrays
   const poTypes = poTypesRes.map(r => r.description).filter(Boolean)
   const poFreight = poFreightRes.map(r => r.description).filter(Boolean)
   const poDestination = poDestinationRes.map(r => r.description).filter(Boolean)
@@ -89,19 +94,48 @@ const { data: purchaseRequestsRaw = [] } = usePurchaseRequests()
     supplierId: null,
     supplierName: '', supplierAddress: '', contactPerson: '', contactNumber: '',
     createdBy: '', gstNo: '', supplierRefNumber: '', showTotalsGrid: false,
-    poNumber: '', poDate: today, etaDate: today, poType: 'Purchase Order',
-    discountType: 'Dis_Per',
+    poNumber: '', poDate: nowDatetime, etaDate: nowDatetime, poType: 'Purchase Order',
   })
   const [items, setItems] = useState([emptyItem()])
-  // const [suppliersData, setSuppliersData] = useState([])
-  // const [suppliers, setSuppliers] = useState([])
-  // const [purchaseRequests, setPurchaseRequests] = useState([])
   const suppliersData = suppliersRaw
-const suppliers = suppliersRaw.map(s => s.supplierName)
-const purchaseRequests = purchaseRequestsRaw.map(pr => pr.prNo)
+  const suppliers = suppliersRaw.map(s => s.supplierName)
   const [submitting, setSubmitting] = useState(false)
-  const [fromPRApproval, setFromPRApproval] = useState(false)
   const [editPoId, setEditPoId] = useState(null)
+  const [taxMasters, setTaxMasters] = useState([])
+
+  // Others Charges Modal State
+  const [showOthersModal, setShowOthersModal] = useState(false)
+  const [othersCharges, setOthersCharges] = useState({
+    freight: '0',
+    packaging: '0',
+    handling: '0',
+    insurance: '0',
+    misc: '0'
+  })
+
+  // Bottom fields
+  const [freight, setFreight] = useState('')
+  const [destination, setDestination] = useState('')
+  const [paymentTerms, setPaymentTerms] = useState('')
+  const [testReport, setTestReport] = useState('')
+  const [project, setProject] = useState('')
+  const [remarks, setRemarks] = useState('')
+  const [modeOfDespatch, setModeOfDespatch] = useState('')
+  const [deliveryPeriod, setDeliveryPeriod] = useState('')
+  const [taxTerms, setTaxTerms] = useState('')
+  const [warrantyTerms, setWarrantyTerms] = useState('')
+  const [discountTerms, setDiscountTerms] = useState('')
+
+  // Tax fields
+  const [taxMode, setTaxMode] = useState('intra') // 'intra' (CGST+SGST) or 'inter' (IGST)
+  const [othersPer, setOthersPer] = useState('0')
+  const [othersAmt, setOthersAmt] = useState('0')
+  const [cgstPer, setCgstPer] = useState('9')
+  const [cgstAmt, setCgstAmt] = useState('0')
+  const [sgstPer, setSgstPer] = useState('9')
+  const [sgstAmt, setSgstAmt] = useState('0')
+  const [igstPer, setIgstPer] = useState('0')
+  const [igstAmt, setIgstAmt] = useState('0')
 
   const fetchNextPoNo = async () => {
     try {
@@ -131,32 +165,20 @@ const purchaseRequests = purchaseRequestsRaw.map(pr => pr.prNo)
     initDone.current = true
 
     const loadData = async () => {
-      // 1. Fetch suppliers
-      // try {
-      //   const resSuppliers = await api.get('/api/supplier-master')
-      //   if (resSuppliers.data?.success && resSuppliers.data?.data) {
-      //     setSuppliersData(resSuppliers.data.data)
-      //     setSuppliers(resSuppliers.data.data.map(s => s.supplierName))
-      //   }
-      // } catch (err) {
-      //   console.error('Error fetching suppliers:', err)
-      // }
+      // Fetch tax masters
+      try {
+        const tmRes = await api.get('/api/tax-master', { skipGlobalLoader: true })
+        if (tmRes.data?.success && tmRes.data?.data) {
+          setTaxMasters(tmRes.data.data)
+        }
+      } catch (err) {
+        console.error('Error fetching tax masters:', err)
+      }
 
-      // 2. Fetch purchase requests
-      // try {
-      //   const resPR = await api.get('/api/purchase-request')
-      //   if (resPR.data?.success && resPR.data?.data) {
-      //     setPurchaseRequests(resPR.data.data.map(pr => pr.prNo))
-      //   }
-      // } catch (err) {
-      //   console.error('Error fetching purchase requests:', err)
-      // }
-
-      // 3. Edit mode load or prefill/next-no
-      const editRaw = localStorage.getItem('velson:po-edit')
-      if (editRaw) {
+      const editPoIdStr = localStorage.getItem('velson:po-edit')
+      if (editPoIdStr) {
         localStorage.removeItem('velson:po-edit')
-        const poId = parseInt(editRaw, 10)
+        const poId = parseInt(editPoIdStr, 10)
         setEditPoId(poId)
         try {
           const poRes = await api.get(`/api/purchase-master/${poId}`)
@@ -173,12 +195,27 @@ const purchaseRequests = purchaseRequestsRaw.map(pr => pr.prNo)
               gstNo:            po.gstNo           || '',
               supplierRefNumber: po.supplierRefNo  || '',
               poNumber:         po.poNo            || '',
-              poDate:           po.poDate ? po.poDate.split('T')[0] : today,
-              etaDate:          po.etaDate ? po.etaDate.split('T')[0] : today,
+              poDate:           po.poDate ? formatDatetimeLocal(po.poDate) : nowDatetime,
+              etaDate:          po.etaDate ? formatDatetimeLocal(po.etaDate) : nowDatetime,
               poType:           po.poType          || 'Purchase Order',
-              discountType:     po.discountType    || 'Dis_Per',
             }))
-            if (po.details?.length > 0) setItems(po.details.map(it => ({ ...emptyItem(), ...it })))
+            if (po.details?.length > 0) {
+              setItems(po.details.map(it => {
+                const q = parseFloat(it.qty) || 0
+                const p = parseFloat(it.unitPrice) || 0
+                const amt = q * p
+                const gp = parseFloat(it.gstPer) || 0
+                const ga = amt * gp / 100
+                return {
+                  ...emptyItem(),
+                  ...it,
+                  purchaseReqNo: it.purchaseReqNo || '',
+                  amount: amt > 0 ? amt.toFixed(2) : String(it.amount || ''),
+                  gstAmt: ga > 0 ? ga.toFixed(2) : String(it.gstAmt || ''),
+                  netAmt: (amt + ga) > 0 ? (amt + ga).toFixed(2) : String(it.netAmt || ''),
+                }
+              }))
+            }
             setFreight(po.freight && po.freight !== 0 ? String(po.freight) : '')
             setDestination(po.destination || '')
             setPaymentTerms(po.paymentTerms || '')
@@ -198,6 +235,8 @@ const purchaseRequests = purchaseRequestsRaw.map(pr => pr.prNo)
             setIgstAmt(po.igstAmt ? String(po.igstAmt) : '0')
             setOthersPer(po.othersPer ? String(po.othersPer) : '0')
             setOthersAmt(po.othersAmt ? String(po.othersAmt) : '0')
+            setOthersCharges(prev => ({ ...prev, misc: po.othersAmt ? String(po.othersAmt) : '0' }))
+            if (parseFloat(po.igstAmt) > 0) setTaxMode('inter')
           }
         } catch (e) {
           console.error('PO edit load error:', e)
@@ -212,168 +251,47 @@ const purchaseRequests = purchaseRequestsRaw.map(pr => pr.prNo)
             if (prRes.data?.success && prRes.data?.data) {
               const pr = prRes.data.data
               await fetchNextPoNo()
-              
-              // const prefillItems = []
-              // if (pr.details?.length > 0) {
-              //   for (const d of pr.details) {
-              //     const master = await fetchItemMasterByCode(d.itemCode)
-              //     const qtyVal = parseFloat(d.qty) || 0
-              //     const priceVal = master?.purchaseRate || 0
-              //     const amtVal = qtyVal * priceVal
-              //     prefillItems.push({
-              //       ...emptyItem(),
-              //       purchaseReqNo: pr.prNo,
-              //       itemId:        master?.id             || null,
-              //       itemCode:      d.itemCode             || '',
-              //       itemName:      d.itemName             || master?.partName    || '',
-              //       description:   d.specification        || master?.description || '',
-              //       hsnCode:       master?.hsnCode        || '',
-              //       uom:           d.uom                  || master?.uom        || '',
-              //       supplierPartNo: master?.outsourcePartNo || '',
-              //       qty:           String(d.qty ?? ''),
-              //       unitPrice:     master?.purchaseRate != null ? String(master.purchaseRate) : '',
-              //       amount:        amtVal > 0 ? amtVal.toFixed(2) : '',
-              //       netAmt:        amtVal > 0 ? amtVal.toFixed(2) : '',
-              //     })
-              //   }
-              // } else {
-              //   prefillItems.push({ ...emptyItem(), purchaseReqNo: pr.prNo })
-              // }
-              // setItems(prefillItems)
-              // BEFORE (sequential — blocks for each item):
-
-
-
-// AFTER (parallel — all at once):
-const masters = await Promise.all(
-  pr.details.map(d => fetchItemMasterByCode(d.itemCode))
-)
-const prefillItems = pr.details.map((d, i) => {
-  const master = masters[i]
-  const qtyVal   = parseFloat(d.qty) || 0
-  const priceVal = master?.purchaseRate || 0
-  const amtVal   = qtyVal * priceVal
-  return {
-    ...emptyItem(),
-    purchaseReqNo:  pr.prNo,
-    itemId:         master?.id              || null,
-    itemCode:       d.itemCode              || '',
-    itemName:       d.itemName              || master?.partName    || '',
-    description:    d.specification         || master?.description || '',
-    hsnCode:        master?.hsnCode         || '',
-    uom:            d.uom                   || master?.uom        || '',
-    supplierPartNo: master?.outsourcePartNo || '',
-    qty:            String(d.qty ?? ''),
-    unitPrice:      master?.purchaseRate != null ? String(master.purchaseRate) : '',
-    amount:         amtVal > 0 ? amtVal.toFixed(2) : '',
-    netAmt:         amtVal > 0 ? amtVal.toFixed(2) : '',
-  }
-})
-setItems(prefillItems)
+              const masters = await Promise.all(
+                pr.details.map(d => fetchItemMasterByCode(d.itemCode))
+              )
+              const prefillItems = pr.details.map((d, i) => {
+                const master = masters[i]
+                const qtyVal   = parseFloat(d.qty) || 0
+                const priceVal = master?.purchaseRate || 0
+                const amtVal   = qtyVal * priceVal
+                const gstRate  = master?.taxPercent != null ? master.taxPercent : (master?.gstPer != null ? master.gstPer : (master?.tax?.taxPercent != null ? master.tax.taxPercent : 0))
+                const gstVal   = amtVal * gstRate / 100
+                return {
+                  ...emptyItem(),
+                  purchaseReqNo:  pr.prNo || '',
+                  itemId:         master?.id              || null,
+                  itemCode:       d.itemCode              || '',
+                  itemName:       d.itemName              || master?.partName    || '',
+                  description:    d.specification         || master?.description || '',
+                  hsnCode:        master?.hsnCode         || '',
+                  uom:            d.uom                   || master?.uom        || '',
+                  supplierPartNo: master?.outsourcePartNo || '',
+                  qty:            String(d.qty ?? ''),
+                  unitPrice:      master?.purchaseRate != null ? String(master.purchaseRate) : '',
+                  amount:         amtVal > 0 ? amtVal.toFixed(2) : '',
+                  gstPer:         String(gstRate),
+                  gstAmt:         gstVal > 0 ? gstVal.toFixed(2) : '',
+                  netAmt:         (amtVal + gstVal) > 0 ? (amtVal + gstVal).toFixed(2) : '',
+                }
+              })
+              setItems(prefillItems.length > 0 ? prefillItems : [emptyItem()])
             }
           } catch (e) {
-            console.error('PO PR pick load error:', e)
+            console.error('PO prefill parse error:', e)
           }
         } else {
-          const raw = localStorage.getItem('velson:po-prefill')
-          if (raw) {
-            localStorage.removeItem('velson:po-prefill')
-            try {
-              const prefill = JSON.parse(raw)
-              setFromPRApproval(true)
-              setForm(f => ({ ...f, poNumber: prefill.poNo, poDate: prefill.poDate }))
-              
-              // const prefillItems = []
-              // if (prefill.items?.length > 0) {
-              //   for (const d of prefill.items) {
-              //     const master = await fetchItemMasterByCode(d.itemCode)
-              //     const qtyVal = parseFloat(d.qty) || 0
-              //     const priceVal = master?.purchaseRate || 0
-              //     const amtVal = qtyVal * priceVal
-              //     prefillItems.push({
-              //       ...emptyItem(),
-              //       purchaseReqNo: prefill.prNo,
-              //       itemId:        master?.id             || null,
-              //       itemCode:      d.itemCode             || '',
-              //       itemName:      d.itemName             || master?.partName    || '',
-              //       description:   d.specification        || master?.description || '',
-              //       hsnCode:       master?.hsnCode        || '',
-              //       uom:           d.uom                  || master?.uom        || '',
-              //       supplierPartNo: master?.outsourcePartNo || '',
-              //       qty:           String(d.qty ?? ''),
-              //       unitPrice:     master?.purchaseRate != null ? String(master.purchaseRate) : '',
-              //       amount:        amtVal > 0 ? amtVal.toFixed(2) : '',
-              //       netAmt:        amtVal > 0 ? amtVal.toFixed(2) : '',
-              //     })
-              //   }
-              // } else {
-              //   prefillItems.push({ ...emptyItem(), purchaseReqNo: prefill.prNo })
-              // }
-              // setItems(prefillItems)
-              // BEFORE (sequential — blocks for each item):
-
-// AFTER (parallel — all at once):
-const masters = await Promise.all(
-  pr.details.map(d => fetchItemMasterByCode(d.itemCode))
-)
-const prefillItems = pr.details.map((d, i) => {
-  const master = masters[i]
-  const qtyVal   = parseFloat(d.qty) || 0
-  const priceVal = master?.purchaseRate || 0
-  const amtVal   = qtyVal * priceVal
-  return {
-    ...emptyItem(),
-    purchaseReqNo:  pr.prNo,
-    itemId:         master?.id              || null,
-    itemCode:       d.itemCode              || '',
-    itemName:       d.itemName              || master?.partName    || '',
-    description:    d.specification         || master?.description || '',
-    hsnCode:        master?.hsnCode         || '',
-    uom:            d.uom                   || master?.uom        || '',
-    supplierPartNo: master?.outsourcePartNo || '',
-    qty:            String(d.qty ?? ''),
-    unitPrice:      master?.purchaseRate != null ? String(master.purchaseRate) : '',
-    amount:         amtVal > 0 ? amtVal.toFixed(2) : '',
-    netAmt:         amtVal > 0 ? amtVal.toFixed(2) : '',
-  }
-})
-setItems(prefillItems)
-            } catch (e) {
-              console.error('PO prefill parse error:', e)
-            }
-          } else {
-            // Normal new PO — fetch next number
-            await fetchNextPoNo()
-          }
+          await fetchNextPoNo()
         }
       }
     }
 
     loadData()
   }, [])
-
-  // Bottom fields
-  const [freight, setFreight] = useState('')
-  const [destination, setDestination] = useState('')
-  const [paymentTerms, setPaymentTerms] = useState('')
-  const [testReport, setTestReport] = useState('')
-  const [project, setProject] = useState('')
-  const [remarks, setRemarks] = useState('')
-  const [modeOfDespatch, setModeOfDespatch] = useState('')
-  const [deliveryPeriod, setDeliveryPeriod] = useState('')
-  const [taxTerms, setTaxTerms] = useState('')
-  const [warrantyTerms, setWarrantyTerms] = useState('')
-  const [discountTerms, setDiscountTerms] = useState('')
-
-  // Tax fields
-  const [othersPer, setOthersPer] = useState('0')
-  const [othersAmt, setOthersAmt] = useState('0')
-  const [cgstPer, setCgstPer] = useState('0')
-  const [cgstAmt, setCgstAmt] = useState('0')
-  const [sgstPer, setSgstPer] = useState('0')
-  const [sgstAmt, setSgstAmt] = useState('0')
-  const [igstPer, setIgstPer] = useState('0')
-  const [igstAmt, setIgstAmt] = useState('0')
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -398,34 +316,46 @@ setItems(prefillItems)
     }
   }
 
-  const handleItemSelect = (idx, val, item) => {
+  const handleItemSelect = async (idx, val, item) => {
+    let resolvedItem = item
+    if (!resolvedItem && val && val.trim().length > 0) {
+      try {
+        resolvedItem = await fetchItemMasterByCode(val.trim())
+      } catch (e) {
+        resolvedItem = null
+      }
+    }
+
     setItems(rows => rows.map((r, i) => {
       if (i !== idx) return r
-      if (!item) {
+      if (!resolvedItem) {
         return { ...r, itemCode: val }
       }
+      const fetchedGstPer = resolvedItem.taxPercent != null 
+        ? String(resolvedItem.taxPercent) 
+        : (resolvedItem.gstPer != null 
+            ? String(resolvedItem.gstPer) 
+            : (resolvedItem.tax?.taxPercent != null ? String(resolvedItem.tax.taxPercent) : '0'))
       let updated = {
         ...r,
-        itemId: item.id,
-        itemCode: item.partNo || '',
-        itemName: item.partName || '',
-        description: item.description || '',
-        hsnCode: item.hsnCode || '',
-        uom: item.uom || '',
-        supplierPartNo: item.outsourcePartNo || '',
-        unitPrice: item.purchaseRate != null ? String(item.purchaseRate) : ''
+        itemId: resolvedItem.id,
+        itemCode: resolvedItem.partNo || val || '',
+        itemName: resolvedItem.partName || '',
+        description: resolvedItem.description || '',
+        hsnCode: resolvedItem.hsnCode || '',
+        uom: resolvedItem.uom || resolvedItem.uomName || '',
+        supplierPartNo: resolvedItem.outsourcePartNo || '',
+        unitPrice: resolvedItem.purchaseRate != null ? String(resolvedItem.purchaseRate) : (r.unitPrice || ''),
+        gstPer: fetchedGstPer
       }
       const q = parseFloat(updated.qty) || 0
       const p = parseFloat(updated.unitPrice) || 0
       const rawAmt = q * p
-      const dp = parseFloat(updated.discPer) || 0
-      const da = rawAmt * dp / 100
-      updated.discAmt = da.toFixed(2)
-      updated.amount = (rawAmt - da).toFixed(2)
+      updated.amount = rawAmt.toFixed(2)
       const gp = parseFloat(updated.gstPer) || 0
-      const ga = (rawAmt - da) * gp / 100
+      const ga = rawAmt * gp / 100
       updated.gstAmt = ga.toFixed(2)
-      updated.netAmt = (rawAmt - da + ga).toFixed(2)
+      updated.netAmt = (rawAmt + ga).toFixed(2)
       return updated
     }))
   }
@@ -437,14 +367,11 @@ setItems(prefillItems)
       const q = parseFloat(k === 'qty' ? v : updated.qty) || 0
       const p = parseFloat(k === 'unitPrice' ? v : updated.unitPrice) || 0
       const rawAmt = q * p
-      const dp = parseFloat(k === 'discPer' ? v : updated.discPer) || 0
-      const da = rawAmt * dp / 100
-      updated.discAmt = da.toFixed(2)
-      updated.amount = (rawAmt - da).toFixed(2)
+      updated.amount = rawAmt.toFixed(2)
       const gp = parseFloat(k === 'gstPer' ? v : updated.gstPer) || 0
-      const ga = (rawAmt - da) * gp / 100
+      const ga = rawAmt * gp / 100
       updated.gstAmt = ga.toFixed(2)
-      updated.netAmt = (rawAmt - da + ga).toFixed(2)
+      updated.netAmt = (rawAmt + ga).toFixed(2)
       return updated
     }))
   }
@@ -452,12 +379,28 @@ setItems(prefillItems)
   const addRow = () => setItems(r => [...r, emptyItem()])
   const removeRow = idx => setItems(r => r.filter((_, i) => i !== idx))
 
-  const subTotal = items.reduce((s, r) => s + (parseFloat(r.netAmt) || 0), 0)
-  const grandTotal = subTotal +
-    (parseFloat(othersAmt) || 0) +
-    (parseFloat(cgstAmt) || 0) +
-    (parseFloat(sgstAmt) || 0) +
-    (parseFloat(igstAmt) || 0)
+  // Calculations
+  const itemSubTotal = items.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
+  const totalItemGstAmt = items.reduce((s, r) => s + (parseFloat(r.gstAmt) || 0), 0)
+
+  // Dynamic tax calculation based on Tax Master and mode (strictly on itemSubTotal)
+  const effectiveCgstAmt = taxMode === 'intra' ? (totalItemGstAmt / 2) : 0
+  const effectiveSgstAmt = taxMode === 'intra' ? (totalItemGstAmt / 2) : 0
+  const effectiveIgstAmt = taxMode === 'inter' ? totalItemGstAmt : 0
+
+  const othersVal = parseFloat(othersAmt) || 0
+  const grandTotal = itemSubTotal + totalItemGstAmt + othersVal
+
+  const handleApplyOthersModal = () => {
+    const f = parseFloat(othersCharges.freight) || 0
+    const p = parseFloat(othersCharges.packaging) || 0
+    const h = parseFloat(othersCharges.handling) || 0
+    const ins = parseFloat(othersCharges.insurance) || 0
+    const m = parseFloat(othersCharges.misc) || 0
+    const sum = f + p + h + ins + m
+    setOthersAmt(sum.toFixed(2))
+    setShowOthersModal(false)
+  }
 
   const saveNewRefValues = async () => {
     const fields = [
@@ -477,8 +420,6 @@ setItems(prefillItems)
         const typeRes  = await api.get(`/api/reference-master/${encodeURIComponent(type)}`, { skipGlobalLoader: true })
         const typeJson = typeRes.data
         await api.post('/api/reference-master', { referenceType: type, code: typeJson.nextCode || '001', description: trimmed, updatedBy: form.createdBy || 'Admin' })
-        
-        // Invalidate query to refresh React Query cache
         queryClient.invalidateQueries({ queryKey: ['reference-master', type] })
       } catch (err) {
         console.error(`Failed to save ref value for ${type}:`, err)
@@ -488,6 +429,9 @@ setItems(prefillItems)
 
   const handleSubmit = async () => {
     if (!form.supplierName) { toast.warning('Please select a supplier'); return }
+    
+
+
     setSubmitting(true)
     showLoader(editPoId ? 'Updating purchase order...' : 'Saving purchase order...')
     try {
@@ -503,15 +447,27 @@ setItems(prefillItems)
         supplierAddress: form.supplierAddress,
         gstNo: form.gstNo,
         supplierRefNo: form.supplierRefNumber,
-        discountType: form.discountType,
-        freight, destination, paymentTerms, testReport, project,
+        discountType: 'None',
+        freight: parseFloat(freight) || 0,
+        destination, paymentTerms, testReport, project,
         modeOfDespatch, deliveryPeriod, taxTerms, warrantyTerms, discountTerms, remarks,
-        subTotal, cgstPer, cgstAmt, sgstPer, sgstAmt,
-        igstPer, igstAmt, othersPer, othersAmt,
+        subTotal: itemSubTotal,
+        cgstPer: taxMode === 'intra' ? (parseFloat(cgstPer) || 9) : 0,
+        cgstAmt: effectiveCgstAmt,
+        sgstPer: taxMode === 'intra' ? (parseFloat(sgstPer) || 9) : 0,
+        sgstAmt: effectiveSgstAmt,
+        igstPer: taxMode === 'inter' ? (parseFloat(igstPer) || 18) : 0,
+        igstAmt: effectiveIgstAmt,
+        othersPer: parseFloat(othersPer) || 0,
+        othersAmt: othersVal,
         totalAmount: grandTotal,
         status: 'Pending',
         createdBy: form.createdBy || 'Admin',
-        items,
+        items: items.filter(r => r.itemCode || r.itemName).map(r => ({
+          ...r,
+          discPer: 0,
+          discAmt: 0,
+        })),
       }
       
       const res = editPoId 
@@ -521,9 +477,8 @@ setItems(prefillItems)
       if (res.data?.success) {
         toast.success(editPoId ? 'Purchase Order updated!' : 'Purchase Order submitted successfully!')
         await saveNewRefValues()
-        const targetPage = 'PurchaseOrderDetails'
         handleCancel()
-        window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: targetPage } }))
+        window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'PurchaseOrderDetails' } }))
       } else {
         toast.error(res.data?.message || 'Submit failed')
       }
@@ -537,15 +492,15 @@ setItems(prefillItems)
   }
 
   const handleCancel = () => {
-    setFromPRApproval(false)
     setEditPoId(null)
     setForm({
       supplierId:null, supplierName:'', supplierAddress:'', contactPerson:'', contactNumber:'',
       createdBy:'', gstNo:'', supplierRefNumber:'', showTotalsGrid:false,
-      poNumber:'', poDate:today, etaDate:today, poType:'Purchase Order',
-      discountType:'Dis_Per',
+      poNumber:'', poDate:nowDatetime, etaDate:nowDatetime, poType:'Purchase Order',
     })
     setItems([emptyItem()])
+    setOthersAmt('0')
+    setOthersCharges({ freight:'0', packaging:'0', handling:'0', insurance:'0', misc:'0' })
     fetchNextPoNo()
   }
 
@@ -560,7 +515,6 @@ setItems(prefillItems)
             {editPoId ? 'Edit - Purchase Order Entry' : 'Create - Purchase Order Entry'}
           </span>
         </div>
-        <button className="px-3 py-1 bg-[#0097A7] text-white text-[12px] rounded hover:bg-[#007a87] transition-colors font-semibold">Draft</button>
       </div>
 
       {/* 2. Scrollable content */}
@@ -603,16 +557,17 @@ setItems(prefillItems)
                 <label className={`${lbl} w-[130px] shrink-0`}>GST NO. :</label>
                 <input value={form.gstNo} onChange={e => setField('gstNo', e.target.value)} className={inp()} />
               </div>
-              {/* Discount type radio */}
               <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[130px] shrink-0`}></label>
-                <div className="flex items-center gap-3">
-                  {['Dis_Per','Dis_Amt'].map(v => (
-                    <label key={v} className="flex items-center gap-1 text-[12.5px] cursor-pointer">
-                      <input type="radio" name="discountType" value={v} checked={form.discountType===v} onChange={() => setField('discountType', v)} className="accent-[#0097A7]" />
-                      {v === 'Dis_Per' ? 'Dis. Per' : 'Dis. Amt'}
-                    </label>
-                  ))}
+                <label className={`${lbl} w-[130px] shrink-0`}>Taxation Mode:</label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-1.5 text-[12px] cursor-pointer">
+                    <input type="radio" name="taxMode" value="intra" checked={taxMode === 'intra'} onChange={() => setTaxMode('intra')} className="accent-[#0097A7]" />
+                    <span>Intra-State (CGST + SGST)</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[12px] cursor-pointer">
+                    <input type="radio" name="taxMode" value="inter" checked={taxMode === 'inter'} onChange={() => setTaxMode('inter')} className="accent-[#0097A7]" />
+                    <span>Inter-State (IGST)</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -624,12 +579,12 @@ setItems(prefillItems)
                 <input value={form.poNumber} readOnly className={`${inp()} bg-slate-50`} />
               </div>
               <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[100px] shrink-0`}>PO Date:</label>
-                <input type="date" value={form.poDate} className={inp()} readOnly/>
+                <label className={`${lbl} w-[100px] shrink-0`}>PO Date & Time:</label>
+                <input type="datetime-local" value={form.poDate} onChange={e => setField('poDate', e.target.value)} className={inp()} />
               </div>
               <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[100px] shrink-0`}>ETA Date :</label>
-                <input type="date" value={form.etaDate} onChange={e => setField('etaDate', e.target.value)} className={inp()} />
+                <label className={`${lbl} w-[100px] shrink-0`}>ETA Date & Time:</label>
+                <input type="datetime-local" value={form.etaDate} onChange={e => setField('etaDate', e.target.value)} className={inp()} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[100px] shrink-0`}>PO Type :</label>
@@ -651,7 +606,7 @@ setItems(prefillItems)
                   <Plus className="w-3.5 h-3.5"/> Add Row
                 </button>
                 <button onClick={() => { if(items.length>1) setItems(r => r.slice(0,-1)) }} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap">
-                  <Trash2 className="w-3.5 h-3.5"/> Delete Selected Item
+                  <Trash2 className="w-3.5 h-3.5"/> Delete Last Item
                 </button>
               </div>
             </div>
@@ -662,47 +617,62 @@ setItems(prefillItems)
             <div className="bg-slate-700 px-3 py-1.5 rounded-t">
               <h3 className="text-white text-[13px] font-semibold">Items</h3>
             </div>
-            <div className="overflow-x-auto border border-slate-200 rounded-b">
-              <table className="min-w-full text-[12.5px]">
+            <div className="border border-slate-200 rounded-b overflow-visible relative z-30 shadow-sm">
+              <table className="min-w-full text-[12.5px] border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">S.NO</th>
-                    {['Item Code','Purchase Req No','Item Name','Description','HSN Code','UOM','Qty','Unit Price','Disc %','Disc Amt','Amount','GST %','GST Amt','Net Amt','Action'].map(h => (
+                    {['Item Code','Pur. Req No','Item Name','Description','HSN Code','UOM','Qty','Unit Price','Amount','GST %','GST Amt','Net Amt','Action'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row, idx) => (
-                    <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''}`}>
+                    <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''} relative`} style={{ zIndex: items.length - idx + 10 }}>
                       <td className="px-2 py-1 text-center text-slate-500">{idx+1}</td>
-                      <td className="px-1 py-1">
+                      <td className="px-1 py-1 w-36 min-w-[150px]">
                         <ItemSearchInput
                           value={row.itemCode}
                           displayField="partNo"
-                          placeholder="Search Item Code"
-                          className={inp()}
+                          placeholder="Search Part No..."
+                          className="w-full px-2 py-1 text-[12px] border border-slate-200 rounded bg-white focus:outline-none focus:border-[#0097A7] font-semibold text-[#0097A7]"
                           onChange={(val, item) => handleItemSelect(idx, val, item)}
                         />
                       </td>
                       <td className="px-1 py-1">
-                        <select value={row.purchaseReqNo} onChange={e=>setItemField(idx,'purchaseReqNo',e.target.value)} className={inp()}>
-                          <option value="">Select PR No</option>
-                          {purchaseRequests.map(pr => <option key={pr} value={pr}>{pr}</option>)}
-                        </select>
+                        <input
+                          type="text"
+                          placeholder="Req No"
+                          value={row.purchaseReqNo}
+                          onChange={e => setItemField(idx, 'purchaseReqNo', e.target.value)}
+                          className={`${inp()} w-20 min-w-[75px] font-medium text-center`}
+                        />
                       </td>
-                      <td className="px-1 py-1"><input value={row.itemName} onChange={e=>setItemField(idx,'itemName',e.target.value)} className={`${inp()} ${row.itemId?'bg-slate-50':''}`} /></td>
-                      <td className="px-1 py-1"><input value={row.description} onChange={e=>setItemField(idx,'description',e.target.value)} className={`${inp()} min-w-[120px] ${row.itemId?'bg-slate-50':''}`} /></td>
+                      <td className="px-1 py-1">
+                        <input
+                          value={row.itemName}
+                          title={row.itemName || ''}
+                          onChange={e => setItemField(idx, 'itemName', e.target.value)}
+                          className={`${inp()} min-w-[130px] ${row.itemId ? 'bg-slate-50' : ''}`}
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        <input
+                          value={row.description}
+                          title={row.description || ''}
+                          onChange={e => setItemField(idx, 'description', e.target.value)}
+                          className={`${inp()} min-w-[140px] ${row.itemId ? 'bg-slate-50' : ''}`}
+                        />
+                      </td>
                       <td className="px-1 py-1"><input value={row.hsnCode} onChange={e=>setItemField(idx,'hsnCode',e.target.value)} className={`${inp()} ${row.itemId?'bg-slate-50':''}`} /></td>
                       <td className="px-1 py-1"><input value={row.uom} onChange={e=>setItemField(idx,'uom',e.target.value)} className={`${inp()} w-14 ${row.itemId?'bg-slate-50':''}`} /></td>
-                      <td className="px-1 py-1"><input value={row.qty} onChange={e=>setItemField(idx,'qty',e.target.value)} className={`${inp()} w-14`} /></td>
-                      <td className="px-1 py-1"><input value={row.unitPrice} onChange={e=>setItemField(idx,'unitPrice',e.target.value)} className={`${inp()} w-20`} /></td>
-                      <td className="px-1 py-1"><input value={row.discPer} onChange={e=>setItemField(idx,'discPer',e.target.value)} className={`${inp()} w-14`} /></td>
-                      <td className="px-1 py-1"><input value={row.discAmt} readOnly className={`${inp()} bg-slate-50 w-16`} /></td>
-                      <td className="px-1 py-1"><input value={row.amount} readOnly className={`${inp()} bg-slate-50 w-20`} /></td>
-                      <td className="px-1 py-1"><input value={row.gstPer} onChange={e=>setItemField(idx,'gstPer',e.target.value)} className={`${inp()} w-14`} /></td>
-                      <td className="px-1 py-1"><input value={row.gstAmt} readOnly className={`${inp()} bg-slate-50 w-16`} /></td>
-                      <td className="px-1 py-1"><input value={row.netAmt} readOnly className={`${inp()} bg-slate-50 w-20`} /></td>
+                      <td className="px-1 py-1"><input value={row.qty} onChange={e=>setItemField(idx,'qty',e.target.value)} className={`${inp()} w-14 text-right font-medium`} /></td>
+                      <td className="px-1 py-1"><input value={row.unitPrice} onChange={e=>setItemField(idx,'unitPrice',e.target.value)} className={`${inp()} w-20 text-right font-medium`} /></td>
+                      <td className="px-1 py-1"><input value={row.amount} readOnly className={`${inp()} bg-slate-50 w-24 text-right font-semibold`} /></td>
+                      <td className="px-1 py-1"><input value={row.gstPer} onChange={e=>setItemField(idx,'gstPer',e.target.value)} className={`${inp()} w-14 text-right`} /></td>
+                      <td className="px-1 py-1"><input value={row.gstAmt} readOnly className={`${inp()} bg-slate-50 w-20 text-right`} /></td>
+                      <td className="px-1 py-1"><input value={row.netAmt} readOnly className={`${inp()} bg-slate-50 w-24 text-right font-bold text-slate-700`} /></td>
                       <td className="px-2 py-1 text-center">
                         <button onClick={() => removeRow(idx)} className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] rounded transition-colors">Remove</button>
                       </td>
@@ -767,34 +737,47 @@ setItems(prefillItems)
             </div>
 
             {/* Right column: Totals / Tax */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[80px] shrink-0`}>Sub Total :</label>
-                <span className="text-[13px] font-semibold text-slate-700 ml-auto">{subTotal.toFixed(2)}</span>
+            <div className="space-y-2 bg-slate-50 p-3 rounded border border-slate-200">
+              <div className="flex items-center justify-between">
+                <label className={`${lbl}`}>Item Sub Total :</label>
+                <span className="text-[13px] font-bold text-slate-800">{itemSubTotal.toFixed(2)}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[80px] shrink-0`}>Others :</label>
-                <span className="text-[12px] text-slate-500 ml-auto">%</span>
-                <input value={othersPer} onChange={e => setOthersPer(e.target.value)} className={`${inp()} w-14`} />
-                <input value={othersAmt} onChange={e => setOthersAmt(e.target.value)} className={`${inp()} w-20`} />
+
+              {taxMode === 'intra' ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <label className={`${lbl}`}>CGST ({((items[0] ? parseFloat(items[0].gstPer) || 18 : 18) / 2).toFixed(1)}%) :</label>
+                    <span className="text-[12.5px] font-semibold text-slate-700">{effectiveCgstAmt.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className={`${lbl}`}>SGST ({((items[0] ? parseFloat(items[0].gstPer) || 18 : 18) / 2).toFixed(1)}%) :</label>
+                    <span className="text-[12.5px] font-semibold text-slate-700">{effectiveSgstAmt.toFixed(2)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <label className={`${lbl}`}>IGST ({(items[0] ? parseFloat(items[0].gstPer) || 18 : 18).toFixed(1)}%) :</label>
+                  <span className="text-[12.5px] font-semibold text-slate-700">{effectiveIgstAmt.toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                <div className="flex items-center gap-2">
+                  <label className={`${lbl}`}>Others Charges :</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowOthersModal(true)}
+                    className="px-2 py-0.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded shadow-xs transition-colors"
+                  >
+                    Others +
+                  </button>
+                </div>
+                <span className="text-[13px] font-bold text-slate-800">{othersVal.toFixed(2)}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[80px] shrink-0`}>CGST :</label>
-                <span className="text-[12px] text-slate-500 ml-auto">%</span>
-                <input value={cgstPer} onChange={e => setCgstPer(e.target.value)} className={`${inp()} w-14`} />
-                <input value={cgstAmt} onChange={e => setCgstAmt(e.target.value)} className={`${inp()} w-20`} />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[80px] shrink-0`}>SGST :</label>
-                <span className="text-[12px] text-slate-500 ml-auto">%</span>
-                <input value={sgstPer} onChange={e => setSgstPer(e.target.value)} className={`${inp()} w-14`} />
-                <input value={sgstAmt} onChange={e => setSgstAmt(e.target.value)} className={`${inp()} w-20`} />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[80px] shrink-0`}>IGST :</label>
-                <span className="text-[12px] text-slate-500 ml-auto">%</span>
-                <input value={igstPer} onChange={e => setIgstPer(e.target.value)} className={`${inp()} w-14`} />
-                <input value={igstAmt} onChange={e => setIgstAmt(e.target.value)} className={`${inp()} w-20`} />
+
+              <div className="flex items-center justify-between pt-2 border-t-2 border-slate-300">
+                <label className="text-[13px] font-bold text-slate-800">Grand Total :</label>
+                <span className="text-[15px] font-bold text-[#0097A7]">{grandTotal.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -824,8 +807,12 @@ setItems(prefillItems)
 
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-slate-500">Sub Total:</span>
-            <span className="text-[14px] font-bold text-slate-700">{subTotal.toFixed(2)}</span>
+            <span className="text-[13px] font-semibold text-slate-500">Item Sub Total:</span>
+            <span className="text-[14px] font-bold text-slate-700">{itemSubTotal.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center gap-2 border-l border-slate-200 pl-6">
+            <span className="text-[13px] font-semibold text-slate-500">GST (Strict on Sub Total):</span>
+            <span className="text-[14px] font-bold text-slate-700">{totalItemGstAmt.toFixed(2)}</span>
           </div>
           <div className="flex items-center gap-2 border-l border-slate-200 pl-6">
             <span className="text-[13px] font-bold text-slate-700">Grand Total:</span>
@@ -833,6 +820,106 @@ setItems(prefillItems)
           </div>
         </div>
       </div>
+
+      {/* Others Additional Charges Modal */}
+      {showOthersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-[#0097A7] px-4 py-3 text-white flex items-center justify-between">
+              <h3 className="text-[14px] font-bold">Input Additional / Other Charges</h3>
+              <button onClick={() => setShowOthersModal(false)} className="text-white/80 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-[12.5px]">
+              <p className="text-[11.5px] text-slate-500 italic pb-1 border-b border-slate-100">
+                Note: GST will strictly NOT be calculated on these additional charges.
+              </p>
+              <div className="flex items-center justify-between gap-3">
+                <label className={lbl}>Freight / Transportation:</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={othersCharges.freight}
+                  onChange={e => setOthersCharges(c => ({ ...c, freight: e.target.value }))}
+                  className={`${inp()} w-36 text-right`}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <label className={lbl}>Packaging & Forwarding:</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={othersCharges.packaging}
+                  onChange={e => setOthersCharges(c => ({ ...c, packaging: e.target.value }))}
+                  className={`${inp()} w-36 text-right`}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <label className={lbl}>Handling Charges:</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={othersCharges.handling}
+                  onChange={e => setOthersCharges(c => ({ ...c, handling: e.target.value }))}
+                  className={`${inp()} w-36 text-right`}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <label className={lbl}>Transit Insurance:</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={othersCharges.insurance}
+                  onChange={e => setOthersCharges(c => ({ ...c, insurance: e.target.value }))}
+                  className={`${inp()} w-36 text-right`}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <label className={lbl}>Miscellaneous Other Charges:</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={othersCharges.misc}
+                  onChange={e => setOthersCharges(c => ({ ...c, misc: e.target.value }))}
+                  className={`${inp()} w-36 text-right`}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                <span className="font-bold text-slate-700">Total Additional Charges:</span>
+                <span className="font-bold text-[#0097A7] text-[14px]">
+                  {((parseFloat(othersCharges.freight) || 0) +
+                    (parseFloat(othersCharges.packaging) || 0) +
+                    (parseFloat(othersCharges.handling) || 0) +
+                    (parseFloat(othersCharges.insurance) || 0) +
+                    (parseFloat(othersCharges.misc) || 0)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+            <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowOthersModal(false)}
+                className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-100 font-semibold text-[12px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyOthersModal}
+                className="px-5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white rounded font-semibold text-[12px] shadow-sm"
+              >
+                Apply Charges
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

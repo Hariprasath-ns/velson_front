@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Printer } from 'lucide-react'
+import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Printer, AlertTriangle } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useModulePermission } from '../hooks/useModulePermission'
@@ -14,13 +14,6 @@ const fmtDate = d => {
 const inp = 'border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white'
 const lbl = 'text-[12px] font-semibold text-slate-600 whitespace-nowrap'
 const iconBtn = 'flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#0097A7] transition-colors cursor-pointer select-none'
-
-const STATUS_OPTIONS = [
-  { value: '',         label: 'All' },
-  { value: 'Pending',  label: 'P.O Pending' },
-  { value: 'Approval', label: 'P.O Approved' },
-  { value: 'Rejected', label: 'P.O Rejected' },
-]
 
 const statusColor = s => ({
   Pending:  'text-amber-600 font-medium',
@@ -50,7 +43,7 @@ const downloadBlob = (blob, filename) => {
   document.body.removeChild(a); URL.revokeObjectURL(url)
 }
 
-const doExcelExport = (data, from, to) => {
+const doExcelExport = (data) => {
   const rows = buildRows(data)
   if (!rows.length) return
   const cols = Object.keys(rows[0])
@@ -59,10 +52,10 @@ const doExcelExport = (data, from, to) => {
     ...rows.map(r => cols.map(c => `"${String(r[c]).replace(/"/g,'""')}"`).join(','))
   ]
   const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
-  downloadBlob(blob, `purchase-orders-${from}-${to}.csv`)
+  downloadBlob(blob, `pending-purchase-orders-${Date.now()}.csv`)
 }
 
-const doDocExport = (data, from, to) => {
+const doDocExport = (data) => {
   const rows = buildRows(data)
   if (!rows.length) return
   const cols = Object.keys(rows[0])
@@ -75,16 +68,16 @@ const doDocExport = (data, from, to) => {
   const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
 <head><meta charset='utf-8'><style>body{font-family:Arial;font-size:12px}h2{font-size:15px}p{font-size:11px;color:#555}</style></head>
 <body>
-<h2>Purchase Order List</h2>
-<p>Date Range: ${from} to ${to} &nbsp;&nbsp; Generated: ${new Date().toLocaleDateString()}</p>
+<h2>Pending Purchase Order List</h2>
+<p>Generated: ${new Date().toLocaleDateString()}</p>
 <table border="1" style="border-collapse:collapse;width:100%"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
 <p style="margin-top:8px">Total Records: ${rows.length}</p>
 </body></html>`
   const blob = new Blob([html], { type: 'application/msword' })
-  downloadBlob(blob, `purchase-orders-${from}-${to}.doc`)
+  downloadBlob(blob, `pending-purchase-orders-${Date.now()}.doc`)
 }
 
-const doPrint = (data, from, to) => {
+const doPrint = (data) => {
   const rows = buildRows(data)
   const cols = Object.keys(rows[0] || {})
   const thead = cols.map(c => `<th>${c}</th>`).join('')
@@ -92,7 +85,7 @@ const doPrint = (data, from, to) => {
     `<tr class="${i%2?'alt':''}"><td>${cols.map(c => r[c]).join('</td><td>')}</td></tr>`
   ).join('')
   const win = window.open('', '_blank', 'width=1100,height=750')
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Purchase Orders</title>
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pending Purchase Orders</title>
 <style>
   *{box-sizing:border-box}
   body{font-family:Arial,sans-serif;font-size:11px;margin:16px;color:#222}
@@ -105,8 +98,8 @@ const doPrint = (data, from, to) => {
   .footer{margin-top:10px;font-size:10px;color:#777}
   @media print{@page{margin:1cm}button{display:none}}
 </style></head><body>
-<h2>Purchase Order List</h2>
-<p class="meta">Date Range: ${from} to ${to} &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString()} &nbsp;|&nbsp; Records: ${rows.length}</p>
+<h2>Pending Purchase Order List</h2>
+<p class="meta">Printed: ${new Date().toLocaleDateString()} &nbsp;|&nbsp; Records: ${rows.length}</p>
 <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
 <p class="footer">Total Rows: ${rows.length}</p>
 </body></html>`)
@@ -119,20 +112,17 @@ export default function PoApproval() {
   const { canEdit, canPrint } = useModulePermission('po-approval')
   const toast = useToast()
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const today = new Date().toISOString().split('T')[0]
-
-  const [fromDate, setFromDate]     = useState(thirtyDaysAgo)
-  const [toDate, setToDate]         = useState(today)
-  const [statusFilter, setStatusFilter] = useState('')
   const [selectedPoId, setSelectedPoId] = useState(null)
-  const [allData, setAllData]       = useState([])
   const [data, setData]             = useState([])
   const [loading, setLoading]       = useState(false)
-  const [searching, setSearching]   = useState(false)
 
   const [approving, setApproving]   = useState(false)
   const [rejecting, setRejecting]   = useState(false)
+
+  // Rejection modal
+  const [rejectModalOpen, setRejectModalOpen] = useState(false)
+  const [rejectTargetPo, setRejectTargetPo]   = useState(null)
+  const [rejectionReason, setRejectionReason] = useState('')
 
   // inline filter
   const [filterOpen, setFilterOpen] = useState(false)
@@ -156,15 +146,9 @@ export default function PoApproval() {
     try {
       const res = await api.get('/api/purchase-master', { skipGlobalLoader: true })
       const list = res.data?.data || []
-      setAllData(list)
-      // apply initial filters
-      let filtered = list
-      if (statusFilter) filtered = filtered.filter(r => r.status === statusFilter)
-      filtered = filtered.filter(r => {
-        const d = r.poDate ? r.poDate.split('T')[0] : ''
-        return d >= fromDate && d <= toDate
-      })
-      setData(filtered)
+      // Display only PO records currently in Pending Approval status
+      const pendingList = list.filter(r => (r.status || 'Pending').toLowerCase() === 'pending')
+      setData(pendingList)
     } catch (err) {
       console.error('Error fetching POs:', err)
       toast.error('Failed to load purchase orders')
@@ -177,20 +161,6 @@ export default function PoApproval() {
     fetchData()
   }, [])
 
-  const handleSearch = () => {
-    setSearching(true)
-    let result = allData
-    if (statusFilter) result = result.filter(r => r.status === statusFilter)
-    result = result.filter(r => {
-      const d = r.poDate ? r.poDate.split('T')[0] : ''
-      return d >= fromDate && d <= toDate
-    })
-    setData(result)
-    setSelectedPoId(null)
-    setFilterText('')
-    setSearching(false)
-  }
-
   const selectedPo = data.find(po => po.id === selectedPoId)
 
   /* ── live column filter ── */
@@ -202,7 +172,8 @@ export default function PoApproval() {
           (r.poType || '').toLowerCase().includes(q) ||
           (r.supplier?.supplierName || '').toLowerCase().includes(q) ||
           (r.contactPerson || '').toLowerCase().includes(q) ||
-          (r.status || '').toLowerCase().includes(q)
+          (r.status || '').toLowerCase().includes(q) ||
+          (r.remarks || '').toLowerCase().includes(q)
         )
       })
     : data
@@ -217,9 +188,9 @@ export default function PoApproval() {
   const visibleCols = ALL_COLS.filter(c => !hiddenCols.has(c))
 
   /* ── exports ── */
-  const handleExcel = () => doExcelExport(displayData, fromDate, toDate)
-  const handleDoc   = () => doDocExport(displayData, fromDate, toDate)
-  const handlePrint = () => doPrint(displayData, fromDate, toDate)
+  const handleExcel = () => doExcelExport(displayData)
+  const handleDoc   = () => doDocExport(displayData)
+  const handlePrint = () => doPrint(displayData)
 
   /* ── close ── */
   const handleClose = () =>
@@ -238,9 +209,9 @@ export default function PoApproval() {
       const json = res.data
       if (json.success) {
         toast.success(`Purchase Order ${po.poNo} approved.`)
-        const patch = r => r.id === po.id ? { ...r, status: 'Approval' } : r
-        setAllData(prev => prev.map(patch))
-        setData(prev => prev.map(patch))
+        // Remove from pending list
+        setData(prev => prev.filter(r => r.id !== po.id))
+        setSelectedPoId(null)
       } else {
         toast.error(json.message || 'Approval failed')
       }
@@ -252,22 +223,39 @@ export default function PoApproval() {
     }
   }
 
-  /* ── reject ── */
-  const handleReject = async (po) => {
+  /* ── open reject modal ── */
+  const handleOpenReject = (po) => {
+    setRejectTargetPo(po)
+    setRejectionReason('')
+    setRejectModalOpen(true)
+  }
+
+  /* ── confirm reject with mandatory reason ── */
+  const handleConfirmReject = async () => {
+    if (!rejectionReason.trim()) {
+      toast.error('Please enter a rejection reason')
+      return
+    }
+    if (!rejectTargetPo) return
+
     setRejecting(true)
     try {
-      const res = await api.put(`/api/purchase-master/${po.id}`, {
-        ...po,
-        items: po.details || [],
+      const res = await api.put(`/api/purchase-master/${rejectTargetPo.id}`, {
+        ...rejectTargetPo,
+        items: rejectTargetPo.details || [],
         status: 'Rejected',
+        remarks: rejectionReason.trim(),
         updatedBy: 'Admin'
       })
       const json = res.data
       if (json.success) {
-        toast.warning(`Purchase Order ${po.poNo} rejected.`)
-        const patch = r => r.id === po.id ? { ...r, status: 'Rejected' } : r
-        setAllData(prev => prev.map(patch))
-        setData(prev => prev.map(patch))
+        toast.warning(`Purchase Order ${rejectTargetPo.poNo} rejected.`)
+        // Remove from pending list
+        setData(prev => prev.filter(r => r.id !== rejectTargetPo.id))
+        setSelectedPoId(null)
+        setRejectModalOpen(false)
+        setRejectTargetPo(null)
+        setRejectionReason('')
       } else {
         toast.error(json.message || 'Rejection failed')
       }
@@ -286,15 +274,13 @@ export default function PoApproval() {
       case 'PO Type':        return <td key={col} className="p-1.5 border-x border-slate-200">{row.poType || '—'}</td>
       case 'Supplier Name':  return <td key={col} className="p-1.5 border-x border-slate-200 font-medium">{row.supplier?.supplierName || '—'}</td>
       case 'Contact Person': return <td key={col} className="p-1.5 border-x border-slate-200">{row.contactPerson || '—'}</td>
-      case 'Status':         return <td key={col} className="p-1.5 border-x border-slate-200"><span className={`font-medium ${statusColor(row.status)}`}>{row.status || '—'}</span></td>
+      case 'Status':         return <td key={col} className="p-1.5 border-x border-slate-200"><span className={`font-medium ${statusColor(row.status)}`}>{row.status || 'Pending'}</span></td>
       case 'Remarks':        return <td key={col} className="p-1.5 border-x border-slate-200 text-slate-500">{row.remarks || '—'}</td>
       default: return null
     }
   }
 
   const colSpanTotal = visibleCols.length
-
-  const headerBg = s => s === 'Approval' ? 'bg-green-600' : s === 'Rejected' ? 'bg-red-500' : 'bg-[#0097A7]'
 
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden h-screen flex flex-col">
@@ -308,7 +294,7 @@ export default function PoApproval() {
       <div className="bg-white rounded border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden">
         {/* Header */}
         <div className="bg-[#0097A7] px-4 py-2.5 flex items-center justify-between shrink-0">
-          <h2 className="text-white font-semibold text-[14px]">Purchase Order Details</h2>
+          <h2 className="text-white font-semibold text-[14px]">Pending Purchase Order Details</h2>
           <div className="flex gap-2">
             <button
               onClick={handlePrint}
@@ -330,31 +316,9 @@ export default function PoApproval() {
 
         {/* Filter Bar */}
         <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50 shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <label className={lbl}>From Date :</label>
-              <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className={inp} />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className={lbl}>To Date :</label>
-              <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className={inp} />
-            </div>
-            <div className="flex items-center gap-3">
-              {STATUS_OPTIONS.map(opt => (
-                <label key={opt.value} className="flex items-center gap-1 text-[12.5px] cursor-pointer whitespace-nowrap text-slate-700">
-                  <input type="radio" name="poStatus" value={opt.value} checked={statusFilter === opt.value}
-                    onChange={() => setStatusFilter(opt.value)} className="accent-[#0097A7]" />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-            <button
-              onClick={handleSearch}
-              disabled={searching || loading}
-              className="flex items-center gap-1.5 px-4 py-1 border border-[#0097A7] text-[#0097A7] bg-white hover:bg-[#0097A7]/10 rounded text-[12px] font-medium transition-colors shadow-sm disabled:opacity-75"
-            >
-              <span className="w-2 h-2 rounded-full bg-red-500"></span> {searching ? 'Searching…' : 'Search'}
-            </button>
+          <div className="flex items-center gap-3">
+            <span className="text-[12.5px] font-semibold text-slate-600">Pending Orders for Approval</span>
+            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[11px] font-bold rounded-full">{data.length}</span>
           </div>
 
           {/* Export + utility controls */}
@@ -378,295 +342,225 @@ export default function PoApproval() {
               className={`${iconBtn} ${filterOpen ? 'text-[#0097A7]' : ''}`}
               title="Toggle search filter"
             >
-              <Filter className={`w-4 h-4 ${filterOpen ? 'text-[#0097A7]' : 'text-blue-500'}`} /> Filter
+              <Filter className="w-4 h-4" /> Filter
             </button>
+
+            {/* Column visibility dropdown */}
             <div className="relative" ref={settingsRef}>
               <button
                 onClick={() => setSettingsOpen(o => !o)}
                 className={`${iconBtn} ${settingsOpen ? 'text-[#0097A7]' : ''}`}
-                title="Column visibility settings"
+                title="Configure visible columns"
               >
-                <Settings className="w-4 h-4 text-slate-700" /> Setting
+                <Settings className="w-4 h-4" />
               </button>
               {settingsOpen && (
-                <div className="absolute right-0 top-7 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-3 min-w-[180px]">
-                  <p className="text-[11px] font-bold text-slate-500 uppercase mb-2 tracking-wide">Show / Hide Columns</p>
+                <div className="absolute right-0 top-6 z-50 bg-white border border-slate-200 rounded shadow-lg p-2.5 w-48 text-[12px] space-y-1.5">
+                  <p className="font-semibold text-slate-600 border-b border-slate-100 pb-1 mb-1 text-[11px] uppercase tracking-wide">
+                    Toggle Columns
+                  </p>
                   {ALL_COLS.map(col => (
-                    <label key={col} className="flex items-center gap-2 py-1 cursor-pointer hover:text-[#0097A7]">
+                    <label key={col} className="flex items-center gap-2 cursor-pointer hover:text-[#0097A7] select-none">
                       <input
                         type="checkbox"
                         checked={!hiddenCols.has(col)}
                         onChange={() => toggleCol(col)}
-                        className="accent-[#0097A7]"
+                        className="accent-[#0097A7] rounded"
                       />
-                      <span className="text-[12px] text-slate-700">{col}</span>
+                      <span>{col}</span>
                     </label>
                   ))}
-                  <button
-                    onClick={() => setHiddenCols(new Set())}
-                    className="mt-2 w-full text-[11px] py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors"
-                  >
-                    Reset All
-                  </button>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Inline text filter bar */}
+        {/* Inline column filter search input */}
         {filterOpen && (
-          <div className="px-3 py-2 border-b border-slate-200 bg-blue-50/40 flex items-center gap-3 shrink-0">
-            <Filter className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+          <div className="px-4 py-2 bg-[#0097A7]/5 border-b border-[#0097A7]/20 flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-semibold text-[#0097A7] uppercase tracking-wide">Filter:</span>
             <input
-              autoFocus
               type="text"
               value={filterText}
               onChange={e => setFilterText(e.target.value)}
-              placeholder="Search across PO No, Supplier, Type, Status…"
-              className="flex-1 border border-blue-200 rounded px-3 py-1 text-[12.5px] focus:outline-none focus:border-[#0097A7] bg-white"
+              placeholder="Type to filter across all columns…"
+              className="border border-[#0097A7]/40 rounded px-2 py-0.5 text-[12px] w-72 bg-white focus:outline-none focus:border-[#0097A7]"
+              autoFocus
             />
             {filterText && (
-              <button onClick={() => setFilterText('')} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => setFilterText('')} className="text-slate-400 hover:text-slate-600 text-[12px]">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
-            <span className="text-[11px] text-slate-400 shrink-0">{displayData.length} result{displayData.length !== 1 ? 's' : ''}</span>
+            <span className="text-[11px] text-slate-400 ml-auto">{displayData.length} matches</span>
           </div>
         )}
 
-        {/* Data Grid */}
-        <div className="flex-1 overflow-auto relative">
-          {loading ? (
-            <div className="flex items-center justify-center h-32 gap-2.5 text-slate-500 text-[12px]">
-              <span className="w-5 h-5 border-2 border-slate-200 border-t-[#0097A7] rounded-full animate-spin" />
-              Loading…
-            </div>
-          ) : (
-            <table className="w-full min-w-max text-[12px] text-left border-collapse">
-              <thead className="bg-slate-800 text-white sticky top-0 z-10">
-                <tr>
-                  {visibleCols.map(h => (
-                    <th key={h} className="p-2 font-medium border-x border-slate-700 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {displayData.length === 0 ? (
-                  <tr>
-                    <td colSpan={colSpanTotal} className="p-8 text-center text-slate-400 text-[12px]">
-                      {filterText ? 'No matching records' : 'No records found'}
-                    </td>
-                  </tr>
-                ) : displayData.map((row, i) => (
-                  <tr
-                    key={row.id}
-                    onClick={() => setSelectedPoId(row.id)}
-                    className={`cursor-pointer transition-colors ${selectedPoId === row.id ? 'bg-[#0097A7]/10 font-semibold' : 'hover:bg-slate-50'}`}
-                  >
-                    {visibleCols.map(col => renderCell(row, col))}
-                  </tr>
+        {/* Table Area */}
+        <div className="flex-1 overflow-auto border-b border-slate-200">
+          <table className="w-full text-[12px] text-left border-collapse">
+            <thead className="bg-slate-100 text-slate-600 sticky top-0 border-b border-slate-200 uppercase text-[11px] tracking-wider select-none z-10">
+              <tr>
+                {visibleCols.map(col => (
+                  <th key={col} className="p-2 font-semibold border-x border-slate-200 whitespace-nowrap">{col}</th>
                 ))}
-              </tbody>
-              <tfoot className="sticky bottom-0 bg-[#f4f6ce] font-semibold text-slate-800 border-t-2 border-slate-300">
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
                 <tr>
-                  <td colSpan={colSpanTotal} className="p-2 border-x border-slate-300">
-                    Row : {displayData.length}{filterText ? ` (filtered from ${data.length})` : ''}
+                  <td colSpan={colSpanTotal} className="p-8 text-center text-slate-400">
+                    Loading pending purchase orders…
                   </td>
                 </tr>
-              </tfoot>
-            </table>
-          )}
+              ) : displayData.length === 0 ? (
+                <tr>
+                  <td colSpan={colSpanTotal} className="p-8 text-center text-slate-400 italic">
+                    No pending purchase orders waiting for approval.
+                  </td>
+                </tr>
+              ) : (
+                displayData.map((row, idx) => (
+                  <React.Fragment key={row.id}>
+                    <tr
+                      onClick={() => setSelectedPoId(selectedPoId === row.id ? null : row.id)}
+                      className={`cursor-pointer border-b border-slate-100 transition-colors
+                        ${selectedPoId === row.id ? 'bg-[#0097A7]/10 font-medium' : idx % 2 === 1 ? 'bg-slate-50/60 hover:bg-slate-100/60' : 'hover:bg-slate-50'}`}
+                    >
+                      {visibleCols.map(col => renderCell(row, col))}
+                    </tr>
+
+                    {/* Inline detail accordion */}
+                    {selectedPoId === row.id && (
+                      <tr>
+                        <td colSpan={colSpanTotal} className="p-0 border-b border-[#0097A7]/30 bg-slate-50">
+                          <div className="p-4 space-y-3">
+                            <div className="flex items-center justify-between bg-white border border-slate-200 rounded p-3 shadow-xs">
+                              <div>
+                                <span className="font-bold text-slate-800 text-[13px]">{row.poNo}</span>
+                                <span className="text-slate-400 mx-2">|</span>
+                                <span className="text-slate-600">{row.supplier?.supplierName}</span>
+                                <span className="text-slate-400 mx-2">|</span>
+                                <span className="text-slate-500">PO Date: {fmtDate(row.poDate)}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleApprove(row)}
+                                  disabled={approving || !canEdit}
+                                  className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded font-bold text-[12px] shadow-sm transition-colors disabled:opacity-50"
+                                >
+                                  {approving ? 'Approving…' : 'Approve PO'}
+                                </button>
+                                <button
+                                  onClick={() => handleOpenReject(row)}
+                                  disabled={rejecting || !canEdit}
+                                  className="px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded font-bold text-[12px] shadow-sm transition-colors disabled:opacity-50"
+                                >
+                                  Reject PO
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Details items table */}
+                            <div className="bg-white rounded border border-slate-200 overflow-hidden">
+                              <table className="w-full text-[11.5px]">
+                                <thead className="bg-slate-100 text-slate-600 uppercase text-[10.5px]">
+                                  <tr>
+                                    <th className="p-1.5 text-center">S.No</th>
+                                    <th className="p-1.5 text-left">Item Code</th>
+                                    <th className="p-1.5 text-left">Item Name</th>
+                                    <th className="p-1.5 text-left">Pur. Req No</th>
+                                    <th className="p-1.5 text-right">Qty</th>
+                                    <th className="p-1.5 text-right">Unit Price</th>
+                                    <th className="p-1.5 text-right">Amount</th>
+                                    <th className="p-1.5 text-right">GST %</th>
+                                    <th className="p-1.5 text-right">Net Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {row.details && row.details.length > 0 ? (
+                                    row.details.map((d, i) => (
+                                      <tr key={d.id || i} className="border-t border-slate-100">
+                                        <td className="p-1.5 text-center text-slate-500">{i + 1}</td>
+                                        <td className="p-1.5 font-medium text-[#0097A7]">{d.itemCode || '—'}</td>
+                                        <td className="p-1.5" title={d.itemName || ''}>{d.itemName || '—'}</td>
+                                        <td className="p-1.5">{d.purchaseReqNo || '—'}</td>
+                                        <td className="p-1.5 text-right font-semibold">{d.qty}</td>
+                                        <td className="p-1.5 text-right">{parseFloat(d.unitPrice || 0).toFixed(2)}</td>
+                                        <td className="p-1.5 text-right font-medium">{parseFloat(d.amount || 0).toFixed(2)}</td>
+                                        <td className="p-1.5 text-right">{d.gstPer}%</td>
+                                        <td className="p-1.5 text-right font-bold text-slate-700">{parseFloat(d.netAmt || 0).toFixed(2)}</td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={9} className="p-3 text-center text-slate-400 italic">No line items recorded.</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Modal Popup Overlay */}
-      {selectedPo && (
-        <div
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setSelectedPoId(null)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className={`${headerBg(selectedPo.status)} px-5 py-3.5 flex items-center justify-between shrink-0`}>
-              <h3 className="text-white font-semibold text-[15px]">
-                Purchase Order Details - <span className="font-mono">{selectedPo.poNo}</span>
-              </h3>
-              <button
-                onClick={() => setSelectedPoId(null)}
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
+      {/* Mandatory Rejection Reason Modal */}
+      {rejectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-red-600 px-4 py-3 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                <h3 className="text-[13px] font-bold">Reject Purchase Order — {rejectTargetPo?.poNo}</h3>
+              </div>
+              <button onClick={() => setRejectModalOpen(false)} className="text-white/80 hover:text-white">
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-5 flex-1 text-[12.5px]">
-              {/* Detail info grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">PO Number</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800 font-mono font-semibold">{selectedPo.poNo}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">PO Date</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{fmtDate(selectedPo.poDate)}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">ETA Date</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{fmtDate(selectedPo.etaDate)}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">PO Type</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPo.poType || '—'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Status</span>
-                    <span className="text-slate-400">:</span>
-                    <span className={`font-semibold ${statusColor(selectedPo.status)}`}>{selectedPo.status || '—'}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Supplier</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800 font-medium">{selectedPo.supplier?.supplierName || '—'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Contact Person</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPo.contactPerson || '—'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Contact No</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPo.contactNumber || '—'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">GST No</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPo.gstNo || '—'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Supplier Ref No</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPo.supplierRefNo || '—'}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Sub Total</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800 font-medium">{selectedPo.subTotal != null ? `₹ ${Number(selectedPo.subTotal).toFixed(2)}` : '—'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Grand Total</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-900 font-bold">{selectedPo.totalAmount != null ? `₹ ${Number(selectedPo.totalAmount).toFixed(2)}` : '—'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Created By</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPo.createdBy || '—'}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="w-32 font-semibold text-slate-500 shrink-0">Remarks</span>
-                    <span className="text-slate-400">:</span>
-                    <span className="text-slate-800">{selectedPo.remarks || '—'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Item table */}
+            <div className="p-4 space-y-3 text-[12.5px]">
+              <p className="text-slate-600 font-medium">
+                Please specify the mandatory rejection reason. This will be automatically populated into the Remarks column of the PO details grid.
+              </p>
               <div>
-                <p className="text-[13px] font-bold text-slate-700 mb-2.5">Requested Items</p>
-                {selectedPo.details?.length > 0 ? (
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-[12px] border-collapse">
-                      <thead className="bg-slate-100 border-b border-slate-200">
-                        <tr>
-                          {['#','Item Code','Item Name','Description','UOM','Qty','Unit Price','Disc%','Amount','GST%','Net Amt'].map(h => (
-                            <th key={h} className="px-3 py-2 text-left font-semibold text-slate-600 border-r border-slate-200 last:border-r-0 whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedPo.details.map((d, idx) => (
-                          <tr key={idx} className={`border-b border-slate-200 last:border-b-0 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                            <td className="px-3 py-2 text-slate-500 border-r border-slate-200">{idx + 1}</td>
-                            <td className="px-3 py-2 font-mono text-[#0097A7] border-r border-slate-200">{d.itemCode || '—'}</td>
-                            <td className="px-3 py-2 font-medium text-slate-800 border-r border-slate-200">{d.itemName || '—'}</td>
-                            <td className="px-3 py-2 text-slate-600 border-r border-slate-200">{d.description || '—'}</td>
-                            <td className="px-3 py-2 text-slate-500 border-r border-slate-200">{d.uom || '—'}</td>
-                            <td className="px-3 py-2 font-bold text-slate-900 border-r border-slate-200">{d.qty ?? 0}</td>
-                            <td className="px-3 py-2 text-slate-800 border-r border-slate-200">{d.unitPrice ?? 0}</td>
-                            <td className="px-3 py-2 text-slate-500 border-r border-slate-200">{d.discPer ?? 0}</td>
-                            <td className="px-3 py-2 text-slate-800 border-r border-slate-200">{d.amount ?? 0}</td>
-                            <td className="px-3 py-2 text-slate-500 border-r border-slate-200">{d.gstPer ?? 0}</td>
-                            <td className="px-3 py-2 font-bold text-slate-900">{d.netAmt ?? 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-[12px] text-slate-400 italic">No items associated with this order.</p>
-                )}
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  Rejection Reason <span className="text-red-500">*</span>:
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={rejectionReason}
+                  onChange={e => setRejectionReason(e.target.value)}
+                  placeholder="Enter detailed reason for rejection..."
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 resize-none bg-white"
+                  autoFocus
+                />
               </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="bg-slate-50 px-6 py-4 flex justify-between items-center border-t border-slate-200 shrink-0">
-              <span className="text-[12px] text-slate-400">{selectedPo.details?.length || 0} item(s)</span>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setSelectedPoId(null)}
-                  disabled={approving || rejecting}
-                  className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-[13px] font-semibold rounded-lg transition-colors border border-slate-300 disabled:opacity-50"
-                >
-                  Close
-                </button>
-                {selectedPo.status === 'Pending' ? (
-                  <>
-                    <button
-                      onClick={() => handleReject(selectedPo)}
-                      disabled={approving || rejecting || !canEdit}
-                      title={!canEdit ? "No permission to reject" : ""}
-                      className={`px-6 py-2 text-white text-[13px] font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center gap-1.5 active:scale-95
-                        ${!canEdit ? 'bg-slate-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
-                    >
-                      {rejecting ? 'Rejecting…' : 'Reject'}
-                    </button>
-                    <button
-                      onClick={() => handleApprove(selectedPo)}
-                      disabled={approving || rejecting || !canEdit}
-                      title={!canEdit ? "No permission to approve" : ""}
-                      className={`px-6 py-2 text-white text-[13px] font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center gap-1.5 active:scale-95
-                        ${!canEdit ? 'bg-slate-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-                    >
-                      {approving ? 'Approving…' : 'Approve'}
-                    </button>
-                  </>
-                ) : selectedPo.status === 'Approval' ? (
-                  <span className="px-5 py-2 bg-emerald-100 text-emerald-700 text-[13px] font-semibold rounded-lg border border-emerald-200">
-                    ✓ Approved
-                  </span>
-                ) : (
-                  <span className="px-5 py-2 bg-red-100 text-red-600 text-[13px] font-semibold rounded-lg border border-red-200">
-                    ✗ Rejected
-                  </span>
-                )}
-              </div>
+            <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectModalOpen(false)}
+                className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-100 font-semibold text-[12px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={rejecting || !rejectionReason.trim()}
+                className="px-5 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded font-bold text-[12px] shadow-sm"
+              >
+                {rejecting ? 'Rejecting…' : 'Confirm Rejection'}
+              </button>
             </div>
           </div>
         </div>
