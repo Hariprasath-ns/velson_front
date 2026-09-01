@@ -666,29 +666,24 @@ export default function IndexCreation() {
   }
 
   return (
-    <div className="bg-[#f4f6f8] min-h-full pb-10">
-      <div className="px-6 py-6">
-        <div className="flex items-center gap-2 text-[12px] text-slate-400 mb-5 uppercase font-black tracking-tight">
-          <span>BOM</span> <ChevronRight size={12} /> <span className="text-[#0097A7]">Index Creation</span>
+    <div className="h-[calc(100vh-46px)] w-full flex flex-col overflow-hidden p-3 bg-slate-50">
+      <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-red-700 rounded-sm" />
+            <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">{editRecordId ? 'Edit BOM Index Master' : 'BOM Index Master'}</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={handleReset} className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold rounded shadow-sm hover:bg-slate-50 transition-all">
+              <RotateCcw size={13} /> Reset
+            </button>
+            <button onClick={() => window.history.back()} className="flex items-center gap-1.5 px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black rounded transition-all shadow-sm">
+              <X size={15} strokeWidth={2.5} /> Close
+            </button>
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-700 rounded-sm" />
-              <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">{editRecordId ? 'Edit BOM Index Master' : 'BOM Index Master'}</h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <button onClick={handleReset} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-[12px] font-bold rounded-lg transition-all shadow-sm active:scale-95">
-                <RotateCcw size={14} /> Reset
-              </button>
-              <button onClick={() => window.history.back()} className="text-slate-400 hover:text-red-600 transition-colors ml-2">
-                <X size={20} strokeWidth={2.5} />
-              </button>
-            </div>
-          </div>
-
-          <div className="p-8">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
             <div className="grid grid-cols-12 gap-10">
               {/* Center Column: Form Fields */}
               <div className="col-span-12 max-w-2xl mx-auto w-full">
@@ -850,11 +845,11 @@ export default function IndexCreation() {
                     </div>
                   </div>
                 </div>
-                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm overflow-x-auto bg-white">
-                  <table className="w-full text-left border-collapse table-fixed">
-                    <thead className="bg-[#fcfdfe] text-[11px] uppercase text-slate-500 font-black border-b border-slate-200 whitespace-nowrap">
+                <div className="border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm overflow-x-auto bg-white">
+                  <table className="w-full text-left border-collapse border border-slate-300 table-fixed">
+                    <thead className="bg-slate-100 text-[11px] uppercase text-slate-700 font-black border-b-2 border-slate-300 whitespace-nowrap">
                       <tr>
-                        <th className="px-6 py-4 border-r border-slate-100 w-16 text-center">#</th>
+                        <th className="px-4 py-3.5 border-r border-slate-300 w-16 text-center bg-slate-100">#</th>
                         {excelHeaders.map(header => {
                           const isPartName = isPartNameHeader(header);
                           const isPartNo = isPartNoHeader(header);
@@ -869,7 +864,7 @@ export default function IndexCreation() {
                           return (
                             <th 
                               key={header} 
-                              className={`px-6 py-4 border-r border-slate-100 ${widthClass} ${isPartName ? 'max-w-[200px] truncate' : ''}`}
+                              className={`px-4 py-3.5 border-r border-slate-300 bg-slate-100 ${widthClass} ${isPartName ? 'max-w-[200px] truncate' : ''}`}
                               title={isPartName ? header : undefined}
                             >
                               {header}
@@ -878,10 +873,10 @@ export default function IndexCreation() {
                         })}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50 text-[13px]">
+                    <tbody className="divide-y divide-slate-200 text-[13px]">
                       {paginatedData.length > 0 ? paginatedData.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 transition-colors h-16 group">
-                          <td className="px-6 py-3 border-r border-slate-50 text-center text-slate-400 font-bold">
+                        <tr key={idx} className="hover:bg-slate-50 border-b border-slate-200 transition-colors h-16 group">
+                          <td className="px-4 py-3 border-r border-slate-300 text-center text-slate-500 font-bold bg-slate-50/50">
                             {(currentPage - 1) * rowsPerPage + idx + 1}
                           </td>
                           {excelHeaders.map(header => {
@@ -889,20 +884,20 @@ export default function IndexCreation() {
                             if (isImg) {
                               const imgSrc = resolveImageSrc(row[header])
                               return (
-                                <td key={header} className="px-6 py-3 border-r border-slate-50 text-center align-middle">
+                                <td key={header} className="px-4 py-3 border-r border-slate-200 text-center align-middle">
                                   {imgSrc ? (
                                     <div 
-                                      className="w-20 h-20 rounded border border-slate-200 overflow-hidden bg-slate-50 cursor-pointer hover:opacity-85 transition-opacity inline-flex items-center justify-center shadow-sm"
+                                      className="w-20 h-20 rounded border border-slate-300 overflow-hidden bg-slate-50 cursor-pointer hover:opacity-85 transition-opacity inline-flex items-center justify-center shadow-sm"
                                       onClick={() => setViewPopupImage(row[header])}
                                     >
                                       <img src={imgSrc} alt="preview" className="w-full h-full object-contain" />
                                     </div>
                                   ) : row[header] ? (
-                                    <span className="text-slate-655 text-xs font-semibold bg-slate-100 px-2 py-1 rounded border border-slate-200 truncate max-w-[120px] inline-block shadow-inner" title={row[header]}>
+                                    <span className="text-slate-700 text-xs font-semibold bg-slate-100 px-2 py-1 rounded border border-slate-300 truncate max-w-[120px] inline-block shadow-inner" title={row[header]}>
                                       📄 {row[header]}
                                     </span>
                                   ) : isEditMode ? (
-                                    <label className="inline-flex items-center justify-center w-8 h-8 rounded bg-slate-100 hover:bg-[#0097A7] text-slate-400 hover:text-white cursor-pointer transition-colors shadow-sm">
+                                    <label className="inline-flex items-center justify-center w-8 h-8 rounded bg-slate-100 hover:bg-[#0097A7] text-slate-500 hover:text-white cursor-pointer transition-colors shadow-sm border border-slate-300">
                                       <Upload size={14} />
                                       <input 
                                         type="file" 
@@ -921,7 +916,7 @@ export default function IndexCreation() {
                                       />
                                     </label>
                                   ) : (
-                                    <span className="text-slate-300 italic">—</span>
+                                    <span className="text-slate-400 italic">—</span>
                                   )}
                                 </td>
                               )
@@ -930,7 +925,7 @@ export default function IndexCreation() {
                             return (
                               <td 
                                 key={header} 
-                                className={`px-6 py-3 border-r border-slate-50 font-medium whitespace-nowrap truncate ${isPartName ? 'max-w-[200px]' : ''} ${!row[header] ? 'bg-rose-50/80 text-slate-400' : 'text-slate-800'} ${isEditMode ? 'hover:bg-slate-50 cursor-text outline-none focus:bg-white focus:ring-2 focus:ring-[#0097A7]/40 focus:ring-inset' : ''}`}
+                                className={`px-4 py-3 border-r border-slate-200 font-medium whitespace-nowrap truncate ${isPartName ? 'max-w-[200px]' : ''} ${!row[header] ? 'bg-rose-50/80 text-slate-400' : 'text-slate-800'} ${isEditMode ? 'hover:bg-slate-50 cursor-text outline-none focus:bg-white focus:ring-2 focus:ring-[#0097A7]/40 focus:ring-inset' : ''}`}
                                 contentEditable={isEditMode}
                                 suppressContentEditableWarning
                                 onBlur={(e) => handleCellEdit(row._rowNum, header, e.target.textContent, row._isSkipped)}
@@ -987,8 +982,7 @@ export default function IndexCreation() {
 
           </div>
         </div>
-      </div>
-      {viewPopupImage && (
+        {viewPopupImage && (
         <div 
           className="fixed inset-0 z-[10000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setViewPopupImage(null)}

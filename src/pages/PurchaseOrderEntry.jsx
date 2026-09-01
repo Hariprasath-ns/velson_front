@@ -305,8 +305,8 @@ export default function PurchaseOrderEntry() {
         supplierAddress: buildSupplierAddress(supplier),
         contactPerson: supplier.contactPerson || '',
         contactNumber: supplier.mobile || supplier.phone || '',
-        gstNo: supplier.gstNo || '',
-        supplierRefNumber: supplier.sCode || '',
+        gstNo: supplier.gstin || supplier.gstNo || '',
+        supplierRefNumber: supplier.supplierCode || supplier.sCode || supplier.code || '',
       }))
     } else {
       setForm(f => ({
@@ -533,13 +533,13 @@ export default function PurchaseOrderEntry() {
                   {suppliers.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
+              <div className="flex items-center gap-2">
+                <label className={`${lbl} w-[140px] shrink-0`}>Supplier Code:</label>
+                <input value={form.supplierRefNumber} onChange={e => setField('supplierRefNumber', e.target.value)} placeholder="Auto-populated Supplier Code" className={`${inp()} bg-slate-50 font-medium`} />
+              </div>
               <div className="flex items-start gap-2">
                 <label className={`${lbl} w-[140px] shrink-0 pt-1`}>Supplier Address:</label>
                 <textarea rows={3} value={form.supplierAddress} onChange={e => setField('supplierAddress', e.target.value)} className="flex-1 border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] resize-none bg-white" />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[140px] shrink-0`}>Supplier Ref. Number:</label>
-                <input value={form.supplierRefNumber} onChange={e => setField('supplierRefNumber', e.target.value)} className={inp()} />
               </div>
             </div>
 

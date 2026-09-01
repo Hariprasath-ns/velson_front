@@ -145,15 +145,18 @@ export default function GateEntry() {
     }
   }, [])
 
-  // Show all POs to which Gate Entry is not yet entered (excluding current editId if editing)
+  // Show all POs that are Open or Pending (including partially received POs)
   const filteredPOs = allPOs
     .filter(po => {
       const status = (po.status || '').trim().toLowerCase()
       if (status === 'rejected' || status === 'cancelled' || status === 'cancel') return false
-      
-      // Check if Gate Entry is already entered for this PO
-      const isGateEntered = allGateEntries.some(ge => (editId == null || ge.id !== editId) && ge.poNo === po.poNo)
-      if (isGateEntered) return false
+
+      // If PO is already fully received across all items, exclude it unless currently editing that entry
+      const fullyReceived = isPoFullyReceived(po)
+      const isCurrentEditing = editId !== null && allGateEntries.some(ge => ge.id === editId && ge.poNo === po.poNo)
+      if (fullyReceived && !isCurrentEditing) {
+        return false
+      }
 
       const matchesSearch = !poSearch.trim() ||
         (po.poNo || '').toLowerCase().includes(poSearch.toLowerCase().trim()) ||
@@ -215,12 +218,14 @@ export default function GateEntry() {
           supplierAddress: data.supplierAddress || '',
         }))
         setItems(det.length > 0 ? det.map(d => {
+          const prevRec = getAlreadyReceivedQty(data.poNo, d.itemCode)
+          const remainingQty = Math.max(0, (d.qty || 0) - prevRec)
           return {
             poNo: data.poNo, itemCode: d.itemCode || '', itemName: d.itemName || '',
             supplierPartNo: d.supplierPartNo || data.supplierRefNo || '',
             description: d.description || '', hsnCode: d.hsnCode || '',
             unit: d.uom || '', qty: d.qty != null ? String(d.qty) : '',
-            recQty: '',
+            recQty: remainingQty > 0 ? String(remainingQty) : '',
           }
         }) : [emptyItem()])
       }
@@ -312,16 +317,22 @@ export default function GateEntry() {
     setSubmitting(true)
     showLoader(editId ? 'Updating gate entry...' : 'Saving gate entry...')
     try {
+      const validItems = items.filter(r => r.itemCode || r.itemName)
+      const submittedItems = (validItems.length > 1
+        ? validItems.filter(r => (parseFloat(r.recQty) || 0) > 0)
+        : validItems
+      ).map(r => ({
+        ...r,
+        recQty: parseFloat(r.recQty) || 0,
+      }))
+
       const payload = {
         ...form,
         poId: selectedPoId,
         remarks,
         createdBy: form.user,
         updatedBy: form.user,
-        items: items.filter(r => r.itemCode || r.itemName).map(r => ({
-          ...r,
-          recQty: parseFloat(r.recQty) || 0,
-        })),
+        items: submittedItems.length > 0 ? submittedItems : validItems.map(r => ({ ...r, recQty: parseFloat(r.recQty) || 0 })),
       }
       const res = editId
         ? await api.put(`/api/gate-master/${editId}`, payload)
@@ -380,18 +391,15 @@ export default function GateEntry() {
 
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>PRQ No :</label>
-                <input value={form.prqNo} onChange={e => setField('prqNo', e.target.value)} className={inp()} />
+                <input value={form.prqNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Supplier Name:</label>
-                <select value={form.supplierName} onChange={e => handleSupplierChange(e.target.value)} className={inp()}>
-                  <option value="">Select Supplier</option>
-                  {suppliers.map(s => <option key={s.id} value={s.supplierName}>{s.supplierName}</option>)}
-                </select>
+                <input value={form.supplierName} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed font-medium`} />
               </div>
               <div className="flex items-start gap-2">
                 <label className={`${lbl} w-[130px] shrink-0 pt-1`}>Supplier Address :</label>
-                <textarea rows={3} value={form.supplierAddress} onChange={e => setField('supplierAddress', e.target.value)} className="flex-1 border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] resize-none bg-white" />
+                <textarea rows={3} value={form.supplierAddress} readOnly className="flex-1 border border-slate-300 rounded px-2 py-1 text-[12.5px] bg-slate-50 cursor-not-allowed resize-none" />
               </div>
             </div>
 
@@ -399,19 +407,19 @@ export default function GateEntry() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Gate No :</label>
-                <input value={form.gateNo} onChange={e => setField('gateNo', e.target.value)} className={inp()} />
+                <input value={form.gateNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Carrier Name :</label>
-                <input value={form.carrierName} onChange={e => setField('carrierName', e.target.value)} className={inp()} />
+                <input value={form.carrierName} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Vehicle No :</label>
-                <input value={form.vehicleNo} onChange={e => setField('vehicleNo', e.target.value)} className={inp()} />
+                <input value={form.vehicleNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>User :</label>
-                <input value={form.user} readOnly className={`${inp()} bg-slate-50`} />
+                <input value={form.user} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
             </div>
 
@@ -419,26 +427,23 @@ export default function GateEntry() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Gate Entry No :</label>
-                <input value={form.gateEntryNo} readOnly className={`${inp()} bg-slate-50`} />
+                <input value={form.gateEntryNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Gate Entry Date :</label>
-                <input type="date" value={form.gateEntryDate} onChange={e => setField('gateEntryDate', e.target.value)} className={inp()} />
+                <input type="date" value={form.gateEntryDate} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Invoice No :</label>
-                <input value={form.invoiceNo} onChange={e => setField('invoiceNo', e.target.value)} className={inp()} />
+                <input value={form.invoiceNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Invoice Date :</label>
-                <input type="date" value={form.invoiceDate} onChange={e => setField('invoiceDate', e.target.value)} className={inp()} />
+                <input type="date" value={form.invoiceDate} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Tax Type :</label>
-                <select value={form.taxType} onChange={e => setField('taxType', e.target.value)} className={inp()}>
-                  <option value="">Select Tax Type</option>
-                  {taxTypeOptions.map(t => <option key={t.id} value={t.description}>{t.description}</option>)}
-                </select>
+                <input value={form.taxType || 'LOCAL'} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
             </div>
           </div>
@@ -457,48 +462,79 @@ export default function GateEntry() {
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8"><input type="checkbox" className="accent-[#0097A7]" /></th>
                     <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">S.NO</th>
-                    {['PO No', 'Item Code', 'Item Name', 'Supplier Part No', 'Description', 'HSN Code', 'Unit', 'Qty', 'Rec Qty', 'Action'].map(h => (
+                    {['PO No', 'Item Code', 'Item Name', 'Description', 'HSN Code', 'Unit', 'Ordered Qty', 'Rec. Qty', 'Action'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row, idx) => (
-                    <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                      <td className="px-2 py-1 text-center align-top pt-2.5"><input type="checkbox" className="accent-[#0097A7]" /></td>
-                      <td className="px-2 py-1 text-center text-slate-500 align-top pt-2.5">{idx + 1}</td>
-                      <td className="px-1 py-1 align-top"><input value={row.poNo} onChange={e => setItemField(idx, 'poNo', e.target.value)} className={inp()} /></td>
-                      <td className="px-1 py-1 align-top"><input value={row.itemCode} onChange={e => setItemField(idx, 'itemCode', e.target.value)} className={inp()} /></td>
-                      <td className="px-1 py-1 align-top"><input value={row.itemName} onChange={e => setItemField(idx, 'itemName', e.target.value)} className={`${inp()} min-w-[140px]`} /></td>
-                      <td className="px-1 py-1 align-top"><input value={row.supplierPartNo} readOnly className={`${inp()} bg-slate-50`} /></td>
-                      <td className="px-1 py-1 align-top"><input value={row.description} onChange={e => setItemField(idx, 'description', e.target.value)} className={`${inp()} min-w-[120px]`} /></td>
-                      <td className="px-1 py-1 align-top"><input value={row.hsnCode} onChange={e => setItemField(idx, 'hsnCode', e.target.value)} className={inp()} /></td>
-                      <td className="px-1 py-1 align-top"><input value={row.unit} onChange={e => setItemField(idx, 'unit', e.target.value)} className={`${inp()} w-14`} /></td>
-                      <td className="px-1 py-1 align-top"><input value={row.qty} readOnly className={`${inp()} w-16 bg-slate-50`} /></td>
-                      <td className="px-1 py-1 min-w-[90px] align-top text-center">
-                        <input
-                          value={row.recQty}
-                          onChange={e => setItemField(idx, 'recQty', e.target.value)}
-                          placeholder="0"
-                          className={`${inp(recQtyErrors[idx])} w-20 text-center font-semibold`}
-                        />
-                        {recQtyErrors[idx] === 'negative' && (
-                          <span className="block text-[10px] text-red-500 mt-0.5 leading-tight">Cannot be negative</span>
-                        )}
-                        {recQtyErrors[idx] === 'exceeds' && (
-                          <span className="block text-[10px] text-red-500 mt-0.5 leading-tight">Exceeds ordered qty</span>
-                        )}
-                      </td>
-                      <td className="px-1 py-1 align-top text-center pt-2.5">
-                        <button
-                          onClick={() => setItems(r => r.length > 1 ? r.filter((_, i) => i !== idx) : [emptyItem()])}
-                          className="text-slate-400 hover:text-red-500 transition-colors text-[11px]"
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((row, idx) => {
+                    const prevRec = getAlreadyReceivedQty(row.poNo, row.itemCode)
+                    const ordQ = parseFloat(row.qty) || 0
+                    const isAlreadyReceived = editId === null && ordQ > 0 && prevRec >= ordQ
+                    const isSingleLocked = editId && items.length === 1 && parseFloat(row.recQty) > 0
+                    const isRowDisabled = isAlreadyReceived || isSingleLocked
+
+                    return (
+                      <tr key={idx} className={`border-b border-slate-100 transition-colors ${
+                        isAlreadyReceived
+                          ? 'bg-slate-100/70 text-slate-400'
+                          : idx % 2 === 1 ? 'bg-slate-50/50' : ''
+                      }`}>
+                        <td className="px-2 py-1 text-center align-top pt-2.5">
+                          <input type="checkbox" disabled={isRowDisabled} className="accent-[#0097A7] disabled:opacity-40" />
+                        </td>
+                        <td className="px-2 py-1 text-center text-slate-500 align-top pt-2.5 font-medium">{idx + 1}</td>
+                        <td className="px-1 py-1 align-top"><input value={row.poNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed ${isAlreadyReceived ? 'text-slate-400' : ''}`} /></td>
+                        <td className="px-1 py-1 align-top"><input value={row.itemCode} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed font-medium ${isAlreadyReceived ? 'text-slate-400' : 'text-[#0097A7]'}`} /></td>
+                        <td className="px-1 py-1 align-top"><input value={row.itemName} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed min-w-[140px] ${isAlreadyReceived ? 'text-slate-400' : ''}`} /></td>
+                        <td className="px-1 py-1 align-top"><input value={row.description} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed min-w-[120px] ${isAlreadyReceived ? 'text-slate-400' : ''}`} /></td>
+                        <td className="px-1 py-1 align-top"><input value={row.hsnCode} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed ${isAlreadyReceived ? 'text-slate-400' : ''}`} /></td>
+                        <td className="px-1 py-1 align-top"><input value={row.unit} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed w-14 text-center ${isAlreadyReceived ? 'text-slate-400' : ''}`} /></td>
+                        <td className="px-1 py-1 align-top"><input value={row.qty} readOnly className={`${inp()} w-16 bg-slate-50 cursor-not-allowed text-right font-semibold ${isAlreadyReceived ? 'text-slate-400' : ''}`} /></td>
+                        <td className="px-1 py-1 min-w-[90px] align-top text-center">
+                          <input
+                            value={isAlreadyReceived ? '0' : row.recQty}
+                            readOnly={isRowDisabled}
+                            disabled={isRowDisabled}
+                            onChange={e => setItemField(idx, 'recQty', e.target.value)}
+                            placeholder="0"
+                            className={`${inp(recQtyErrors[idx])} w-20 text-center font-bold ${
+                              isAlreadyReceived
+                                ? 'bg-slate-200/70 cursor-not-allowed text-slate-400'
+                                : isSingleLocked
+                                  ? 'bg-slate-100 cursor-not-allowed text-slate-500'
+                                  : 'text-emerald-700 bg-white'
+                            }`}
+                          />
+                          {isAlreadyReceived && (
+                            <span className="block text-[9.5px] font-bold text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 mt-0.5 leading-tight whitespace-nowrap">
+                              Already Received
+                            </span>
+                          )}
+                          {isSingleLocked && (
+                            <span className="block text-[9.5px] text-slate-400 mt-0.5 leading-tight font-medium">Locked (Single Item)</span>
+                          )}
+                          {recQtyErrors[idx] === 'negative' && (
+                            <span className="block text-[10px] text-red-500 mt-0.5 leading-tight">Cannot be negative</span>
+                          )}
+                          {recQtyErrors[idx] === 'exceeds' && (
+                            <span className="block text-[10px] text-red-500 mt-0.5 leading-tight">Exceeds ordered qty</span>
+                          )}
+                        </td>
+                        <td className="px-1 py-1 align-top text-center pt-2.5">
+                          <button
+                            disabled={isRowDisabled}
+                            onClick={() => setItems(r => r.length > 1 ? r.filter((_, i) => i !== idx) : [emptyItem()])}
+                            className="text-slate-400 hover:text-red-500 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors text-[11px]"
+                            title={isRowDisabled ? "Row is disabled" : "Remove item"}
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -567,7 +603,15 @@ export default function GateEntry() {
                         <td className="px-3 py-1.5">{po.poDate ? po.poDate.split('T')[0] : '-'}</td>
                         <td className="px-3 py-1.5 text-slate-500">{po.supplier?.supplierName || '-'}</td>
                         <td className="px-3 py-1.5">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-100 text-blue-800">{po.status || 'Active'}</span>
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase ${
+                            (po.status || '').toLowerCase() === 'pending'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                              : (po.status || '').toLowerCase() === 'approved'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {po.status || 'Open'}
+                          </span>
                         </td>
                       </tr>
                     ))}

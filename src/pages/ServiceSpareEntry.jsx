@@ -738,17 +738,23 @@ export default function ServiceSpareEntry() {
     ))
   }, [searchQuery, sparesList])
 
-  // Select All BOM toggle
+  // Select All BOM toggle — selects every part and expands all assemblies
   const handleSelectAllBOM = (checked) => {
     setSelectAllBOM(checked)
+    if (checked) {
+      const allExpanded = {}
+      bomRows.forEach(b => {
+        allExpanded[b.id] = true
+      })
+      setExpandedAssemblyIds(allExpanded)
+    }
     setBomRows(prev => prev.map(assembly => ({
       ...assembly,
-      parts: assembly.parts.map(p => {
-        const nextSelected = checked;
+      parts: (assembly.parts || []).map(p => {
         return {
           ...p,
-          selected: nextSelected,
-          issuedQty: (sameFasterQty && nextSelected) ? p.fasterQty : p.issuedQty
+          selected: checked,
+          issuedQty: checked ? ((p.issuedQty && p.issuedQty > 0) ? p.issuedQty : (p.fasterQty || 1)) : 0
         }
       })
     })))
@@ -759,7 +765,7 @@ export default function ServiceSpareEntry() {
     if (sameFasterQty) {
       setBomRows(prev => prev.map(assembly => ({
         ...assembly,
-        parts: assembly.parts.map(p => p.selected ? { ...p, issuedQty: p.fasterQty } : p)
+        parts: (assembly.parts || []).map(p => p.selected ? { ...p, issuedQty: p.fasterQty } : p)
       })))
     }
   }, [sameFasterQty])
@@ -768,13 +774,13 @@ export default function ServiceSpareEntry() {
     setBomRows(prev => {
       const updated = prev.map(assembly => ({
         ...assembly,
-        parts: assembly.parts.map(p => {
+        parts: (assembly.parts || []).map(p => {
           if (p.id === id) {
             const nextSelected = !p.selected
             return {
               ...p,
               selected: nextSelected,
-              issuedQty: (sameFasterQty && nextSelected) ? p.fasterQty : p.issuedQty
+              issuedQty: nextSelected ? ((p.issuedQty && p.issuedQty > 0) ? p.issuedQty : (p.fasterQty || 1)) : 0
             }
           }
           return p
@@ -784,7 +790,7 @@ export default function ServiceSpareEntry() {
       let allSelected = true
       let count = 0
       updated.forEach(assembly => {
-        assembly.parts.forEach(p => {
+        (assembly.parts || []).forEach(p => {
           count++
           if (!p.selected) allSelected = false
         })
@@ -824,6 +830,18 @@ export default function ServiceSpareEntry() {
       return
     }
     const selectedPartsList = getSelectedParts()
+    if (selectedPartsList.length === 0) {
+      toast.warning('Please select at least one part with valid Issued Qty to save.')
+      return
+    }
+
+    // Check if any SELECTED item has Issue Qty = 0 or invalid
+    const zeroIssuedPart = selectedPartsList.find(r => !r.issuedQty || parseFloat(r.issuedQty) <= 0)
+    if (zeroIssuedPart) {
+      toast.error(`Selected part "${zeroIssuedPart.partNo} - ${zeroIssuedPart.partName}" has Issue Qty = 0. Please specify a valid Issue Qty or uncheck the item.`)
+      return
+    }
+
     const invalidPart = selectedPartsList.find(r => r.issuedQty > r.fasterQty)
     if (invalidPart) {
       toast.error(`Issued Qty cannot exceed Faster Qty (${invalidPart.fasterQty}) for part ${invalidPart.partNo}!`)
@@ -864,7 +882,7 @@ export default function ServiceSpareEntry() {
       status,
       selectedParts,
       totalAmount: getTotalAmount(),
-      savedDate: new Date().toISOString().split('T')[0],
+      savedDate: new Date().toLocaleString('en-GB'),
       items
     }
 
@@ -1305,27 +1323,19 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label required>Service Job No :</Label></div>
                   <div className="col-span-7">
-                    <Combobox
-                      options={serviceJobNoOptions}
-                      placeholder="Select Job No..."
-                      value={serviceJobNo}
-                      onChange={handleServiceJobNoChange}
-                    />
+                    <div className="border border-[#0097A7] rounded p-0.5 bg-[#0097A7]/5">
+                      <Combobox
+                        options={serviceJobNoOptions}
+                        placeholder="Select Job No..."
+                        value={serviceJobNo}
+                        onChange={handleServiceJobNoChange}
+                        className="font-bold !text-[#0097A7]"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Booking Customer Code */}
-                <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-5 text-left pr-1"><Label>Booking Customer Code :</Label></div>
-                  <div className="col-span-7">
-                    <Select
-                      options={bookingCustomerCodeOptions}
-                      placeholder="Select Code..."
-                      value={bookingCustomerCode}
-                      onChange={e => handleBookingCustomerCodeChange(e.target.value)}
-                    />
-                  </div>
-                </div>
+
 
                 {/* Customer Name */}
                 <div className="grid grid-cols-12 gap-2 items-center">
@@ -1356,11 +1366,11 @@ export default function ServiceSpareEntry() {
                   </div>
                 </div>
 
-                {/* Last Saved Ass. Name */}
+                {/* Last Saved Assembly Number */}
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-5 text-left pr-1"><Label>Last Saved Ass. Name :</Label></div>
+                  <div className="col-span-5 text-left pr-1"><Label>Last Saved Assembly Number :</Label></div>
                   <div className="col-span-7">
-                    <Input value={lastSavedAssName} readOnly className="text-slate-400 italic" placeholder="—" />
+                    <Input value={lastSavedAssName} readOnly className="font-extrabold text-[#0097A7] bg-slate-50" placeholder="—" />
                   </div>
                 </div>
 
@@ -1561,9 +1571,13 @@ export default function ServiceSpareEntry() {
                               </button>
                             </td>
                             <td className="px-2.5 py-1 border-r border-slate-50 text-center font-bold text-slate-400">{idx + 1}</td>
-                            <td className="px-2.5 py-1 border-r border-slate-50 font-mono text-[11px] text-slate-500">{assembly.assemblyPartNo}</td>
-                            <td className="px-2.5 py-1 border-r border-slate-50 text-slate-700">{assembly.groupName}</td>
-                            <td className="px-2.5 py-1 text-slate-500 font-bold">{assembly.model}</td>
+                            <td className="px-2.5 py-1 border-r border-slate-50">
+                              <span className="font-extrabold text-[#0097A7] bg-[#0097A7]/10 px-2 py-0.5 rounded text-[11.5px] font-mono inline-block">
+                                {assembly.assemblyPartNo}
+                              </span>
+                            </td>
+                            <td className="px-2.5 py-1 border-r border-slate-50 font-bold text-slate-800 text-[13px]">{assembly.groupName}</td>
+                            <td className="px-2.5 py-1 text-slate-600 font-semibold">{assembly.model}</td>
                           </tr>
                         ];
 
@@ -1675,41 +1689,7 @@ export default function ServiceSpareEntry() {
               </div>
             </div>
 
-            {/* ── Mid-Form Action Toolbar ── */}
-            <div className="flex flex-wrap items-center justify-between border border-slate-200 py-1.5 mb-4 bg-slate-50/50 px-3 rounded-lg shadow-sm gap-2">
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchText}
-                    onChange={e => setSearchText(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                    placeholder="Search saved spare entries..."
-                    className="pl-8 pr-2 py-1 text-[13px] h-[32px] border border-slate-300 rounded w-64 bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7]"
-                  />
-                  <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-slate-400">
-                    <Search size={13} />
-                  </div>
-                </div>
-                <button
-                  onClick={handleSearch}
-                  className="flex items-center gap-1 px-3 py-1 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded shadow-sm h-[32px] transition-all active:scale-95"
-                >
-                  <Search size={12} /> Search
-                </button>
-                {(searchText || searchQuery) && (
-                  <button
-                    onClick={() => {
-                      setSearchText('')
-                      setSearchQuery('')
-                    }}
-                    className="text-xs text-slate-400 hover:text-[#0097A7] font-bold uppercase"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
+
 
             {/* ── Bottom Saved Spares Registry Table ── */}
             <div className="border border-slate-200 rounded-lg overflow-hidden shadow-sm bg-white mb-2">
@@ -1881,7 +1861,6 @@ export default function ServiceSpareEntry() {
                 </table>
               </div>
             </div>
-
             {/* Bottom Row Counter */}
             <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-[12px] font-bold text-slate-500 uppercase tracking-wider shadow-sm">
               <span>Row : {filteredSpares.length}</span>

@@ -3,6 +3,7 @@ import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Setti
 import { useToast } from '../components/Toast'
 import api from '../services/api'
 import { useModulePermission } from '../hooks/useModulePermission'
+import { generatePurchaseOrderPdf } from '../utils/poPdfGenerator'
 
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const fmtDate = d => {
@@ -445,6 +446,14 @@ export default function PoApproval() {
                                 <span className="text-slate-500">PO Date: {fmtDate(row.poDate)}</span>
                               </div>
                               <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => generatePurchaseOrderPdf(row)}
+                                  disabled={!canPrint}
+                                  title={!canPrint ? "No permission to print" : "Generate Standard PO PDF"}
+                                  className="px-3.5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white rounded font-bold text-[12px] shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <FilePdf className="w-3.5 h-3.5" /> Export PO PDF
+                                </button>
                                 <button
                                   onClick={() => handleApprove(row)}
                                   disabled={approving || !canEdit}

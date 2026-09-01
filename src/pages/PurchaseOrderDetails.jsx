@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, Trash2, Printer, X, Pencil, Filter, Settings, FileText, FileSpreadsheet, File as FilePdf } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { generatePurchaseOrderPdf } from '../utils/poPdfGenerator'
 import { useModulePermission } from '../hooks/useModulePermission'
 
 const BASE = ''
@@ -495,7 +496,7 @@ export default function PurchaseOrderDetails() {
                     </td>
                     {/* Print */}
                     <td className="p-1.5 border-x border-slate-200 text-center">
-                      <button onClick={e => { e.stopPropagation(); doPrint([row]) }}
+                      <button onClick={e => { e.stopPropagation(); generatePurchaseOrderPdf(row) }}
                         disabled={!canPrint}
                         className={`transition-colors ${!canPrint ? 'text-slate-300 cursor-not-allowed' : 'text-purple-500 hover:text-purple-700'}`}
                         title={!canPrint ? "No permission to print" : "Print"}>
@@ -545,7 +546,7 @@ export default function PurchaseOrderDetails() {
                 ['Contact Person',  viewPO.contactPerson],
                 ['Contact No',      viewPO.contactNumber],
                 ['GST No',          viewPO.gstNo],
-                ['Supplier Ref No', viewPO.supplierRefNo],
+                ['Supplier Code', viewPO.supplier?.supplierCode || viewPO.supplierRefNo],
                 ['Status',          viewPO.status],
                 ['Sub Total',       viewPO.subTotal != null ? `₹ ${Number(viewPO.subTotal).toFixed(2)}` : null],
                 ['Grand Total',     viewPO.totalAmount != null ? `₹ ${Number(viewPO.totalAmount).toFixed(2)}` : null],

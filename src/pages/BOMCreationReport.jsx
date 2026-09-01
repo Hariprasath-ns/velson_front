@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   ChevronRight, Search, Printer, X, Trash2, Download,
   FileSpreadsheet, FileJson, Filter, Settings, Image as ImageIcon, RotateCcw, List, FileText, ChevronDown
@@ -87,6 +88,7 @@ const Select = ({ options, placeholder, value, onChange, className = "", disable
 
 export default function BOMCreationReport() {
   const toast = useToast()
+  const queryClient = useQueryClient()
   const [fromDate, setFromDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
   const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0])
   const [customer, setCustomer] = useState('')
@@ -108,6 +110,93 @@ export default function BOMCreationReport() {
   useEffect(() => {
     setSelectedChildRow(null)
   }, [expandedBomId])
+
+  const updatePreviewImage = async (partNo, directImg = null) => {
+    if (directImg && typeof directImg === 'string' && (directImg.startsWith('data:image/') || directImg.startsWith('http') || directImg.startsWith('/uploads/') || directImg.startsWith('/api/'))) {
+      setSelectedPartImage(directImg)
+      return
+    }
+
+    if (!partNo || !String(partNo).trim()) {
+      setSelectedPartImage(null)
+      return
+    }
+
+    const cleanPartNo = String(partNo).trim()
+    try {
+      const res = await api.get(`/api/item-master?limit=1&search=${encodeURIComponent(cleanPartNo)}`, { skipGlobalLoader: true })
+      const item = res.data?.data?.[0]
+      if (item) {
+        if (item.hasImage || !!item.imageMimeType) {
+          setSelectedPartImage(`/api/item-master/${item.id}/download-image`)
+          return
+        }
+        if (item.imagePath) {
+          const imgUrl = item.imagePath.startsWith('http') || item.imagePath.startsWith('/')
+            ? item.imagePath
+            : `/uploads/${item.imagePath}`
+          setSelectedPartImage(imgUrl)
+          return
+        }
+        if (item.image) {
+          setSelectedPartImage(item.image)
+          return
+        }
+      }
+      setSelectedPartImage(null)
+    } catch (err) {
+      console.error('Error fetching part image for preview:', err)
+      setSelectedPartImage(null)
+    }
+  }
+
+  const handleSelectMasterRow = (row) => {
+    const isDeselect = row.id === selectedId
+    setSelectedId(isDeselect ? null : row.id)
+    setExpandedBomId(isDeselect ? null : row.id)
+    setSelectedChildRow(null)
+
+    if (isDeselect) {
+      setSelectedPartImage(null)
+      return
+    }
+
+    let directImg = null
+    if (row.excelRows && row.excelRows.length > 0) {
+      const firstWithImg = row.excelRows.find(r => {
+        return Object.values(r).some(v => typeof v === 'string' && (v.startsWith('data:image/') || v.startsWith('http')))
+      })
+      if (firstWithImg) {
+        directImg = Object.values(firstWithImg).find(v => typeof v === 'string' && (v.startsWith('data:image/') || v.startsWith('http')))
+      }
+    }
+
+    updatePreviewImage(row.assemblyPartNo, directImg)
+  }
+
+  const handleSelectChildRow = (childRow, parentRow, e) => {
+    if (e) e.stopPropagation()
+    const isDeselect = childRow === selectedChildRow
+    setSelectedChildRow(isDeselect ? null : childRow)
+    setSelectedId(parentRow ? parentRow.id : selectedId)
+
+    if (isDeselect) {
+      if (parentRow && parentRow.assemblyPartNo) {
+        updatePreviewImage(parentRow.assemblyPartNo)
+      } else {
+        setSelectedPartImage(null)
+      }
+      return
+    }
+
+    const canonical = getCanonicalRowData(childRow)
+    const partNo = canonical.PartNo || childRow.PartNo || childRow['Part No'] || childRow.partNo || childRow.itemCode
+    const imgFromRow = canonical.Image || childRow.Image || childRow.image || Object.values(childRow).find(val =>
+      typeof val === 'string' && (val.startsWith('data:image/') || val.startsWith('http') || val.startsWith('/uploads/') || val.startsWith('/api/'))
+    )
+
+    updatePreviewImage(partNo, imgFromRow)
+  }
 
   const fetchBoms = async () => {
     try {
@@ -175,63 +264,7 @@ export default function BOMCreationReport() {
     setFilteredData(result)
   }, [data, fromDate, toDate, customer, serialNo, assemblyPartNo])
 
-  useEffect(() => {
-    let partNo = null
-    let inlineImg = null
-
-    if (selectedChildRow) {
-      const keys = Object.keys(selectedChildRow)
-      const partNoKey = keys.find(k => {
-        const l = k.toLowerCase()
-        return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno'
-      })
-      if (partNoKey) {
-        partNo = selectedChildRow[partNoKey]
-      }
-
-      inlineImg = Object.values(selectedChildRow).find(val =>
-        typeof val === 'string' && (val.startsWith('data:image/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/uploads/') || val.startsWith('/api/'))
-      ) || null
-    } else {
-      const selectedRow = data.find(r => r.id === selectedId)
-      partNo = selectedRow?.assemblyPartNo
-    }
-
-    if (!partNo) {
-      setSelectedPartImage(inlineImg || null)
-      return
-    }
-
-    const controller = new AbortController()
-    api.get(`/api/item-master?limit=1&search=${encodeURIComponent(partNo)}`, { signal: controller.signal })
-      .then(res => {
-        const item = res.data?.data?.[0]
-        if (item) {
-          const hasImg = item.hasImage || !!item.imageMimeType
-          if (hasImg) {
-            setSelectedPartImage(`/api/item-master/${item.id}/download-image`)
-          } else if (item.imagePath) {
-            if (item.imagePath.startsWith('http') || item.imagePath.startsWith('/')) {
-              setSelectedPartImage(item.imagePath)
-            } else {
-              setSelectedPartImage(`/uploads/${item.imagePath}`)
-            }
-          } else {
-            setSelectedPartImage(inlineImg || null)
-          }
-        } else {
-          setSelectedPartImage(inlineImg || null)
-        }
-      })
-      .catch(err => {
-        if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
-          console.error('Error loading part image', err)
-        }
-        setSelectedPartImage(inlineImg || null)
-      })
-
-    return () => controller.abort()
-  }, [selectedId, selectedChildRow, data])
+// Preview image is managed directly via updatePreviewImage
 
   const handleSearch = () => {
     setSearching(true)
@@ -248,9 +281,11 @@ export default function BOMCreationReport() {
     try {
       const id = deleteTarget.id
       await api.delete(`/api/bom-creation/${id}`)
+      queryClient.invalidateQueries({ queryKey: ['bom-creation'] })
       const next = data.filter(r => r.id !== id)
       setData(next)
       setFilteredData(filteredData.filter(r => r.id !== id))
+      toast.success(`BOM "${deleteTarget.bomNo || ''}" deleted successfully. You can now re-create or upload a new BOM for this customer.`)
       setDeleteTarget(null)
       setSelectedId(null)
     } catch (err) {
@@ -836,7 +871,7 @@ export default function BOMCreationReport() {
                     <th className="px-5 py-4 border-r border-slate-100">Customer Name</th>
                     <th className="px-5 py-4 border-r border-slate-100">Customer Code</th>
                     <th className="px-5 py-4 border-r border-slate-100">Serial / Job No</th>
-                    <th className="px-5 py-4 border-r border-slate-100 text-center">Vehicle Count</th>
+                    <th className="px-5 py-4 border-r border-slate-100 text-center">Chosen Vehicle</th>
                     <th className="px-5 py-4 border-r border-slate-100">Assembly Part No</th>
                     <th className="px-5 py-4 border-r border-slate-100">Model</th>
                     <th className="px-5 py-4 border-r border-slate-100">Created Date</th>
@@ -855,11 +890,7 @@ export default function BOMCreationReport() {
                     filteredData.map((row, idx) => (
                       <Fragment key={row.id}>
                         <tr
-                          onClick={() => {
-                            setSelectedId(row.id === selectedId ? null : row.id)
-                            setExpandedBomId(row.id === expandedBomId ? null : row.id)
-                            setSelectedChildRow(null)
-                          }}
+                          onClick={() => handleSelectMasterRow(row)}
                           className={`cursor-pointer transition-colors h-14 group ${row.id === selectedId ? 'bg-[#0097A7]/10 hover:bg-[#0097A7] hover:text-white font-semibold' : 'hover:bg-[#0097A7] hover:text-white'}`}
                         >
                           <td className="px-5 py-2 border-r border-slate-50 text-center text-slate-300 font-bold group-hover:text-white">{idx + 1}</td>
@@ -882,10 +913,7 @@ export default function BOMCreationReport() {
                           <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium group-hover:text-white">{row.customerCode || 'N/A'}</td>
                           <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-600 uppercase text-[11px] truncate max-w-[300px] group-hover:text-white">{row.serialJobNo || row.serviceJobNo || 'N/A'}</td>
                           <td className="px-5 py-2 border-r border-slate-50 font-semibold text-slate-600 uppercase text-[11px] text-center group-hover:text-white">
-                            {(() => {
-                              const count = vehicles.filter(v => v.customer?.customerName === row.customerName).length;
-                              return count > 0 ? count : (row.vehicleCount || 0);
-                            })()}
+                            {row.vehicleSerialNo || row.model || (row.vehicleCount ? `Count: ${row.vehicleCount}` : '—')}
                           </td>
                           <td className="px-5 py-2 border-r border-slate-50 group-hover:text-white">{row.assemblyPartNo || 'N/A'}</td>
                           <td className="px-5 py-2 border-r border-slate-50 group-hover:text-white">{row.model || 'N/A'}</td>
@@ -958,8 +986,7 @@ export default function BOMCreationReport() {
                                             key={childIdx}
                                             onClick={(e) => {
                                               e.stopPropagation()
-                                              setSelectedChildRow(childRow === selectedChildRow ? null : childRow)
-                                              setSelectedId(row.id)
+                                              handleSelectChildRow(childRow, row, e)
                                             }}
                                             className={`cursor-pointer transition-colors group ${childRow === selectedChildRow
                                               ? 'bg-[#0097A7]/10 hover:bg-[#0097A7] hover:text-white font-semibold'

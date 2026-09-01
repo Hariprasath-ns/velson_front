@@ -212,6 +212,84 @@ const STANDARD_ASSEMBLIES = [
   { id: 10, name: 'Feed Cylinder Assembly' }
 ]
 
+// Helper to accurately resolve partNo and partName
+const resolvePartInfo = (row, bomCreationsList = [], itemMasterList = []) => {
+  let rawAss = row.singleAssembly || (Array.isArray(row.checkedAssemblies) ? row.checkedAssemblies[0] : '') || row.servicePartNo || row.partNo || '';
+  rawAss = String(rawAss || '').trim();
+
+  let partNo = row.partNo || row.assemblyPartNo || '';
+  let partName = row.partName || row.assemblyName || row.groupName || '';
+
+  if (partNo && partName && partNo !== '—' && partName !== '—') {
+    return { partNo, partName };
+  }
+
+  if (rawAss.includes(' - ')) {
+    const parts = rawAss.split(' - ');
+    partNo = parts[0].trim();
+    partName = parts.slice(1).join(' - ').trim();
+    return { partNo, partName };
+  }
+
+  // Check matching BOM for this Service Job
+  const rJob = String(row.serviceJobNo || '').trim().toLowerCase();
+  const jobBoms = bomCreationsList.filter(b => 
+    (b.serviceJobNo && b.serviceJobNo.trim().toLowerCase() === rJob) ||
+    (b.serialJobNo && b.serialJobNo.trim().toLowerCase() === rJob)
+  );
+
+  // 1. Try matching by assemblyPartNo in job BOMs
+  const matchedBomByPartNo = (jobBoms.length > 0 ? jobBoms : bomCreationsList).find(b =>
+    b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === rawAss.toLowerCase()
+  );
+  if (matchedBomByPartNo) {
+    return {
+      partNo: matchedBomByPartNo.assemblyPartNo,
+      partName: matchedBomByGroup_groupName(matchedBomByPartNo) || rawAss
+    };
+  }
+
+  // 2. Try matching by groupName/assemblyName in job BOMs
+  const matchedBomByGroup = (jobBoms.length > 0 ? jobBoms : bomCreationsList).find(b =>
+    b.groupName && b.groupName.trim().toLowerCase() === rawAss.toLowerCase()
+  );
+  if (matchedBomByGroup) {
+    return {
+      partNo: matchedBomByGroup.assemblyPartNo || matchedBomByGroup.bomNo || '—',
+      partName: matchedBomByGroup.groupName || rawAss
+    };
+  }
+
+  // 3. Try matching in Item Master
+  const matchedItem = itemMasterList.find(im =>
+    (im.partNo && im.partNo.trim().toLowerCase() === rawAss.toLowerCase()) ||
+    (im.partName && im.partName.trim().toLowerCase() === rawAss.toLowerCase())
+  );
+  if (matchedItem) {
+    return {
+      partNo: matchedItem.partNo || rawAss,
+      partName: matchedItem.partName || rawAss
+    };
+  }
+
+  if (rawAss) {
+    if (/^[A-Za-z0-9_\-\.\/]+$/.test(rawAss) && /\d/.test(rawAss)) {
+      return { partNo: rawAss, partName: row.remarks || '—' };
+    } else {
+      return { partNo: '—', partName: rawAss };
+    }
+  }
+
+  return {
+    partNo: partNo || '—',
+    partName: partName || row.remarks || '—'
+  };
+};
+
+function matchedBomByGroup_groupName(bom) {
+  return bom.groupName || bom.fileName || '';
+}
+
 export default function ServiceDetailsEntry() {
   const toast = useToast()
   const { show: showLoader, hide: hideLoader } = useLoading()
@@ -230,6 +308,7 @@ export default function ServiceDetailsEntry() {
   const [statusOptions, setStatusOptions] = useState([])
 
   const [bomCreationsList, setBomCreationsList] = useState([])
+  const [itemMasterList, setItemMasterList] = useState([])
   const [assembliesList, setAssembliesList] = useState([])
 
   // Form states
@@ -308,6 +387,10 @@ export default function ServiceDetailsEntry() {
         // 5. Load BOM creation entries
         const bomRes = await api.get('/api/bom-creation')
         setBomCreationsList(bomRes.data?.data || [])
+
+        // 6. Load Item Master
+        const itemRes = await api.get('/api/item-master?limit=10000').catch(() => ({ data: { data: [] } }))
+        setItemMasterList(itemRes.data?.data || [])
       } catch (err) {
         console.error('Failed to fetch data', err)
         toast.error('Failed to load required data.')
@@ -507,6 +590,30 @@ export default function ServiceDetailsEntry() {
       return
     }
 
+    // Unique assembly constraint check: filter duplicate assemblies
+    const uniqueCheckedAssemblies = Array.from(new Set(checkedAssemblies.filter(Boolean)))
+
+    // Check existing active service entries for duplicate assembly numbers under this job
+    const existingJobEntries = serviceDetailsList.filter(s =>
+      s.serviceJobNo && s.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase() &&
+      s.status !== 'Inactive'
+    )
+    const existingAssemblySet = new Set(
+      existingJobEntries.flatMap(s => (s.checkedAssemblies || []).map(a => String(a).trim().toLowerCase()))
+    )
+
+    const duplicates = uniqueCheckedAssemblies.filter(a => existingAssemblySet.has(String(a).trim().toLowerCase()))
+    if (duplicates.length > 0 && editingId === null) {
+      toast.warning(`Assembly Number(s) "${duplicates.join(', ')}" already added for Service Job "${serviceJobNo}". Duplicate entries avoided.`)
+    }
+
+    const assembliesToSave = uniqueCheckedAssemblies.filter(a => editingId !== null || !existingAssemblySet.has(String(a).trim().toLowerCase()))
+    if (assembliesToSave.length === 0 && uniqueCheckedAssemblies.length > 0) {
+      toast.error('All selected Assembly Numbers already exist for this Service Job.')
+      return
+    }
+
+    const currentDateTime = new Date().toISOString()
     const newEntry = {
       serviceJobNo,
       customerCode,
@@ -521,7 +628,9 @@ export default function ServiceDetailsEntry() {
       vehicleName,
       status,
       remarks,
-      checkedAssemblies
+      checkedAssemblies: assembliesToSave.length > 0 ? assembliesToSave : uniqueCheckedAssemblies,
+      createdAt: currentDateTime,
+      createdDateTime: new Date().toLocaleString('en-GB')
     }
 
     try {
@@ -532,15 +641,15 @@ export default function ServiceDetailsEntry() {
         toast.success(`Service details log for Job ${serviceJobNo} updated successfully!`)
         setEditingId(null)
       } else {
-        if (checkedAssemblies.length > 0) {
+        if (assembliesToSave.length > 0) {
           let newlyCreated = []
-          for (const ass of checkedAssemblies) {
-            const payload = { ...newEntry, checkedAssemblies: [ass] }
+          for (const ass of assembliesToSave) {
+            const payload = { ...newEntry, checkedAssemblies: [ass], servicePartNo: ass }
             const res = await api.post('/api/service-detail', payload)
             newlyCreated.push(res.data.data)
           }
           updatedList = [...newlyCreated, ...serviceDetailsList]
-          toast.success(`Created ${checkedAssemblies.length} separate service details entries!`)
+          toast.success(`Created ${assembliesToSave.length} separate service details entries with unique assemblies!`)
         } else {
           const res = await api.post('/api/service-detail', newEntry, { loadingMessage: 'Saving record...' })
           updatedList = [res.data.data, ...serviceDetailsList]
@@ -764,13 +873,19 @@ export default function ServiceDetailsEntry() {
                     />
                   </div>
                 </div>
-                {/* Row 2.5: Vehicle Count */}
+                {/* Row 2.5: Vehicle Count & Chosen Vehicle */}
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-4 text-left pr-1">
                     <Label>Vehicle Count :</Label>
                   </div>
                   <div className="col-span-2">
                     <Input value={vehicleCount} readOnly className="text-center bg-slate-50 text-slate-500 font-bold h-[26px] text-[11px]" />
+                  </div>
+                  <div className="col-span-2 text-right pr-1">
+                    <Label>Chosen Vehicle:</Label>
+                  </div>
+                  <div className="col-span-4">
+                    <Input value={serialNo || vehicleNo || vehicleModelNo || '—'} readOnly className="font-bold text-[#0097A7] bg-slate-50 h-[26px] text-[11px]" />
                   </div>
                 </div>
 
@@ -962,35 +1077,9 @@ export default function ServiceDetailsEntry() {
                 </button> */}
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-1 px-3 py-1 bg-slate-700 hover:bg-slate-800 border border-slate-600 text-white text-[12px] font-bold rounded shadow-sm h-[28px] transition-all active:scale-95 whitespace-nowrap"
+                  className="flex items-center gap-1 px-3.5 py-1 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded shadow-sm h-[28px] transition-all active:scale-95 whitespace-nowrap"
                 >
-                  <Save size={12} /> {editingId !== null ? 'Update' : 'Save'}
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedRowId) {
-                      const row = serviceDetailsList.find(s => s.id === selectedRowId)
-                      if (row) handleEdit(row)
-                    } else {
-                      toast.warning('Please pick a record row from the table below to edit.')
-                    }
-                  }}
-                  className="flex items-center gap-1 px-3 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[12px] font-bold rounded shadow-sm h-[28px] transition-all active:scale-95 whitespace-nowrap"
-                >
-                  <Edit size={12} className="text-[#0097A7]" /> Edit
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedRowId) {
-                      const row = serviceDetailsList.find(s => s.id === selectedRowId)
-                      if (row) handleCopy(row)
-                    } else {
-                      toast.warning('Please pick a record row from the table below to copy.')
-                    }
-                  }}
-                  className="flex items-center gap-1 px-3 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[12px] font-bold rounded shadow-sm h-[28px] transition-all active:scale-95 whitespace-nowrap"
-                >
-                  <Copy size={12} className="text-[#0097A7]" /> Copy
+                  <Save size={12} /> {editingId !== null ? 'Update' : 'Save Details'}
                 </button>
                 <button
                   onClick={handleDelete}
@@ -1011,84 +1100,78 @@ export default function ServiceDetailsEntry() {
             {/* Bottom Saved Service Details List table */}
             <div className="max-w-7xl mx-auto border border-slate-200 rounded-lg overflow-hidden shadow-sm bg-white mb-2">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1300px]">
-                  <thead className="bg-slate-50 text-[12px] uppercase text-slate-400 font-bold border-b border-slate-200">
+                <table className="w-full text-left border-collapse min-w-[950px]">
+                  <thead className="bg-slate-50 text-[12px] uppercase text-slate-500 font-bold border-b border-slate-200">
                     <tr className="h-8">
-                      <th className="px-3 py-1 border-r border-slate-100 w-16 text-center">S.No</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-36 text-center">Service Job No</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-28 text-center">Customer Code</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-[280px]">Customer Name</th>
-                      <th className="px-3 py-1 border-r border-slate-100">Assembly List</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-28 text-center">Created By</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-36 text-center">Created Date</th>
-                      <th className="px-3 py-1">Remarks</th>
+                      <th className="px-3 py-1 border-r border-slate-200 w-14 text-center">S.No</th>
+                      <th className="px-3 py-1 border-r border-slate-200 w-44">Part No</th>
+                      <th className="px-3 py-1 border-r border-slate-200">Part Name</th>
+                      <th className="px-3 py-1 border-r border-slate-200 w-32 text-center">Created By</th>
+                      <th className="px-3 py-1 border-r border-slate-200 w-48 text-center">Created Date</th>
+                      <th className="px-3 py-1 text-center w-32">Service Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-[12.5px]">
                     {displayList.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-300 italic">
+                        <td colSpan={6} className="py-12 text-center text-slate-300 italic">
                           No service details logs saved.
                         </td>
                       </tr>
                     ) : (
                       displayList.map((row, idx) => {
-                        const matchingBoms = bomCreationsList.filter(b => {
-                          const rJob = (row.serviceJobNo || '').trim().toLowerCase()
-                          if (!rJob) return false
-                          return (b.serviceJobNo && b.serviceJobNo.trim().toLowerCase() === rJob) ||
-                                 (b.serialJobNo && b.serialJobNo.trim().toLowerCase() === rJob)
-                        })
-                        let targetBoms = matchingBoms
-                        
-                        const totalCount = targetBoms.length
+                        const { partNo, partName } = resolvePartInfo(row, bomCreationsList, itemMasterList);
+                        const createdBy = row.createdBy || 'Admin';
+                        const createdDateTime = row.createdAt 
+                          ? new Date(row.createdAt).toLocaleString('en-GB', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: true
+                            })
+                          : (row.createdDateTime || '—');
+                        const status = row.status || 'Active';
+
                         return (
                           <tr
-                            key={row.displayKey}
+                            key={row.displayKey || row.id || idx}
                             onClick={() => setSelectedRowId(row.id)}
                             className={`hover:bg-[#0097A7]/5 cursor-pointer h-9 transition-colors ${selectedRowId === row.id ? 'bg-[#0097A7]/10 font-semibold' : ''}`}
                           >
                             <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-slate-500 bg-slate-50/50">{idx + 1}</td>
-                            <td className="px-3 py-1 pt-3.5 border-r border-slate-50 text-center font-bold text-[#0097A7] flex items-center justify-center gap-1">
-                              {row.serviceJobNo}
-                              <Copy
-                                size={10}
-                                className="cursor-pointer hover:text-slate-900"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (!row.serviceJobNo) return
-                                  navigator.clipboard.writeText(row.serviceJobNo)
-                                  toast.success(`Copied Service Job No: ${row.serviceJobNo}`)
-                                }}
-                              />
+                            <td className="px-3 py-1 border-r border-slate-50 font-bold text-[#0097A7] font-mono text-[12px]">
+                              {partNo}
                             </td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-center text-slate-500 font-semibold">{row.customerCode}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 font-bold text-slate-700">{row.customerName}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-slate-600 font-semibold">
-                              {row.singleAssembly ? (
-                                <span className="whitespace-nowrap bg-[#0097A7]/5 text-[#0097A7] px-1.5 py-0.5 rounded text-[11px] font-bold border border-[#0097A7]/10 w-fit">
-                                  {row.singleAssembly}
-                                </span>
-                              ) : (
-                                '—'
-                              )}
+                            <td className="px-3 py-1 border-r border-slate-50 font-medium text-slate-700">
+                              {partName}
                             </td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-center text-slate-500 font-medium">Admin</td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-center text-slate-600 font-mono">
-                              {row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-GB') : '—'}
+                            <td className="px-3 py-1 border-r border-slate-50 text-center text-slate-600 font-semibold">
+                              {createdBy}
                             </td>
-                            <td className="px-3 py-1 text-slate-500 max-w-[240px] truncate">{row.remarks || '—'}</td>
+                            <td className="px-3 py-1 border-r border-slate-50 text-center text-slate-600 font-mono text-[11.5px]">
+                              {createdDateTime}
+                            </td>
+                            <td className="px-3 py-1 text-center">
+                              <span className={`px-2.5 py-0.5 rounded text-[11px] uppercase font-extrabold ${
+                                status === 'Active' || status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                                status === 'Inactive' ? 'bg-rose-100 text-rose-700' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>
+                                {status}
+                              </span>
+                            </td>
                           </tr>
-                        )
+                        );
                       })
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
-
-
-
             {/* Aggregated Total summary bar row matching exact template design guidelines */}
             <div className="max-w-7xl mx-auto bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-center justify-end text-[12px] font-bold tracking-wider shadow-sm mb-1">
               <div className="flex items-center pr-4 text-slate-500 uppercase">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, FileText, FileSpreadsheet, File as FilePdf, Filter, Settings, X, Trash2, Printer, Eye, Pencil } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { generatePurchaseOrderPdf } from '../utils/poPdfGenerator'
 
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const fmtDate = d => {
@@ -115,67 +116,7 @@ const doPrintList = (data, from, to) => {
 }
 
 const doPrintSingle = (po) => {
-  const win = window.open('', '_blank', 'width=900,height=750')
-  const items = (po.details || []).map((d, i) =>
-    `<tr class="${i%2?'alt':''}">
-      <td>${i+1}</td><td>${d.itemCode||'-'}</td><td>${d.itemName||'-'}</td>
-      <td>${d.description||'-'}</td><td>${d.hsnCode||'-'}</td>
-      <td>${d.uom||'-'}</td><td>${d.qty||0}</td><td>${Number(d.unitPrice||0).toFixed(2)}</td>
-      <td>${Number(d.discPer||0).toFixed(2)}</td><td>${Number(d.amount||0).toFixed(2)}</td>
-      <td>${Number(d.gstPer||0).toFixed(2)}</td><td>${Number(d.gstAmt||0).toFixed(2)}</td>
-      <td>${Number(d.netAmt||0).toFixed(2)}</td>
-    </tr>`
-  ).join('')
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>PO - ${po.poNo}</title>
-<style>
-  *{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#222}
-  .header{display:flex;justify-content:space-between;margin-bottom:12px;border-bottom:2px solid #0097A7;padding-bottom:8px}
-  .company{font-size:16px;font-weight:bold;color:#0097A7}.sub{font-size:11px;color:#555}
-  h3{font-size:13px;margin:0 0 2px}
-  .info{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-bottom:10px}
-  .info-row{display:flex;gap:6px;font-size:11px}
-  .info-row span:first-child{font-weight:600;width:130px;color:#555;flex-shrink:0}
-  table{width:100%;border-collapse:collapse;margin-top:8px}
-  th{background:#0097A7;color:#fff;padding:4px 6px;font-size:10px;text-align:left;white-space:nowrap}
-  td{padding:3px 6px;border-bottom:1px solid #e2e8f0;font-size:10px}
-  tr.alt td{background:#f8fafc}
-  .totals{display:flex;justify-content:flex-end;margin-top:8px}
-  .totals-box{width:280px}
-  .tot-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0}
-  .grand{font-weight:bold;font-size:13px;color:#0097A7;border-top:1px solid #ccc;padding-top:4px;margin-top:4px}
-  @media print{@page{margin:1cm}button{display:none}}
-</style></head><body>
-<div class="header">
-  <div><div class="company">PURCHASE ORDER</div><div class="sub">PO No: <strong>${po.poNo}</strong> &nbsp;|&nbsp; Date: ${fmtDate(po.poDate)}</div></div>
-  <div style="text-align:right;font-size:11px;color:#555">Status: <strong>${po.status||''}</strong><br>ETA: ${fmtDate(po.etaDate)}</div>
-</div>
-<div class="info">
-  <div class="info-row"><span>Supplier</span><span>: ${po.supplier?.supplierName||'-'}</span></div>
-  <div class="info-row"><span>PO Type</span><span>: ${po.poType||'-'}</span></div>
-  <div class="info-row"><span>Address</span><span>: ${po.supplierAddress||'-'}</span></div>
-  <div class="info-row"><span>Contact Person</span><span>: ${po.contactPerson||'-'}</span></div>
-  <div class="info-row"><span>GST No</span><span>: ${po.gstNo||'-'}</span></div>
-  <div class="info-row"><span>Payment Terms</span><span>: ${po.paymentTerms||'-'}</span></div>
-  <div class="info-row"><span>Freight</span><span>: ${po.freight||'-'}</span></div>
-  <div class="info-row"><span>Delivery Period</span><span>: ${po.deliveryPeriod||'-'}</span></div>
-  <div class="info-row"><span>Remarks</span><span>: ${po.remarks||'-'}</span></div>
-</div>
-<table>
-  <thead><tr><th>#</th><th>Item Code</th><th>Item Name</th><th>Description</th><th>HSN</th><th>UOM</th><th>Qty</th><th>Unit Price</th><th>Disc%</th><th>Amount</th><th>GST%</th><th>GST Amt</th><th>Net Amt</th></tr></thead>
-  <tbody>${items||'<tr><td colspan="13" style="text-align:center;padding:10px">No items</td></tr>'}</tbody>
-</table>
-<div class="totals"><div class="totals-box">
-  <div class="tot-row"><span>Sub Total</span><span>${Number(po.subTotal||0).toFixed(2)}</span></div>
-  ${po.cgstAmt > 0 ? `<div class="tot-row"><span>CGST (${po.cgstPer}%)</span><span>${Number(po.cgstAmt).toFixed(2)}</span></div>` : ''}
-  ${po.sgstAmt > 0 ? `<div class="tot-row"><span>SGST (${po.sgstPer}%)</span><span>${Number(po.sgstAmt).toFixed(2)}</span></div>` : ''}
-  ${po.igstAmt > 0 ? `<div class="tot-row"><span>IGST (${po.igstPer}%)</span><span>${Number(po.igstAmt).toFixed(2)}</span></div>` : ''}
-  ${po.othersAmt > 0 ? `<div class="tot-row"><span>Others (${po.othersPer}%)</span><span>${Number(po.othersAmt).toFixed(2)}</span></div>` : ''}
-  <div class="tot-row grand"><span>Grand Total</span><span>${Number(po.totalAmount||0).toFixed(2)}</span></div>
-</div></div>
-</body></html>`)
-  win.document.close()
-  win.focus()
-  setTimeout(() => { win.print() }, 400)
+  generatePurchaseOrderPdf(po)
 }
 
 export default function PrintPurchaseOrder() {

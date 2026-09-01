@@ -424,35 +424,41 @@ export default function GateEntryReport() {
 
             <div className="flex-1 overflow-y-auto px-5 py-3">
               <p className="text-[12px] font-semibold text-slate-600 mb-2">Items</p>
-              {viewEntry.details?.length > 0 ? (
-                <table className="w-full text-[11.5px] border border-slate-200 rounded">
-                  <thead className="bg-slate-100 sticky top-0">
-                    <tr>
-                      {['#','PO No','Item Code','Item Name','Supplier Part No','Description','HSN','Unit','Qty','Rec Qty'].map(h => (
-                        <th key={h} className="px-2 py-1 text-left font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {viewEntry.details.map((it, idx) => (
-                      <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''}`}>
-                        <td className="px-2 py-1">{idx+1}</td>
-                        <td className="px-2 py-1">{it.poNo || '—'}</td>
-                        <td className="px-2 py-1">{it.itemCode || '—'}</td>
-                        <td className="px-2 py-1 whitespace-nowrap">{it.itemName || '—'}</td>
-                        <td className="px-2 py-1">{it.supplierPartNo || '—'}</td>
-                        <td className="px-2 py-1">{it.description || '—'}</td>
-                        <td className="px-2 py-1">{it.hsnCode || '—'}</td>
-                        <td className="px-2 py-1">{it.unit || '—'}</td>
-                        <td className="px-2 py-1 text-right">{it.qty ?? '—'}</td>
-                        <td className="px-2 py-1 text-right font-medium">{it.recQty ?? '—'}</td>
+              {(() => {
+                const rawDetails = viewEntry.details || []
+                const filteredDetails = rawDetails.length > 1
+                  ? rawDetails.filter(d => (parseFloat(d.recQty) || 0) > 0)
+                  : rawDetails
+                if (filteredDetails.length === 0) {
+                  return <p className="text-[12px] text-slate-400 italic">No items</p>
+                }
+                return (
+                  <table className="w-full text-[11.5px] border border-slate-200 rounded">
+                    <thead className="bg-slate-100 sticky top-0">
+                      <tr>
+                        {['#','PO No','Item Code','Item Name','Description','HSN','Unit','Ordered Qty','Rec. Qty'].map(h => (
+                          <th key={h} className="px-2 py-1 text-left font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-[12px] text-slate-400 italic">No items</p>
-              )}
+                    </thead>
+                    <tbody>
+                      {filteredDetails.map((it, idx) => (
+                        <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''}`}>
+                          <td className="px-2 py-1">{idx+1}</td>
+                          <td className="px-2 py-1">{it.poNo || '—'}</td>
+                          <td className="px-2 py-1 font-medium text-[#0097A7]">{it.itemCode || '—'}</td>
+                          <td className="px-2 py-1 whitespace-nowrap font-medium text-slate-700">{it.itemName || '—'}</td>
+                          <td className="px-2 py-1">{it.description || '—'}</td>
+                          <td className="px-2 py-1">{it.hsnCode || '—'}</td>
+                          <td className="px-2 py-1 text-center">{it.unit || '—'}</td>
+                          <td className="px-2 py-1 text-right font-semibold">{it.qty ?? '—'}</td>
+                          <td className="px-2 py-1 text-right font-bold text-emerald-700">{it.recQty ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              })()}
             </div>
 
             <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between shrink-0">

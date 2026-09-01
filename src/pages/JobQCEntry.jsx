@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ChevronRight, X, FileSpreadsheet, Upload, Eye } from 'lucide-react'
+import { ChevronRight, X, FileSpreadsheet, Upload, Eye, Save, Clock, CheckCircle } from 'lucide-react'
 import { useToast } from '../components/Toast'
 
 const FL = ({ children }) => (
@@ -77,6 +77,8 @@ export default function JobQCEntry() {
   const [revNo,         setRevNo]         = useState('')
   const [revDate,       setRevDate]       = useState('')
   const [testStatus]                      = useState('--')
+  const [showQcModal, setQcModal]         = useState(false)
+  const [qcModalData, setQcModalData]     = useState(null)
 
   const handleBrowse = () => fileRef.current?.click()
   const handleFileChange = e => {
@@ -91,6 +93,33 @@ export default function JobQCEntry() {
     if (!testFile) { toast.warning('No test report file selected.'); return }
     const url = URL.createObjectURL(testFile)
     window.open(url, '_blank')
+  }
+
+  const handleQcSave = () => {
+    const activeJobNo = jobNoText || jobNoSel
+    if (!activeJobNo) {
+      toast.warning('Please enter or select a Job No first.')
+      return
+    }
+
+    const inDateTime = new Date(Date.now() - 45 * 60 * 1000).toLocaleString('en-GB')
+    const outDateTime = new Date().toLocaleString('en-GB')
+
+    setQcModalData({
+      jobNo: activeJobNo,
+      jobQty: jobQty || '1',
+      productionQty: productionQty || '1',
+      status: status || 'QC OK',
+      inDateTime,
+      outDateTime,
+      qcRemark: qcRemark || 'Inspection standard verified.'
+    })
+    setQcModal(true)
+  }
+
+  const handleConfirmQcSave = () => {
+    setQcModal(false)
+    toast.success(`QC Inspection record for Job "${qcModalData?.jobNo}" saved successfully!`)
   }
 
   const handleValidate = () => {
@@ -263,6 +292,10 @@ export default function JobQCEntry() {
                     className="px-2 py-[4px] text-[12px] border border-slate-300 rounded bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-28" />
                 </div>
                 <div className="ml-auto flex items-center gap-2">
+                  <button onClick={handleQcSave}
+                    className="px-4 py-[5px] bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded transition-all active:scale-95 shadow-sm flex items-center gap-1">
+                    <Save size={12} /> QC Save
+                  </button>
                   <button onClick={handleValidate}
                     className="px-4 py-[5px] bg-[#1A76D1] hover:bg-[#1560b0] text-white text-[11px] font-bold rounded transition-all active:scale-95 shadow-sm">
                     Validate
@@ -281,6 +314,90 @@ export default function JobQCEntry() {
           </div>
         </div>
       </div>
+
+      {/* ── QC IN & OUT Dates and Time Modal ── */}
+      {showQcModal && qcModalData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between bg-[#0097A7] text-white px-5 py-3">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                <span className="font-bold text-[14px] uppercase tracking-wider">QC IN & OUT Dates and Time</span>
+              </div>
+              <button
+                onClick={() => setQcModal(false)}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4 text-[13px]">
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-bold uppercase text-[11px]">Job Number:</span>
+                  <span className="font-mono font-bold text-[#0097A7]">{qcModalData.jobNo}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-bold uppercase text-[11px]">QC Status:</span>
+                  <span className="font-extrabold uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">
+                    {qcModalData.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* In and Out Timestamps Highlight Cards */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Process IN Date & Time (Green) */}
+                <div className="bg-emerald-50/70 border-2 border-emerald-200 rounded-xl p-3.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-[11px] uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Process IN Date & Time
+                  </div>
+                  <div className="font-mono font-extrabold text-emerald-800 text-[13px] pt-1">
+                    {qcModalData.inDateTime}
+                  </div>
+                </div>
+
+                {/* Process OUT Date & Time (Blue) */}
+                <div className="bg-blue-50/70 border-2 border-blue-200 rounded-xl p-3.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-blue-700 font-bold text-[11px] uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                    Process OUT Date & Time
+                  </div>
+                  <div className="font-mono font-extrabold text-blue-800 text-[13px] pt-1">
+                    {qcModalData.outDateTime}
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-slate-600 text-[12px] bg-slate-50 p-2.5 rounded border border-slate-200">
+                <span className="font-bold text-slate-700">Remarks: </span>
+                <span>{qcModalData.qcRemark}</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 bg-slate-50 border-t border-slate-200">
+              <button
+                onClick={() => setQcModal(false)}
+                className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 text-[12px] font-bold rounded hover:bg-slate-50 transition-all shadow-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmQcSave}
+                className="px-5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+              >
+                <CheckCircle size={14} /> Confirm & Save QC
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

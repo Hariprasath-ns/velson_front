@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
-import { ChevronRight, Save, X, Database, RotateCcw, Trash2 } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import api from '../services/api'
+import { ChevronRight, Save, X, Database, RotateCcw, Trash2, Copy } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useCustomers, useVehicles, useServiceBookings } from '../hooks/useMasterData'
 
@@ -82,11 +83,57 @@ export default function MainIndex() {
     return `IM${String(nextNum).padStart(4, '0')}`
   }
 
+  const [indexRecords, setIndexRecords] = useState([])
+
   useEffect(() => {
     setForm(f => ({ ...f, no: getNextIndexID() }))
+    api.get('/api/index-creation', { skipGlobalLoader: true })
+      .then(res => setIndexRecords(res.data?.data || []))
+      .catch(() => setIndexRecords([]))
   }, [])
 
+  const bomModelOptions = useMemo(() => {
+    const fromIndex = indexRecords.map(i => i.modelNo).filter(Boolean)
+    const defaults = ['BOM-V1', 'BOM-V2', 'BOM-V3', 'BOM-V7', 'BOM-V10', 'BOM-VEDC', 'BOM-CORE DRILL']
+    return Array.from(new Set([...fromIndex, ...defaults])).sort()
+  }, [indexRecords])
+
   const u = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
+
+  const customerVehicles = useMemo(() => {
+    if (!form.customerName) return []
+    const cust = customers.find(c => c.customerName === form.customerName)
+    if (!cust) return []
+    return vehicles.filter(v => Number(v.customerId) === Number(cust.id))
+  }, [form.customerName, customers, vehicles])
+
+  const vehicleOptions = useMemo(() => {
+    return customerVehicles.map((v, idx) => {
+      const parts = [
+        `Vehicle ${idx + 1}`,
+        v.serialNo || v.vehicleSerialNo,
+        v.vehicleNo,
+        v.modelName || v.vehicleModelNo
+      ].filter(Boolean)
+      return parts.join(' - ')
+    })
+  }, [customerVehicles])
+
+  const handleVehicleSelect = (vehicleIndexStr) => {
+    if (!vehicleIndexStr) {
+      setForm(f => ({ ...f, vehicleSerialNo: '', vehicleModelNo: '' }))
+      return
+    }
+    const idx = parseInt(vehicleIndexStr, 10) - 1
+    const vehicle = customerVehicles[idx]
+    if (vehicle) {
+      setForm(f => ({
+        ...f,
+        vehicleSerialNo: vehicle.serialNo || vehicle.vehicleSerialNo || '',
+        vehicleModelNo: vehicle.modelName || vehicle.vehicleModelNo || f.vehicleModelNo
+      }))
+    }
+  }
 
   const handleCustomerChange = (customerNameVal) => {
     const cust = customers.find(c => c.customerName === customerNameVal)
@@ -144,7 +191,7 @@ export default function MainIndex() {
     const booking = bookings.find(b => b.serviceJobNo === serviceJobNoVal)
     if (booking) {
       const custObj = customers.find(c => c.customerName === booking.customerName)
-      const count = custObj ? vehicles.filter(v => Number(v.customerId) === Number(custObj.id)).length : 0
+      const count = booking.customerVehicleCount || booking.vehicleCount || (custObj ? vehicles.filter(v => Number(v.customerId) === Number(custObj.id)).length : 1)
 
       setForm(f => ({
         ...f,
@@ -192,6 +239,24 @@ export default function MainIndex() {
       return
     }
     setIsLoading(true)
+    const matchedIndex = indexRecords.find(i => String(i.modelNo).trim().toLowerCase() === String(form.bomModelNo).trim().toLowerCase())
+    if (matchedIndex && matchedIndex.excelData) {
+      const raw = matchedIndex.excelData
+      const items = Array.isArray(raw) ? raw : (raw?.excelData || [])
+      if (items.length > 0) {
+        const mapped = items.map((it, idx) => ({
+          partNo: it.PartNo || it['Part No'] || it.partNo || it.itemCode || `P-${idx + 1}`,
+          desc: it.PartName || it['Part Name'] || it.partName || it.description || it.desc || '—',
+          qty: it.Qty || it.qty || 1,
+          remarks: it.Remarks || it.remarks || 'Standard'
+        }))
+        setChildParts(mapped)
+        setIsLoading(false)
+        toast.success(`Loaded ${mapped.length} components for BOM Model "${form.bomModelNo}".`)
+        return
+      }
+    }
+    
     setTimeout(() => {
       setChildParts([
         { partNo: 'P-900', desc: 'Engine Block', qty: 1, remarks: 'Primary' },
@@ -199,7 +264,8 @@ export default function MainIndex() {
         { partNo: 'P-902', desc: 'Hydraulic Pump', qty: 2, remarks: 'Accessory' },
       ])
       setIsLoading(false)
-    }, 800)
+      toast.info(`Loaded default components for "${form.bomModelNo}".`)
+    }, 400)
   }
 
   const handleSave = () => {
@@ -263,6 +329,7 @@ export default function MainIndex() {
             <div className="grid grid-cols-12 gap-x-12 gap-y-6">
               {/* Left Column: BOM & Vehicle Details */}
               <div className="col-span-6 space-y-4">
+                {/* Row 1: Entry Date, Index ID */}
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label>Entry Date</Label></div>
                    <div className="col-span-4"><Input type="date" value={form.date} readOnly={true} className="cursor-not-allowed !bg-slate-50" /></div>
@@ -270,38 +337,83 @@ export default function MainIndex() {
                    <div className="col-span-3"><Input value={form.no} readOnly className="!font-black text-[#0097A7]" /></div>
                 </div>
 
+                {/* Row 2: Customer Name */}
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label required>Customer Name</Label></div>
                    <div className="col-span-9"><Select options={customerNameOptions} placeholder="Select Customer" value={form.customerName} onChange={e => handleCustomerChange(e.target.value)} /></div>
                 </div>
 
+                {/* Row 3: Customer Code, Vehicle Count */}
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label>Customer Code :</Label></div>
                    <div className="col-span-4"><Select options={customerCodeOptions} placeholder="Select Code" value={form.customerCode} onChange={e => handleCustomerCodeChange(e.target.value)} /></div>
-                   <div className="col-span-2 text-right"><Label>Vehicle Count :</Label></div>
-                   <div className="col-span-3"><Input value={form.vehicleCount} readOnly placeholder="0" /></div>
+                   <div className="col-span-3 text-right"><Label>Vehicle Count :</Label></div>
+                   <div className="col-span-2">
+                     <Input value={form.vehicleCount} readOnly placeholder="0" className="!font-bold !text-[#0097A7] text-center !bg-slate-50" />
+                   </div>
                 </div>
 
+                {/* Row 4: Vehicle Model, Chosen Vehicle Count */}
                 <div className="grid grid-cols-12 items-center gap-4">
-                   <div className="col-span-3"><Label>Vehicle Model</Label></div>
-                   <div className="col-span-9"><Select options={vehicleModelOptions} placeholder="Select Vehicle Model" value={form.vehicleModelNo} onChange={u('vehicleModelNo')} /></div>
+                   <div className="col-span-3"><Label>Vehicle Model :</Label></div>
+                   <div className="col-span-4">
+                     <Input value={form.vehicleModelNo} onChange={u('vehicleModelNo')} placeholder="Auto-pulled" className="!font-extrabold !text-[#0097A7] !bg-slate-50" />
+                   </div>
+                   <div className="col-span-3 text-right"><Label>Chosen Vehicle Count :</Label></div>
+                   <div className="col-span-2">
+                     <Input value={form.vehicleCount} readOnly placeholder="0" className="!font-black !text-[#0097A7] text-center !bg-slate-50" />
+                   </div>
                 </div>
 
+                {/* Row 5: Service Job No */}
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label required>Service Job No</Label></div>
-                   <div className="col-span-9"><Select options={serviceJobNoOptions} placeholder="Select Active Job" value={form.serviceJobNo} onChange={e => handleServiceJobNoSelect(e.target.value)} /></div>
+                   <div className="col-span-9 flex items-center gap-2">
+                     <Select options={serviceJobNoOptions} placeholder="Select Active Job" value={form.serviceJobNo} onChange={e => handleServiceJobNoSelect(e.target.value)} className="flex-1 font-bold text-[#0097A7]" />
+                     <button
+                       type="button"
+                       onClick={() => {
+                         if (!form.serviceJobNo) {
+                           toast.warning('Please select a Service Job No first.')
+                           return
+                         }
+                         navigator.clipboard.writeText(form.serviceJobNo)
+                         toast.success(`Copied Job No: ${form.serviceJobNo}`)
+                       }}
+                       className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-[12px] font-bold rounded-lg transition-all active:scale-95"
+                       title="Copy Service Job No"
+                     >
+                       <Copy size={13} className="text-[#0097A7]" /> Copy
+                     </button>
+                   </div>
                 </div>
 
+                {/* Row 6: Vehicle Serial No, No. of Vehicles */}
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label>Vehicle Serial No :</Label></div>
-                   <div className="col-span-4"><Input placeholder="SN-0000" value={form.vehicleSerialNo} onChange={u('vehicleSerialNo')} /></div>
-                   <div className="col-span-2 text-right"><Label>No.of Vehicle Qty :</Label></div>
-                   <div className="col-span-3"><Input type="number" placeholder="1" value={form.vehicleQty} onChange={u('vehicleQty')} /></div>
+                   <div className="col-span-4"><Input placeholder="SN-0000" value={form.vehicleSerialNo} onChange={u('vehicleSerialNo')} className="!font-bold !text-[#0097A7]" /></div>
+                   <div className="col-span-3 text-right"><Label>No of Vehicles :</Label></div>
+                   <div className="col-span-2"><Input type="number" placeholder="1" value={form.vehicleQty} onChange={u('vehicleQty')} className="!font-bold text-center" /></div>
                 </div>
 
+                {/* Row 7: BOM Model No */}
                 <div className="grid grid-cols-12 items-center gap-4">
                    <div className="col-span-3"><Label required>BOM Model No</Label></div>
-                   <div className="col-span-9"><Select options={['BOM-V1', 'BOM-V2', 'BOM-V3']} placeholder="Select BOM Configuration" value={form.bomModelNo} onChange={u('bomModelNo')} /></div>
+                   <div className="col-span-9 relative">
+                     <input
+                       type="text"
+                       list="bomModelOptionsList"
+                       placeholder="Type or select BOM Model No..."
+                       value={form.bomModelNo}
+                       onChange={u('bomModelNo')}
+                       className="w-full px-3 py-[7px] text-sm border border-slate-200 rounded-lg bg-white text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all hover:border-slate-300"
+                     />
+                     <datalist id="bomModelOptionsList">
+                       {bomModelOptions.map(o => (
+                         <option key={o} value={o} />
+                       ))}
+                     </datalist>
+                   </div>
                 </div>
               </div>
 
@@ -336,12 +448,7 @@ export default function MainIndex() {
                    </button>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 mt-4 pr-2">
-                   <label className="flex items-center gap-2 cursor-pointer group">
-                      <input type="radio" checked readOnly className="accent-[#0097A7] w-4 h-4" />
-                      <span className="text-[11px] font-black text-[#0097A7] uppercase tracking-widest group-hover:text-[#00BCD4]">BOM</span>
-                   </label>
-                </div>
+
               </div>
             </div>
 

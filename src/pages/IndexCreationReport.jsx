@@ -1,3 +1,5 @@
+import ExcelJS from 'exceljs'
+import * as XLSX from 'xlsx'
 import { useState, useEffect, useCallback, Fragment } from 'react'
 import api from '../services/api'
 import {
@@ -142,9 +144,10 @@ const isUOMHeader = (h) => {
 
 export default function IndexCreationReport() {
   const toast = useToast()
-  const [fromDate, setFromDate] = useState(new Date().toISOString().split('T')[0])
+  const [fromDate, setFromDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
   const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0])
   const [modelName, setModelName] = useState('')
+  const [modelNo, setModelNo] = useState('')
   const [data, setData] = useState([])
   const [filteredData, setFilteredData] = useState([])
   const [searching, setSearching] = useState(false)
@@ -181,13 +184,330 @@ export default function IndexCreationReport() {
       end.setHours(23, 59, 59, 999)
       const result = data.filter(r => {
         const d = new Date(r.date)
-        const dateMatch = d >= start && d <= end
-        const modelMatch = modelName ? r.model === modelName : true
-        return dateMatch && modelMatch
+        const dateMatch = (!fromDate || d >= start) && (!toDate || d <= end)
+        const modelMatch = modelName ? (r.model || '').toLowerCase() === modelName.toLowerCase() : true
+        const modelNoMatch = modelNo ? (r.modelNo || '').toLowerCase().includes(modelNo.toLowerCase()) : true
+        return dateMatch && modelMatch && modelNoMatch
       })
       setFilteredData(result)
       setSearching(false)
     }, 300)
+  }
+
+      // Helper to resolve and convert images to base64 for Excel embedding
+const getBase64Image = async (imgSource) => {
+  if (!imgSource || typeof imgSource !== 'string') return null;
+  const trimmed = imgSource.trim();
+  
+  if (trimmed.startsWith('data:image/')) {
+    const parts = trimmed.split(',');
+    const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const extension = mime.includes('jpeg') || mime.includes('jpg') ? 'jpeg' : 'png';
+    return { base64: parts[1], extension };
+  }
+
+  if (/^[A-Za-z0-9+/=]+$/.test(trimmed) && trimmed.length > 64) {
+    return { base64: trimmed, extension: 'png' };
+  }
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/api/') || trimmed.startsWith('/uploads/')) {
+    try {
+      const res = await api.get(trimmed, { responseType: 'blob', skipGlobalLoader: true });
+      const blob = res.data;
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const resStr = reader.result;
+          if (typeof resStr === 'string' && resStr.startsWith('data:image/')) {
+            const parts = resStr.split(',');
+            const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+            const extension = mime.includes('jpeg') || mime.includes('jpg') ? 'jpeg' : 'png';
+            resolve({ base64: parts[1], extension });
+          } else {
+            resolve(null);
+          }
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
+
+  const handleExportExcel = async () => {
+    if (filteredData.length === 0) {
+      toast.warning('No records to export.')
+      return
+    }
+
+    toast.info('Generating Excel file with images...')
+
+    try {
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('Index_Report')
+
+      // Set column widths
+      worksheet.columns = [
+        { key: 'sno', width: 8 },
+        { key: 'partName', width: 34 },
+        { key: 'image', width: 14 },
+        { key: 'qty', width: 10 },
+        { key: 'partNo', width: 22 },
+        { key: 'date', width: 16 },
+        { key: 'remarks', width: 28 },
+      ]
+
+      let currentRowIdx = 1
+
+      for (const r of filteredData) {
+        const raw = r.excelData
+        const items = Array.isArray(raw) ? raw : (raw?.excelData || [])
+        const dStr = r.date ? r.date.split('T')[0] : '—'
+
+        // 1. Model Header Row
+        const modelRow = worksheet.getRow(currentRowIdx)
+        modelRow.values = [`Model: ${r.model || '—'}`, '', `Model No: ${r.modelNo || '—'}`]
+        modelRow.font = { bold: true, size: 12, color: { argb: 'FF0F172A' } }
+        modelRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF1F5F9' }
+        }
+        modelRow.height = 24
+        currentRowIdx++
+
+        // 2. Table Column Headers
+        const headerRow = worksheet.getRow(currentRowIdx)
+        headerRow.values = ['S.No', 'Part Name', 'Image', 'Qty', 'Part No', 'Date', 'Remarks']
+        headerRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } }
+        headerRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF0097A7' }
+        }
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+        headerRow.height = 22
+
+        headerRow.eachCell((cell, colNum) => {
+          if (colNum === 2 || colNum === 5 || colNum === 7) {
+            cell.alignment = { vertical: 'middle', horizontal: 'left' }
+          }
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF007A87' } },
+            left: { style: 'thin', color: { argb: 'FF007A87' } },
+            bottom: { style: 'thin', color: { argb: 'FF007A87' } },
+            right: { style: 'thin', color: { argb: 'FF007A87' } }
+          }
+        })
+        currentRowIdx++
+
+        // 3. Data Rows
+        if (items.length === 0) {
+          const dataRow = worksheet.getRow(currentRowIdx)
+          dataRow.values = [1, '—', '', 1, '—', dStr, r.remarks || '—']
+          dataRow.alignment = { vertical: 'middle' }
+          dataRow.height = 22
+          dataRow.eachCell((cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            }
+          })
+          currentRowIdx++
+        } else {
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i]
+            const partName = it.PartName || it['Part Name'] || it.partName || it.Name || '—'
+            const partNo = it.PartNo || it['Part No'] || it.partNo || it['Part Number'] || '—'
+            const qty = it.Qty || it.qty || 1
+            const rawImg = it.Image || it.image || it.Pic || it.pic
+            const remarks = it.Remarks || it.remarks || r.remarks || '—'
+
+            const dataRow = worksheet.getRow(currentRowIdx)
+            dataRow.values = [i + 1, partName, '', qty, partNo, dStr, remarks]
+            dataRow.alignment = { vertical: 'middle' }
+            dataRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' }
+            dataRow.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' }
+            dataRow.getCell(5).font = { bold: true, color: { argb: 'FF0097A7' } }
+
+            dataRow.height = rawImg ? 50 : 24
+
+            dataRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+              if (colNumber <= 7) {
+                cell.border = {
+                  top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                  left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                  bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                  right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                }
+              }
+            })
+
+            // Embed Image
+            if (rawImg) {
+              const imgData = await getBase64Image(rawImg)
+              if (imgData) {
+                try {
+                  const imageId = workbook.addImage({
+                    base64: imgData.base64,
+                    extension: imgData.extension
+                  })
+                  worksheet.addImage(imageId, {
+                    tl: { col: 2.1, row: currentRowIdx - 0.9 },
+                    ext: { width: 55, height: 42 },
+                    editAs: 'oneCell'
+                  })
+                } catch (imgErr) {
+                  console.warn('Failed to embed image in Excel:', imgErr)
+                }
+              }
+            }
+
+            currentRowIdx++
+          }
+        }
+
+        // Empty row separation between models
+        currentRowIdx++
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Index_Creation_Report_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      toast.success('Index Creation Report with images exported to Excel successfully!')
+    } catch (err) {
+      console.error('Failed to export Excel with images:', err)
+      toast.error('Failed to generate Excel file.')
+    }
+  };
+
+const handlePrintStandardReport = () => {
+    if (filteredData.length === 0) {
+      toast.warning('No records to print')
+      return
+    }
+
+    const printWindow = window.open('', '_blank', 'width=1100,height=800')
+    let sectionsHtml = ''
+
+    filteredData.forEach(r => {
+      const raw = r.excelData
+      const items = Array.isArray(raw) ? raw : (raw?.excelData || [])
+      const dStr = r.date ? r.date.split('T')[0] : '—'
+
+      let rowsHtml = ''
+      if (items.length === 0) {
+        rowsHtml += `
+          <tr>
+            <td style="text-align:center;">1</td>
+            <td>—</td>
+            <td style="text-align:center;">—</td>
+            <td style="text-align:center;">1</td>
+            <td style="font-weight:bold;color:#0097A7;">—</td>
+            <td>${dStr}</td>
+            <td>${r.remarks || '—'}</td>
+          </tr>
+        `
+      } else {
+        items.forEach((it, idx) => {
+          const partName = it.PartName || it['Part Name'] || it.partName || it.Name || '—'
+          const partNo = it.PartNo || it['Part No'] || it.partNo || it['Part Number'] || '—'
+          const qty = it.Qty || it.qty || 1
+          const imgVal = resolveImageSrc(it.Image || it.image || it.Pic || it.pic)
+          const imgTag = imgVal ? `<img src="${imgVal}" style="max-height:40px;max-width:50px;object-fit:contain;" />` : '—'
+          const remarks = it.Remarks || it.remarks || r.remarks || '—'
+
+          rowsHtml += `
+            <tr>
+              <td style="text-align:center;">${idx + 1}</td>
+              <td>${partName}</td>
+              <td style="text-align:center;">${imgTag}</td>
+              <td style="text-align:center;">${qty}</td>
+              <td style="font-weight:bold;color:#0097A7;">${partNo}</td>
+              <td>${dStr}</td>
+              <td>${remarks}</td>
+            </tr>
+          `
+        })
+      }
+
+      sectionsHtml += `
+        <div class="model-section" style="margin-bottom: 24px; page-break-inside: avoid;">
+          <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; display: flex; gap: 32px; font-size: 12px;">
+            <div><strong style="color: #475569;">Model:</strong> <span style="font-weight: bold; color: #0f172a;">${r.model || '—'}</span></div>
+            <div><strong style="color: #475569;">Model No:</strong> <span style="font-weight: bold; color: #0097A7;">${r.modelNo || '—'}</span></div>
+          </div>
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="width:6%;text-align:center;">S.No</th>
+                <th style="width:28%;">Part Name</th>
+                <th style="width:12%;text-align:center;">Image</th>
+                <th style="width:6%;text-align:center;">Qty</th>
+                <th style="width:18%;">Part No</th>
+                <th style="width:12%;">Date</th>
+                <th style="width:18%;">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `
+    })
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Index Creation Report</title>
+          <style>
+            @page { size: A4 landscape; margin: 10mm; }
+            body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; color: #333; }
+            .header { border-bottom: 2px solid #0097A7; padding-bottom: 8px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .header h1 { margin: 0; color: #0097A7; font-size: 18px; font-weight: bold; }
+            .header p { margin: 2px 0 0; color: #666; font-size: 10px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #0097A7; color: #fff; font-size: 10px; text-transform: uppercase; padding: 6px 4px; border: 1px solid #007a87; text-align: left; }
+            td { padding: 5px 4px; border: 1px solid #cbd5e1; font-size: 10.5px; vertical-align: middle; }
+            tr:nth-child(even) { background: #f8fafc; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1>VELSON ERP - INDEX CREATION REPORT</h1>
+              <p>Standard Model & Part Breakdown Registry</p>
+            </div>
+            <div style="text-align:right;">
+              <p>Generated: ${new Date().toLocaleDateString()} | Total Models: ${filteredData.length}</p>
+            </div>
+          </div>
+          ${sectionsHtml}
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
   }
 
   const handleDelete = async () => {
@@ -229,8 +549,11 @@ export default function IndexCreationReport() {
               <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">Index Creation Registry</h2>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-600 text-[12px] font-bold rounded-lg border border-slate-200 transition-all shadow-sm">
-                <Printer size={16} /> Print Records
+              <button onClick={handleExportExcel} className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold rounded-lg transition-all shadow-sm active:scale-95">
+                <FileSpreadsheet size={16} /> Export Excel
+              </button>
+              <button onClick={handlePrintStandardReport} className="flex items-center gap-1.5 px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-600 text-[12px] font-bold rounded-lg border border-slate-200 transition-all shadow-sm">
+                <Printer size={16} /> Print Report (PDF)
               </button>
               <button onClick={() => window.history.back()} className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-[12px] font-black rounded-lg transition-all shadow-sm">
                 <X size={18} strokeWidth={2.5} /> Close
@@ -261,12 +584,21 @@ export default function IndexCreationReport() {
 
                 <div className="grid grid-cols-12 gap-4 items-center">
                   <div className="col-span-2"><Label>Model Name :</Label></div>
-                  <div className="col-span-10">
+                  <div className="col-span-4">
                     <Select
                       options={Array.from(new Set(data.map(r => r.model).filter(Boolean)))}
                       placeholder="--- All Models ---"
                       value={modelName}
                       onChange={e => setModelName(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2 text-right"><Label>Model No :</Label></div>
+                  <div className="col-span-4">
+                    <Input
+                      placeholder="Search Model No..."
+                      value={modelNo}
+                      onChange={e => setModelNo(e.target.value)}
+                      className="shadow-sm"
                     />
                   </div>
                 </div>
@@ -335,19 +667,7 @@ export default function IndexCreationReport() {
               </div>
             </div>
 
-            <div className="flex items-right justify-between mb-4">
-              <div className="flex items-right gap-2">
-                {[
-                  { icon: <Download size={14} />, l: 'CSV' },
-                  { icon: <FileSpreadsheet size={14} />, l: 'Excel' },
-                  { icon: <FileJson size={14} />, l: 'JSON' },
-                ].map(tool => (
-                  <button key={tool.l} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-400 hover:text-[#0097A7] text-[11px] font-bold uppercase transition-all">
-                    {tool.icon} {tool.l}
-                  </button>
-                ))}
-              </div>
-            </div>
+
 
             <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <table className="w-full text-left border-collapse min-w-[1000px] table-fixed">

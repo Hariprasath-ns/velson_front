@@ -523,6 +523,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
   const [filterItems, setFilterItems] = useState([])
   const [filterLoading, setFilterLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [selectedRowId, setSelectedRowId] = useState(null)
 
   // Debounce search
   useEffect(() => {
@@ -740,10 +741,20 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                     </td>
                   </tr>
                 ) : (
-                  displayItems.map((item, idx) => (
+                  displayItems.map((item, idx) => {
+                    const isSelected = selectedRowId === item.id;
+                    const rcPdfName = item.routeCardNo || (item.pdfPath ? item.pdfPath.split('/').pop().replace(/\.[^/.]+$/, '') : '');
+                    return (
                     <tr
                       key={item.id}
-                      className={idx % 2 === 0 ? 'bg-white hover:bg-[#f0fdfe] transition-colors' : 'bg-slate-50 hover:bg-[#f0fdfe] transition-colors'}
+                      onClick={() => setSelectedRowId(item.id)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-[#0097A7]/20 border-l-4 border-[#0097A7] font-semibold text-slate-900 shadow-inner'
+                          : idx % 2 === 0
+                            ? 'bg-white hover:bg-[#f0fdfe]'
+                            : 'bg-slate-50 hover:bg-[#f0fdfe]'
+                      }`}
                     >
                       {/* <td className={tdCls + ' font-medium text-slate-800'}>{item.id}</td> */}
                       <td className={tdCls}>{from + idx}</td>
@@ -756,9 +767,9 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                       <td className={tdCls}>{item.minStock ?? 0}</td>
                       <td className={`${tdCls} font-semibold text-slate-500`}>{item.currentStock ?? 0}</td>
 
-                      {/* R.C.No. */}
-                      <td className={`${tdCls} text-slate-500 text-[11px]`}>
-                        {item.routeCardNo || (item.pdfPath ? item.pdfPath.split('/').pop() : '')}
+                      {/* R.C.No. (Mapped to PDF File Name) */}
+                      <td className={`${tdCls} font-mono text-[11px] text-[#0097A7] font-bold`}>
+                        {rcPdfName || '—'}
                       </td>
 
                       {/* Image */}
@@ -825,14 +836,15 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                       {/* Details */}
                       <td className={tdCls}>
                         <button
-                          onClick={() => onView(item)}
+                          onClick={(e) => { e.stopPropagation(); onView(item) }}
                           className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#0097A7] hover:bg-[#007a87] text-white transition-colors shadow-sm"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                       </td>
                     </tr>
-                  ))
+                    );
+                  }) 
                 )}
               </tbody>
             </table>
@@ -1811,6 +1823,28 @@ function ImagePdfDetailsView({ item, onBack }) {
             <span className="text-slate-800 text-[14px] font-medium">{item.partName}</span>
           </div>
         </div>
+        {/* Process Dates Status Banner */}
+        <div className="flex flex-wrap items-center gap-4 mb-6 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-bold text-slate-500 uppercase">Process Status:</span>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-emerald-100 text-emerald-800">
+              Completed / Active
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-bold text-slate-500 uppercase">Process In Date:</span>
+            <span className="px-2.5 py-0.5 rounded text-[11.5px] font-bold font-mono bg-emerald-50 text-emerald-700 border border-emerald-300">
+              {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB') : '15/04/2026'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-bold text-slate-500 uppercase">Process Out Date:</span>
+            <span className="px-2.5 py-0.5 rounded text-[11.5px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-300">
+              {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('en-GB') : '25/08/2026'}
+            </span>
+          </div>
+        </div>
+
         <h3 className="text-[20px] font-normal text-slate-700 mb-4">Images and PDF Documents</h3>
         <div className="border border-slate-200 rounded-sm overflow-hidden">
           <table className="w-full border-collapse">
