@@ -407,15 +407,30 @@ export default function GateEntry() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Gate No :</label>
-                <input value={form.gateNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
+                <input
+                  value={form.gateNo}
+                  onChange={e => setForm(f => ({ ...f, gateNo: e.target.value }))}
+                  placeholder="Enter Gate No..."
+                  className={inp()}
+                />
               </div>
               <div className="flex items-center gap-2">
-                <label className={`${lbl} w-[120px] shrink-0`}>Carrier Name :</label>
-                <input value={form.carrierName} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
+                <label className={`${lbl} w-[120px] shrink-0`}>Carrier No :</label>
+                <input
+                  value={form.carrierName}
+                  onChange={e => setForm(f => ({ ...f, carrierName: e.target.value }))}
+                  placeholder="Enter Carrier No..."
+                  className={inp()}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Vehicle No :</label>
-                <input value={form.vehicleNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
+                <input
+                  value={form.vehicleNo}
+                  onChange={e => setForm(f => ({ ...f, vehicleNo: e.target.value }))}
+                  placeholder="Enter Vehicle No..."
+                  className={inp()}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>User :</label>
@@ -435,11 +450,21 @@ export default function GateEntry() {
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Invoice No :</label>
-                <input value={form.invoiceNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
+                <input
+                  value={form.invoiceNo}
+                  onChange={e => setForm(f => ({ ...f, invoiceNo: e.target.value }))}
+                  placeholder="Enter Invoice No..."
+                  className={inp()}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Invoice Date :</label>
-                <input type="date" value={form.invoiceDate} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
+                <input
+                  type="date"
+                  value={form.invoiceDate}
+                  onChange={e => setForm(f => ({ ...f, invoiceDate: e.target.value }))}
+                  className={inp()}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Tax Type :</label>

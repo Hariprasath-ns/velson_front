@@ -229,42 +229,7 @@ export default function BOMCreation() {
     return Array.from(new Set([...imParts, ...idxModels])).sort()
   }, [itemMaster, itemGroups, form.groupName, indexRecords])
 
-  const modelNoOptions = useMemo(() => {
-    let list = indexRecords
-    if (form.model) {
-      const filtered = list.filter(i => (i.model || '').toLowerCase() === form.model.toLowerCase())
-      if (filtered.length > 0) {
-        return Array.from(new Set(filtered.map(i => i.modelNo).filter(Boolean))).sort()
-      }
-    }
-    return Array.from(new Set(list.map(i => i.modelNo).filter(Boolean))).sort()
-  }, [indexRecords, form.model])
 
-  const handleModelNoSelect = (modelNoVal) => {
-    const matchedIndex = indexRecords.find(i => i.modelNo === modelNoVal)
-    setForm(f => ({
-      ...f,
-      modelNo: modelNoVal,
-      model: matchedIndex?.model || f.model,
-      fileName: matchedIndex?.fileName || f.fileName,
-      fileLocation: matchedIndex?.fileLocation || f.fileLocation,
-    }))
-
-    // Always load child components for the selected Model No from Index Creation
-    if (matchedIndex) {
-      const rawRows = matchedIndex.excelData
-      const rows = Array.isArray(rawRows) ? rawRows : (rawRows?.excelData || [])
-      if (rows && rows.length > 0) {
-        setExcelData(rows)
-        setSelectedRows(rows.map((_, idx) => idx))
-        setActivePreviewRowIdx(0)
-        if (rows[0]) {
-          handleRowClickSelect(rows[0], 0)
-        }
-        toast.success(`Loaded ${rows.length} child components for Index Model No "${modelNoVal}".`)
-      }
-    }
-  }
 
   const handleRowClickSelect = (rowObj, idx) => {
     setActivePreviewRowIdx(idx)
@@ -484,7 +449,6 @@ export default function BOMCreation() {
       serviceJobNo: '',
       vehicleSerialNo: '',
       model: '',
-      modelNo: '',
       fileLocation: '',
       fileName: '',
       groupName: '',
@@ -703,15 +667,27 @@ export default function BOMCreation() {
                 : `/uploads/${matchedItem.imagePath}`
             }
           }
+          validRows.push(row)
+        } else {
+          skipped.push({
+            row: rowNum,
+            data: row,
+            partNo: partNoVal || '—',
+            partName: (partNameHeader ? row[partNameHeader] : '') || '—',
+            image: imgVal,
+            reason: partNoVal ? 'Part No not found in Item Master' : 'Missing Part Number'
+          })
         }
-
-        validRows.push(row)
       }
 
       setSkippedRecords(skipped)
 
       if (validRows.length === 0) {
-        toast.warning('No items found in the Excel sheet.')
+        if (skipped.length > 0) {
+          toast.warning(`All ${skipped.length} item(s) were skipped because they were not found in Item Master.`)
+        } else {
+          toast.warning('No items found in the Excel sheet.')
+        }
         setExcelData([])
         setSelectedRows([])
         hideLoader()
@@ -725,6 +701,9 @@ export default function BOMCreation() {
         handleRowClickSelect(validRows[0], 0)
       }
       toast.success(`Processed Assembly List loaded successfully! (${validRows.length} items found)`)
+      if (skipped.length > 0) {
+        toast.info(`${skipped.length} row(s) skipped (not found in Item Master).`)
+      }
     } catch (err) {
       console.error('Error reading Excel file:', err)
       toast.error('Error processing Excel file.')
@@ -920,16 +899,7 @@ export default function BOMCreation() {
                     <Label>Model</Label>
                     <Select options={modelOptions} value={form.model} onChange={u('model')} placeholder="Select Model..." />
                   </div>
-                  <div>
-                    <Label>Model No (Index)</Label>
-                    <SearchableSelect
-                      options={modelNoOptions}
-                      value={form.modelNo}
-                      onChange={handleModelNoSelect}
-                      placeholder="Search / Select Model No..."
-                      className="w-full"
-                    />
-                  </div>
+
 
                   <div>
                     <Label>Group Name</Label>

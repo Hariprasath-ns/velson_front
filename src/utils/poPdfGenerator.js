@@ -82,42 +82,55 @@ export async function generatePurchaseOrderPdf(po, companyInfo = null) {
   const supplierGst = po.gstNo || po.supplier?.gstin || '—';
 
   const details = po.details || [];
-  let subTotal = 0;
-  let totalTax = 0;
-  let grandTotal = 0;
+  let itemsSubTotal = 0;
+  let itemsTotalTax = 0;
+  let itemsGrandTotal = 0;
 
   const itemRowsHtml = details.map((d, i) => {
     const qty = parseFloat(d.qty) || 0;
     const rate = parseFloat(d.unitPrice) || 0;
     const val = parseFloat(d.amount) || (qty * rate);
-    const gstAmt = parseFloat(d.gstAmt) || 0;
+    const gstAmt = parseFloat(d.gstAmt) || (parseFloat(d.gstPer) ? (val * parseFloat(d.gstPer) / 100) : 0);
     const netAmt = parseFloat(d.netAmt) || (val + gstAmt);
 
-    subTotal += val;
-    totalTax += gstAmt;
-    grandTotal += netAmt;
+    itemsSubTotal += val;
+    itemsTotalTax += gstAmt;
+    itemsGrandTotal += netAmt;
 
-    const desc = [
-      d.itemCode ? `<strong>${d.itemCode}</strong>` : '',
-      d.itemName || '',
-      d.description ? `<em>${d.description}</em>` : ''
-    ].filter(Boolean).join(' - ');
+    const partNo = d.itemCode || d.partNo || d.supplierPartNo || '—';
+    const partName = d.itemName || '—';
+    const desc = d.description || '—';
 
     return `
       <tr>
-        <td style="text-align:center;">${i + 1}</td>
-        <td style="text-align:left;">${desc || '—'}</td>
+        <td style="text-align:center;font-weight:600;color:#555;">${i + 1}</td>
+        <td style="text-align:left;font-weight:700;font-family:monospace;color:#007a87;white-space:nowrap;">${partNo}</td>
+        <td style="text-align:left;font-weight:600;">${partName}</td>
+        <td style="text-align:left;word-break:break-word;overflow-wrap:break-word;white-space:normal;line-height:1.35;max-width:170px;">${desc}</td>
         <td style="text-align:center;">${d.hsnCode || '—'}</td>
-        <td style="text-align:right;font-weight:600;">${qty.toFixed(2)}</td>
+        <td style="text-align:right;font-weight:700;">${qty.toFixed(2)}</td>
         <td style="text-align:center;">${d.uom || d.unit || 'NOS'}</td>
         <td style="text-align:right;">${rate.toFixed(2)}</td>
-        <td style="text-align:right;font-weight:600;">${val.toFixed(2)}</td>
+        <td style="text-align:right;font-weight:700;">${val.toFixed(2)}</td>
       </tr>
     `;
   }).join('');
 
-  if (po.totalAmount) {
+  const subTotal = (parseFloat(po.subTotal) > 0) ? parseFloat(po.subTotal) : itemsSubTotal;
+  const cgstAmt = parseFloat(po.cgstAmt) || 0;
+  const sgstAmt = parseFloat(po.sgstAmt) || 0;
+  const igstAmt = parseFloat(po.igstAmt) || 0;
+  const othersAmt = parseFloat(po.othersAmt) || 0;
+  const freightAmt = parseFloat(po.freight) || 0;
+
+  const headerTax = cgstAmt + sgstAmt + igstAmt;
+  const totalTax = headerTax > 0 ? headerTax : itemsTotalTax;
+
+  let grandTotal = 0;
+  if (parseFloat(po.totalAmount) > 0) {
     grandTotal = parseFloat(po.totalAmount);
+  } else {
+    grandTotal = subTotal + totalTax + othersAmt + freightAmt;
   }
 
   const amtInWords = numberToWords(grandTotal);
@@ -352,17 +365,19 @@ export async function generatePurchaseOrderPdf(po, companyInfo = null) {
     <table class="items-table">
       <thead>
         <tr>
-          <th style="width:35px;text-align:center;">S.No</th>
-          <th style="text-align:left;">Description (Part No + Name)</th>
-          <th style="width:75px;text-align:center;">HSN Code</th>
-          <th style="width:60px;text-align:right;">QTY</th>
-          <th style="width:50px;text-align:center;">UOM</th>
-          <th style="width:85px;text-align:right;">Rate/Pc (INR)</th>
-          <th style="width:95px;text-align:right;">Value (INR)</th>
+          <th style="width:30px;text-align:center;">S.No</th>
+          <th style="width:95px;text-align:left;">Part No</th>
+          <th style="width:125px;text-align:left;">Part Name</th>
+          <th style="text-align:left;">Description</th>
+          <th style="width:65px;text-align:center;">HSN Code</th>
+          <th style="width:50px;text-align:right;">QTY</th>
+          <th style="width:45px;text-align:center;">UOM</th>
+          <th style="width:75px;text-align:right;">Rate (INR)</th>
+          <th style="width:85px;text-align:right;">Amount (INR)</th>
         </tr>
       </thead>
       <tbody>
-        ${itemRowsHtml || '<tr><td colspan="7" style="text-align:center;padding:12px;">No line items</td></tr>'}
+        ${itemRowsHtml || '<tr><td colspan="9" style="text-align:center;padding:12px;">No line items</td></tr>'}
       </tbody>
     </table>
 
@@ -373,10 +388,36 @@ export async function generatePurchaseOrderPdf(po, companyInfo = null) {
           <td class="lbl">Sub Total (INR):</td>
           <td class="val">${subTotal.toFixed(2)}</td>
         </tr>
+        ${cgstAmt > 0 ? `
+        <tr>
+          <td class="lbl">CGST (${po.cgstPer || 9}%):</td>
+          <td class="val">${cgstAmt.toFixed(2)}</td>
+        </tr>` : ''}
+        ${sgstAmt > 0 ? `
+        <tr>
+          <td class="lbl">SGST (${po.sgstPer || 9}%):</td>
+          <td class="val">${sgstAmt.toFixed(2)}</td>
+        </tr>` : ''}
+        ${igstAmt > 0 ? `
+        <tr>
+          <td class="lbl">IGST (${po.igstPer || 18}%):</td>
+          <td class="val">${igstAmt.toFixed(2)}</td>
+        </tr>` : ''}
+        ${(cgstAmt === 0 && sgstAmt === 0 && igstAmt === 0 && totalTax > 0) ? `
         <tr>
           <td class="lbl">Taxes / GST (INR):</td>
           <td class="val">${totalTax.toFixed(2)}</td>
-        </tr>
+        </tr>` : ''}
+        ${othersAmt > 0 ? `
+        <tr>
+          <td class="lbl">Other Charges (INR):</td>
+          <td class="val">${othersAmt.toFixed(2)}</td>
+        </tr>` : ''}
+        ${freightAmt > 0 ? `
+        <tr>
+          <td class="lbl">Freight (INR):</td>
+          <td class="val">${freightAmt.toFixed(2)}</td>
+        </tr>` : ''}
         <tr class="grand-total-row">
           <td class="lbl" style="background:#e0f2fe;color:#0369a1;">Grand Total (INR):</td>
           <td class="val">${grandTotal.toFixed(2)}</td>

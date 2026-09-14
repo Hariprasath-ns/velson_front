@@ -570,7 +570,7 @@ export default function PurchaseOrderDetails() {
                 <table className="w-full text-[11.5px] border border-slate-200 rounded">
                   <thead className="bg-slate-100 sticky top-0">
                     <tr>
-                      {['#','Item Code','Pur. Req No','Item Name','Description','UOM','Qty','Unit Price','Amount','GST%','Net Amt'].map(h => (
+                      {['#','Part No','Part Name','Description','HSN Code','UOM','Qty','Unit Price','Amount','GST%','Net Amt'].map(h => (
                         <th key={h} className="px-2 py-1 text-left font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -578,17 +578,17 @@ export default function PurchaseOrderDetails() {
                   <tbody>
                     {viewPO.details.map((it, idx) => (
                       <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                        <td className="px-2 py-1">{idx + 1}</td>
-                        <td className="px-2 py-1">{it.itemCode || '—'}</td>
-                        <td className="px-2 py-1 whitespace-nowrap">{it.itemName || '—'}</td>
-                        <td className="px-2 py-1">{it.description || '—'}</td>
-                        <td className="px-2 py-1">{it.uom || '—'}</td>
-                        <td className="px-2 py-1">{it.qty ?? '—'}</td>
-                        <td className="px-2 py-1">{it.unitPrice ?? '—'}</td>
-                        <td className="px-2 py-1">{it.discPer ?? '—'}</td>
-                        <td className="px-2 py-1">{it.amount ?? '—'}</td>
-                        <td className="px-2 py-1">{it.gstPer ?? '—'}</td>
-                        <td className="px-2 py-1 font-medium">{it.netAmt ?? '—'}</td>
+                        <td className="px-2 py-1 text-center font-semibold text-slate-500">{idx + 1}</td>
+                        <td className="px-2 py-1 font-mono font-bold text-slate-700">{it.itemCode || it.partNo || it.supplierPartNo || '—'}</td>
+                        <td className="px-2 py-1 font-semibold text-slate-800">{it.itemName || '—'}</td>
+                        <td className="px-2 py-1 max-w-[200px] break-words whitespace-normal text-slate-600">{it.description || '—'}</td>
+                        <td className="px-2 py-1 text-center">{it.hsnCode || '—'}</td>
+                        <td className="px-2 py-1 text-center">{it.uom || '—'}</td>
+                        <td className="px-2 py-1 text-right font-semibold">{it.qty ?? '—'}</td>
+                        <td className="px-2 py-1 text-right">{it.unitPrice ?? '—'}</td>
+                        <td className="px-2 py-1 text-right font-semibold">{it.amount ?? '—'}</td>
+                        <td className="px-2 py-1 text-center">{it.gstPer ? `${it.gstPer}%` : '—'}</td>
+                        <td className="px-2 py-1 text-right font-bold text-slate-800">{it.netAmt ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>

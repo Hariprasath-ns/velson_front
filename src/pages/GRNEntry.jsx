@@ -48,6 +48,82 @@ export default function GRNEntry() {
   const [entryStatus, setEntryStatus] = useState('Open')
   const isClosed = entryStatus === 'Closed' || entryStatus === 'Completed'
 
+  const [form, setForm] = useState({
+    grnType:'', gateEntryNo:'', supplierName:'', purchaseLedger:'',
+    purchaseType:'', currency:'', currencyType:'EXPORT',
+    contactPerson:'', contactNo:'', poNo:'', poDate:today, taxType:'', exchangeRate:'',
+    grnNo:'', financialYear:'', grnDate:today, invoiceNo:'0', invoiceDate:today, qcType:'',
+    discountType:'Dis_Per',
+  })
+  const [items, setItems] = useState([emptyItem()])
+  const [remarks, setRemarks] = useState('')
+  const [currencyTotal, setCurrencyTotal] = useState('')
+  const [roundOff, setRoundOff] = useState('')
+  const [freightLedger, setFreightLedger] = useState('FREIGHT A/C')
+  const [tcsLedger, setTcsLedger] = useState('TCS A/C')
+
+  const [showFreightPopup, setShowFreightPopup] = useState(false)
+  const [freightRows, setFreightRows] = useState(defaultFreightRows())
+  const [othersAmt, setOthersAmt] = useState('')
+  const [ogstAmtVal, setOgstAmtVal] = useState('')
+  const [tcsAmtVal, setTcsAmtVal] = useState('')
+
+  const [showGateModal, setShowGateModal] = useState(false)
+  const [gateEntries, setGateEntries] = useState([])
+  const [gateSearch, setGateSearch] = useState('')
+  const [gateLoading, setGateLoading] = useState(false)
+
+  const [showPoModal, setShowPoModal] = useState(false)
+  const [poList, setPoList] = useState([])
+  const [poSearch, setPoSearch] = useState('')
+  const [poLoading, setPoLoading] = useState(false)
+
+  const applyTaxRate = (rate) => {
+    setItems(rows => rows.map(r => {
+      const q = parseFloat(r.qty) || 0
+      const p = parseFloat(r.unitPrice) || 0
+      const tot = q * p
+      const dp = parseFloat(r.discPer) || 0
+      const da = tot * dp / 100
+      const finalPrice = (tot - da).toFixed(2)
+      const netAmt = ((tot - da) * (1 + rate / 100)).toFixed(2)
+      return { ...r, taxPer: String(rate), finalPrice, netAmt }
+    }))
+  }
+
+  const setField = (k, v) => {
+    setForm(f => ({ ...f, [k]: v }))
+    if (k === 'taxType') {
+      const rate = TAX_RATE_MAP[v.toUpperCase()]
+      if (rate !== undefined) applyTaxRate(rate)
+    }
+  }
+
+  const isGrnAgainstPo = (form?.grnType || '').toLowerCase().includes('against') || form?.grnType === 'GRN against PO'
+  const isDirectPo = (form?.grnType || '').toLowerCase().includes('direct') || form?.grnType === 'Direct PO'
+
+  const handleGrnTypeChange = (newType) => {
+    setField('grnType', newType)
+    const isDirect = (newType || '').toLowerCase().includes('direct') || newType === 'Direct PO'
+    if (isDirect) {
+      setForm(f => ({
+        ...f,
+        grnType: newType,
+        gateEntryNo: '',
+      }))
+    } else {
+      setForm(f => ({
+        ...f,
+        grnType: newType,
+        supplierName: '',
+        poNo: '',
+        invoiceNo: '0',
+        gateEntryNo: '',
+      }))
+      setItems([emptyItem()])
+    }
+  }
+
   useEffect(() => {
     setRefLoading(true)
     const fetches = [
@@ -184,31 +260,7 @@ export default function GRNEntry() {
     }
   }
 
-  const [form, setForm] = useState({
-    grnType:'', gateEntryNo:'', supplierName:'', purchaseLedger:'',
-    purchaseType:'', currency:'', currencyType:'EXPORT',
-    contactPerson:'', contactNo:'', poNo:'', poDate:today, taxType:'', exchangeRate:'',
-    grnNo:'', financialYear:'', grnDate:today, invoiceNo:'0', invoiceDate:today, qcType:'',
-    discountType:'Dis_Per',
-  })
-  const [items, setItems] = useState([emptyItem()])
-  const [remarks, setRemarks] = useState('')
-  const [currencyTotal, setCurrencyTotal] = useState('')
-  const [roundOff, setRoundOff] = useState('')
-  const [freightLedger, setFreightLedger] = useState('FREIGHT A/C')
-  const [tcsLedger, setTcsLedger] = useState('TCS A/C')
-
-  const [showFreightPopup, setShowFreightPopup] = useState(false)
-  const [freightRows, setFreightRows] = useState(defaultFreightRows())
-  const [othersAmt, setOthersAmt] = useState('')
-  const [ogstAmtVal, setOgstAmtVal] = useState('')
-  const [tcsAmtVal, setTcsAmtVal] = useState('')
-
-  const [showGateModal, setShowGateModal] = useState(false)
-  const [gateEntries, setGateEntries] = useState([])
-  const [gateSearch, setGateSearch] = useState('')
-  const [gateLoading, setGateLoading] = useState(false)
-
+  
   const handleCloseForm = () => {
     window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'GRNEntryReport' } }))
   }
@@ -375,11 +427,7 @@ export default function GRNEntry() {
       || (e.invoiceNo||'').toLowerCase().includes(q)
   })
 
-  const [showPoModal, setShowPoModal] = useState(false)
-  const [poList, setPoList] = useState([])
-  const [poSearch, setPoSearch] = useState('')
-  const [poLoading, setPoLoading] = useState(false)
-
+  
   const openPoSearch = () => {
     setShowPoModal(true)
     setPoSearch('')
@@ -432,26 +480,7 @@ export default function GRNEntry() {
       || (p.contactPerson||'').toLowerCase().includes(q)
   })
 
-  const applyTaxRate = (rate) => {
-    setItems(rows => rows.map(r => {
-      const q = parseFloat(r.qty) || 0
-      const p = parseFloat(r.unitPrice) || 0
-      const tot = q * p
-      const dp = parseFloat(r.discPer) || 0
-      const da = tot * dp / 100
-      const finalPrice = (tot - da).toFixed(2)
-      const netAmt = ((tot - da) * (1 + rate / 100)).toFixed(2)
-      return { ...r, taxPer: String(rate), finalPrice, netAmt }
-    }))
-  }
-
-  const setField = (k, v) => {
-    setForm(f => ({ ...f, [k]: v }))
-    if (k === 'taxType') {
-      const rate = TAX_RATE_MAP[v.toUpperCase()]
-      if (rate !== undefined) applyTaxRate(rate)
-    }
-  }
+  
 
   const setItemField = (idx,k,v) => {
     setItems(rows=>rows.map((r,i)=>{
@@ -640,95 +669,185 @@ export default function GRNEntry() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>GRN Type :</label>
-                <select value={form.grnType} onChange={e=>setField('grnType',e.target.value)} className={inp()}>{grnTypes.map(t=><option key={t}>{t}</option>)}</select>
+                <select value={form.grnType} onChange={e=>handleGrnTypeChange(e.target.value)} className={inp()}>{grnTypes.map(t=><option key={t}>{t}</option>)}</select>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Gate Entry No :</label>
-                <input value={form.gateEntryNo} readOnly className={`${inp()} flex-1 bg-slate-50`}/>
-                <button onClick={openGateSearch} disabled={gateLoading} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 disabled:opacity-60">
+                <input value={form.gateEntryNo} readOnly className={`${inp()} flex-1 bg-slate-50 cursor-not-allowed`}/>
+                <button
+                  onClick={openGateSearch}
+                  disabled={isDirectPo || gateLoading || isClosed}
+                  className={`px-3 py-1 text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 ${
+                    isDirectPo || isClosed
+                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
+                      : 'bg-slate-700 hover:bg-slate-600 text-white'
+                  }`}
+                  title={isDirectPo ? "Gate Entry search is disabled for Direct PO" : ""}
+                >
                   {gateLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : null}Search
                 </button>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Supplier Name:</label>
-                <select value={form.supplierName} onChange={e=>handleSupplierChange(e.target.value)} className={inp()}>
-                  <option value="">Select Supplier</option>
-                  {suppliersData.map(s=><option key={s.id} value={s.supplierName}>{s.supplierName}</option>)}
-                </select>
+                {isGrnAgainstPo ? (
+                  <input
+                    value={form.supplierName}
+                    readOnly
+                    placeholder="Fetched from Gate Entry..."
+                    className={`${inp()} bg-slate-50 cursor-not-allowed font-medium text-slate-700`}
+                  />
+                ) : (
+                  <select
+                    value={form.supplierName}
+                    disabled={isClosed}
+                    onChange={e => handleSupplierChange(e.target.value)}
+                    className={`${inp()} ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`}
+                  >
+                    <option value="">Select Supplier</option>
+                    {suppliersData.map(s => (
+                      <option key={s.id} value={s.supplierName}>{s.supplierName}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Purchase Ledger :</label>
-                <select value={form.purchaseLedger} onChange={e=>setField('purchaseLedger',e.target.value)} className={inp()}>
+                <select
+                  value={form.purchaseLedger}
+                  disabled={isClosed || isGrnAgainstPo}
+                  onChange={e => setField('purchaseLedger', e.target.value)}
+                  className={`${inp()} ${isClosed || isGrnAgainstPo ? 'bg-slate-50 cursor-not-allowed text-slate-600' : ''}`}
+                >
                   {purchaseLedgers.length === 0 && <option value="">Loading...</option>}
-                  {purchaseLedgers.map(l=><option key={l} value={l}>{l}</option>)}
+                  {purchaseLedgers.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Purchase Type :</label>
-                <select value={form.purchaseType} onChange={e=>setField('purchaseType',e.target.value)} className={inp()}>
+                <select
+                  value={form.purchaseType}
+                  disabled={isClosed}
+                  onChange={e => setField('purchaseType', e.target.value)}
+                  className={`${inp()} ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`}
+                >
                   {purchaseTypes.length === 0 && <option value="">Loading...</option>}
-                  {purchaseTypes.map(t=><option key={t} value={t}>{t}</option>)}
+                  {purchaseTypes.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Currency :</label>
-                <select value={form.currency} onChange={e=>setField('currency',e.target.value)} className={`${inp()} w-20`}>
+                <select
+                  value={form.currency}
+                  disabled={isClosed}
+                  onChange={e => setField('currency', e.target.value)}
+                  className={`${inp()} w-20 ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`}
+                >
                   {currencies.length === 0 && <option value="">Loading...</option>}
-                  {currencies.map(c=><option key={c} value={c}>{c}</option>)}
+                  {currencies.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <select value={form.currencyType} onChange={e=>setField('currencyType',e.target.value)} className={`${inp()} w-24`}>{CURRENCY_TYPES.map(c=><option key={c}>{c}</option>)}</select>
+                <select
+                  value={form.currencyType}
+                  disabled={isClosed}
+                  onChange={e => setField('currencyType', e.target.value)}
+                  className={`${inp()} w-24 ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`}
+                >
+                  {CURRENCY_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
             </div>
             {/* Col 2 */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Contact Person:</label>
-                <input value={form.contactPerson} onChange={e=>setField('contactPerson',e.target.value)} className={inp()}/>
+                <input
+                  value={form.contactPerson}
+                  readOnly={isClosed || isGrnAgainstPo}
+                  onChange={e => setField('contactPerson', e.target.value)}
+                  className={`${inp()} ${isClosed || isGrnAgainstPo ? 'bg-slate-50 cursor-not-allowed text-slate-600' : ''}`}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Contact No. :</label>
-                <input value={form.contactNo} onChange={e=>setField('contactNo',e.target.value)} className={inp()}/>
+                <input
+                  value={form.contactNo}
+                  readOnly={isClosed || isGrnAgainstPo}
+                  onChange={e => setField('contactNo', e.target.value)}
+                  className={`${inp()} ${isClosed || isGrnAgainstPo ? 'bg-slate-50 cursor-not-allowed text-slate-600' : ''}`}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>PO No :</label>
-                <input value={form.poNo} readOnly className={`${inp()} flex-1 bg-slate-50`}/>
-                {/* <button onClick={openPoSearch} disabled={poLoading} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 disabled:opacity-60">
-                  {poLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : null}Search
-                </button> */}
+                <input value={form.poNo} readOnly className={`${inp()} flex-1 bg-slate-50 cursor-not-allowed`}/>
+                {isDirectPo && (
+                  <button
+                    onClick={openPoSearch}
+                    disabled={poLoading || isClosed}
+                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 disabled:opacity-60"
+                  >
+                    {poLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : null}Search
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>PO Date :</label>
-                <input type="date" value={form.poDate} readOnly onChange={e=>setField('poDate',e.target.value)} className={inp()}/>
+                <input
+                  type="date"
+                  value={form.poDate}
+                  readOnly
+                  onChange={e => setField('poDate', e.target.value)}
+                  className={`${inp()} bg-slate-50 cursor-not-allowed`}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Tax Type :</label>
-                <select value={form.taxType} onChange={e=>setField('taxType',e.target.value)} className={inp()}>
+                <select
+                  value={form.taxType}
+                  disabled={isClosed}
+                  onChange={e => setField('taxType', e.target.value)}
+                  className={`${inp()} ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`}
+                >
                   {taxTypes.length === 0 && <option value="">Loading...</option>}
-                  {taxTypes.map(t=><option key={t} value={t}>{t}</option>)}
+                  {taxTypes.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>Exchange Rate (Rs.):</label>
-                <input value={form.exchangeRate} onChange={e=>setField('exchangeRate',e.target.value)} className={inp()}/>
+                <input
+                  value={form.exchangeRate}
+                  disabled={isClosed}
+                  onChange={e => setField('exchangeRate', e.target.value)}
+                  className={`${inp()} ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`}
+                />
               </div>
             </div>
             {/* Col 3 */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>GRN No :</label>
-                <input value={form.grnNo} readOnly className={`${inp()} bg-slate-50`}/>
+                <input value={form.grnNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`}/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>GRN Date :</label>
-                <input type="date" value={form.grnDate} readOnly onChange={e=>setField('grnDate',e.target.value)} className={`${inp()} bg-slate-50`}/>
+                <input type="date" value={form.grnDate} readOnly onChange={e => setField('grnDate', e.target.value)} className={`${inp()} bg-slate-50 cursor-not-allowed`}/>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>Invoice No :</label>
-                <input value={form.invoiceNo} onChange={e=>setField('invoiceNo',e.target.value)} className={inp()}/>
+                <input
+                  value={form.invoiceNo}
+                  readOnly={isClosed || isGrnAgainstPo}
+                  onChange={e => setField('invoiceNo', e.target.value)}
+                  className={`${inp()} ${isClosed || isGrnAgainstPo ? 'bg-slate-50 cursor-not-allowed text-slate-600' : ''}`}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>Invoice Date :</label>
-                <input type="date" value={form.invoiceDate} readOnly onChange={e=>setField('invoiceDate',e.target.value)} className={inp()}/>
+                <input
+                  type="date"
+                  value={form.invoiceDate}
+                  readOnly={isClosed || isGrnAgainstPo}
+                  onChange={e => setField('invoiceDate', e.target.value)}
+                  className={`${inp()} ${isClosed || isGrnAgainstPo ? 'bg-slate-50 cursor-not-allowed text-slate-600' : ''}`}
+                />
               </div>
             </div>
           </div>
@@ -780,13 +899,13 @@ export default function GRNEntry() {
                       <td className="px-0.5 py-1"><input value={row.itemCode} readOnly tabIndex={-1} className={`${inp()} w-20 bg-slate-100 text-slate-600 font-medium text-[#0097A7] cursor-not-allowed`} /></td>
                       <td className="px-0.5 py-1"><input value={row.itemName} title={row.itemName || ''} readOnly tabIndex={-1} className={`${inp()} w-24 bg-slate-100 text-slate-600 cursor-not-allowed`} /></td>
                       <td className="px-0.5 py-1"><input value={row.qcType} readOnly tabIndex={-1} className={`${inp()} w-20 bg-slate-100 text-slate-600 cursor-not-allowed`} /></td>
-                      <td className="px-0.5 py-1"><input value={row.supplierPartNo} disabled={isClosed} onChange={e => setItemField(idx, 'supplierPartNo', e.target.value)} placeholder="Part No" className={`${inp()} w-20 font-medium ${isClosed ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.supplierPartNo} disabled={isClosed || isGrnAgainstPo} onChange={e => setItemField(idx, 'supplierPartNo', e.target.value)} placeholder="Part No" className={`${inp()} w-20 font-medium ${isClosed || isGrnAgainstPo ? 'bg-slate-100 cursor-not-allowed text-slate-600' : 'bg-white'}`} /></td>
                       <td className="px-0.5 py-1"><input value={row.hsnCode} readOnly tabIndex={-1} className={`${inp()} w-16 bg-slate-100 text-slate-600 cursor-not-allowed`} /></td>
                       <td className="px-0.5 py-1"><input value={row.unit} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-600 cursor-not-allowed text-center`} /></td>
                       <td className="px-0.5 py-1"><input value={row.stockQty} readOnly tabIndex={-1} className={`${inp()} w-12 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
                       <td className="px-0.5 py-1"><input value={row.orderQty} readOnly tabIndex={-1} className={`${inp()} w-12 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
                       <td className="px-0.5 py-1"><input value={row.qty} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-700 cursor-not-allowed text-right font-semibold`} /></td>
-                      <td className="px-0.5 py-1"><input value={row.unitPrice} disabled={isClosed} onChange={e => setItemField(idx, 'unitPrice', e.target.value)} placeholder="0.00" className={`${inp()} w-16 min-w-[70px] text-right font-bold text-slate-800 ${isClosed ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`} /></td>
+                      <td className="px-0.5 py-1"><input value={row.unitPrice} disabled={isClosed || isGrnAgainstPo} onChange={e => setItemField(idx, 'unitPrice', e.target.value)} placeholder="0.00" className={`${inp()} w-16 min-w-[70px] text-right font-bold text-slate-800 ${isClosed || isGrnAgainstPo ? 'bg-slate-100 cursor-not-allowed text-slate-600' : 'bg-white'}`} /></td>
                       <td className="px-0.5 py-1"><input value={row.total} readOnly tabIndex={-1} className={`${inp()} bg-slate-100 text-slate-600 w-20 min-w-[85px] text-right font-medium cursor-not-allowed`} /></td>
                       <td className="px-0.5 py-1"><input value={row.discPer} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
                       <td className="px-0.5 py-1"><input value={row.discAmt} readOnly tabIndex={-1} className={`${inp()} bg-slate-100 text-slate-600 w-14 min-w-[70px] text-right cursor-not-allowed`} /></td>

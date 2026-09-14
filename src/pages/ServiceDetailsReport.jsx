@@ -2,11 +2,13 @@ import { useState, useEffect, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import {
-  ChevronRight, ChevronDown, Search, Printer, FileSpreadsheet, FileDown, RotateCcw, Box, Layers
+  ChevronRight, ChevronDown, Search, Printer, FileSpreadsheet, FileDown, RotateCcw, Box, Layers, Trash2
 } from 'lucide-react'
 import { openExcelPreview } from '../utils/excelPreview'
 import { useToast } from '../components/Toast'
+import ConfirmDialog from '../components/ConfirmDialog'
 import api from '../services/api'
+import { useQueryClient } from '@tanstack/react-query'
 
 // ── UI Primitives ──
 const Label = ({ children }) => (
@@ -42,7 +44,7 @@ const Select = ({ options, value, onChange, placeholder, className = '' }) => (
 )
 
 // Seed baseline demo rows
-const SEED_REPORT_ROWS = [
+export const SEED_REPORT_ROWS = [
   {
     id: 1,
     bookingDate: '2026-08-01',
@@ -89,6 +91,7 @@ const SEED_REPORT_ROWS = [
 
 export default function ServiceDetailsReport() {
   const toast = useToast()
+  const queryClient = useQueryClient()
   const today = new Date().toISOString().split('T')[0]
 
   // Filters
@@ -96,6 +99,8 @@ export default function ServiceDetailsReport() {
   const [toDate, setToDate] = useState(today)
   const [selectedCompany, setSelectedCompany] = useState('')
   const [selectedAssembly, setSelectedAssembly] = useState('')
+  const [searchJobNo, setSearchJobNo] = useState('')
+  const [searchVehicleCount, setSearchVehicleCount] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
   // Raw data from server & state
@@ -103,6 +108,8 @@ export default function ServiceDetailsReport() {
   const [bomList, setBomList] = useState([])
   const [expandedRows, setExpandedRows] = useState({})
   const [selectedRowId, setSelectedRowId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Load backend data on mount
   useEffect(() => {
@@ -167,6 +174,7 @@ export default function ServiceDetailsReport() {
 
             combined.push({
               id: nextId++,
+              backendId: d.id,
               bookingDate: d.bookingDate || (matchedBooking ? matchedBooking.bookingDate : '2026-04-15'),
               customerName: d.customerName || (matchedBooking ? matchedBooking.customerName : '—'),
               vehicleCount: String(d.vehicleCount || (matchedBooking ? matchedBooking.count : '1')),
@@ -189,17 +197,32 @@ export default function ServiceDetailsReport() {
 
   // 1. Search Workflow: Unique Companies List
   const companyOptions = useMemo(() => {
-    const list = allEntries.map(e => e.customerName).filter(Boolean)
+    const list = allEntries.map(e => e.customerName).filter(Boolean).filter(c => c !== '—')
     return Array.from(new Set(list)).sort()
   }, [allEntries])
 
   // 2. Search Workflow: Selecting a company lists all its Assembly Numbers
   const assemblyOptions = useMemo(() => {
-    const relevant = selectedCompany
+    let relevant = selectedCompany
       ? allEntries.filter(e => e.customerName === selectedCompany)
       : allEntries
     const assemblies = relevant.map(e => e.assemblyItem).filter(Boolean)
     return Array.from(new Set(assemblies)).sort()
+  }, [allEntries, selectedCompany])
+
+  // 3. Autocomplete suggestions for Service Job No & Vehicle Count
+  const jobNoSuggestions = useMemo(() => {
+    let relevant = allEntries
+    if (selectedCompany) relevant = relevant.filter(e => e.customerName === selectedCompany)
+    const list = relevant.map(e => e.serviceJobNo).filter(Boolean).filter(j => j !== '—')
+    return Array.from(new Set(list)).sort()
+  }, [allEntries, selectedCompany])
+
+  const vehicleCountSuggestions = useMemo(() => {
+    let relevant = allEntries
+    if (selectedCompany) relevant = relevant.filter(e => e.customerName === selectedCompany)
+    const list = relevant.map(e => e.vehicleCount).filter(Boolean).filter(c => c !== '—')
+    return Array.from(new Set(list)).sort((a, b) => Number(a) - Number(b))
   }, [allEntries, selectedCompany])
 
   // Reset assembly filter if company changes and current assembly does not belong
@@ -209,11 +232,13 @@ export default function ServiceDetailsReport() {
     }
   }, [selectedCompany, assemblyOptions, selectedAssembly])
 
-  // 3. Filtered rows calculation
+  // 4. Filtered rows calculation
   const filteredRows = useMemo(() => {
     return allEntries.filter(r => {
       if (selectedCompany && r.customerName !== selectedCompany) return false
       if (selectedAssembly && r.assemblyItem !== selectedAssembly) return false
+      if (searchJobNo && (!r.serviceJobNo || !r.serviceJobNo.toLowerCase().includes(searchJobNo.trim().toLowerCase()))) return false
+      if (searchVehicleCount && (!r.vehicleCount || !String(r.vehicleCount).toLowerCase().includes(searchVehicleCount.trim().toLowerCase()))) return false
       if (fromDate && r.bookingDate && r.bookingDate < fromDate) return false
       if (toDate && r.bookingDate && r.bookingDate > toDate) return false
 
@@ -222,6 +247,7 @@ export default function ServiceDetailsReport() {
         const match =
           (r.customerName && r.customerName.toLowerCase().includes(q)) ||
           (r.serviceJobNo && r.serviceJobNo.toLowerCase().includes(q)) ||
+          (r.vehicleCount && String(r.vehicleCount).toLowerCase().includes(q)) ||
           (r.assemblyItem && r.assemblyItem.toLowerCase().includes(q)) ||
           (r.vehicleSerialNo && r.vehicleSerialNo.toLowerCase().includes(q)) ||
           (r.modelNo && r.modelNo.toLowerCase().includes(q))
@@ -229,7 +255,7 @@ export default function ServiceDetailsReport() {
       }
       return true
     })
-  }, [allEntries, selectedCompany, selectedAssembly, fromDate, toDate, searchQuery])
+  }, [allEntries, selectedCompany, selectedAssembly, searchJobNo, searchVehicleCount, fromDate, toDate, searchQuery])
 
   // Toggle child accordion row
   const toggleRow = (id) => {
@@ -237,6 +263,43 @@ export default function ServiceDetailsReport() {
       ...prev,
       [id]: !prev[id]
     }))
+  }
+
+  // Delete Service Detail handler
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      if (deleteTarget.backendId) {
+        await api.delete(`/api/service-detail/${deleteTarget.backendId}`)
+      }
+      
+      // Also cascade delete corresponding spare records
+      if (deleteTarget.serviceJobNo) {
+        try {
+          const sparesRes = await api.get('/api/service-spare', { skipGlobalLoader: true })
+          const matchingSpares = (sparesRes.data?.data || []).filter(sp => sp.serviceJobNo === deleteTarget.serviceJobNo)
+          for (const sp of matchingSpares) {
+            await api.delete(`/api/service-spare/${sp.id}`, { skipGlobalLoader: true })
+          }
+        } catch (spErr) {
+          console.warn('Could not cascade delete spare entries in report:', spErr)
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['service-details'] })
+      queryClient.invalidateQueries({ queryKey: ['service-spare'] })
+
+      setAllEntries(prev => prev.filter(r => r.id !== deleteTarget.id))
+      toast.success(`Service Detail entry for "${deleteTarget.serviceJobNo || deleteTarget.customerName}" and corresponding spare entries deleted successfully.`)
+      setDeleteTarget(null)
+      setSelectedRowId(null)
+    } catch (err) {
+      console.error('Error deleting service detail entry:', err)
+      toast.error('Error deleting record from database.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   // Excel export
@@ -365,6 +428,20 @@ export default function ServiceDetailsReport() {
                 <FileDown size={12} className="text-amber-300" /> PDF
               </button>
               <button
+                onClick={() => {
+                  if (!selectedRowId) {
+                    toast.warning('Please select a service entry first.')
+                    return
+                  }
+                  const row = allEntries.find(r => r.id === selectedRowId)
+                  if (row) setDeleteTarget(row)
+                }}
+                className="bg-rose-500/30 hover:bg-rose-600 border border-white/20 text-[12px] px-3 py-1 rounded transition-colors font-bold uppercase tracking-wider flex items-center gap-1 h-[28px]"
+                title="Delete Selected Service Detail Record"
+              >
+                <Trash2 size={13} className="text-white" /> Delete
+              </button>
+              <button
                 onClick={() => window.dispatchEvent(new CustomEvent('velson:navigate', { detail: 'Dashboard' }))}
                 className="bg-[#007a87] hover:bg-[#006873] border border-white/20 text-[12px] px-3 py-1 rounded transition-colors font-bold uppercase tracking-wider h-[28px]"
               >
@@ -376,7 +453,7 @@ export default function ServiceDetailsReport() {
           <div className="p-4">
 
             {/* ── Search & Filter Workflow Section ── */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4 shadow-sm">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4 shadow-sm space-y-3">
               <div className="grid grid-cols-12 gap-4 items-center">
 
                 {/* Company Selection Dropdown */}
@@ -396,7 +473,7 @@ export default function ServiceDetailsReport() {
                   <Label>2. Select Assembly Item :</Label>
                   <Select
                     options={assemblyOptions}
-                    placeholder={selectedCompany ? `-- All Assemblies (${assemblyOptions.length}) --` : '-- Select Company First --'}
+                    placeholder={selectedCompany ? `-- All Assemblies (${assemblyOptions.length}) --` : '-- All Assemblies --'}
                     value={selectedAssembly}
                     onChange={e => setSelectedAssembly(e.target.value)}
                     className="mt-1 font-semibold"
@@ -415,40 +492,126 @@ export default function ServiceDetailsReport() {
 
               </div>
 
-              {/* Reset filter bar */}
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200 text-[12px]">
-                <div className="flex items-center gap-2">
-                  <div className="relative">
+              {/* Row 2: Service Job No & Vehicle Count Search Fields */}
+              <div className="grid grid-cols-12 gap-4 items-center pt-2 border-t border-slate-200/60">
+
+                {/* Service Job No (Typing input) */}
+                <div className="col-span-12 md:col-span-4">
+                  <Label>3. Service Job No (Type to Search) :</Label>
+                  <div className="relative mt-1">
+                    <input
+                      type="text"
+                      list="service-job-suggestions"
+                      value={searchJobNo}
+                      onChange={e => setSearchJobNo(e.target.value)}
+                      placeholder="Type Service Job No (e.g. 26-27/S000101)..."
+                      className="w-full pl-8 pr-12 py-1 text-[13px] h-[32px] border border-slate-300 rounded bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7] transition-all hover:border-slate-400 font-medium"
+                    />
+                    <datalist id="service-job-suggestions">
+                      {jobNoSuggestions.map(j => (
+                        <option key={j} value={j} />
+                      ))}
+                    </datalist>
+                    <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                    {searchJobNo && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchJobNo('')}
+                        className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-[#0097A7] font-bold"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Vehicle Count (Typing input) */}
+                <div className="col-span-12 md:col-span-4">
+                  <Label>4. Vehicle Count (Type to Search) :</Label>
+                  <div className="relative mt-1">
+                    <input
+                      type="text"
+                      list="vehicle-count-suggestions"
+                      value={searchVehicleCount}
+                      onChange={e => setSearchVehicleCount(e.target.value)}
+                      placeholder="Type Vehicle Count (e.g. 5, 7)..."
+                      className="w-full pl-8 pr-12 py-1 text-[13px] h-[32px] border border-slate-300 rounded bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7] transition-all hover:border-slate-400 font-medium"
+                    />
+                    <datalist id="vehicle-count-suggestions">
+                      {vehicleCountSuggestions.map(c => (
+                        <option key={c} value={c} />
+                      ))}
+                    </datalist>
+                    <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                    {searchVehicleCount && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchVehicleCount('')}
+                        className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-[#0097A7] font-bold"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Keyword Search */}
+                <div className="col-span-12 md:col-span-4">
+                  <Label>General Keyword Search :</Label>
+                  <div className="relative mt-1">
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Keyword Search..."
-                      className="pl-8 pr-2 py-1 text-[12px] h-[30px] border border-slate-300 rounded w-64 bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0097A7]"
+                      placeholder="Search across all fields..."
+                      className="w-full pl-8 pr-12 py-1 text-[13px] h-[32px] border border-slate-300 rounded bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0097A7] focus:border-[#0097A7] transition-all hover:border-slate-400"
                     />
-                    <Search size={13} className="absolute left-2.5 top-2 text-slate-400" />
+                    <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-[#0097A7] font-bold"
+                      >
+                        Clear
+                      </button>
+                    )}
                   </div>
-                  {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="text-xs text-slate-400 hover:text-[#0097A7] font-bold">
-                      Clear
-                    </button>
-                  )}
+                </div>
+
+              </div>
+
+              {/* Reset filter bar & stats */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-[12px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-medium">Active Filters:</span>
+                  <span className="font-bold text-[#0097A7]">
+                    {[
+                      selectedCompany && `Company: ${selectedCompany}`,
+                      selectedAssembly && `Assembly: ${selectedAssembly}`,
+                      searchJobNo && `Job No: "${searchJobNo}"`,
+                      searchVehicleCount && `Count: "${searchVehicleCount}"`,
+                      searchQuery && `Keyword: "${searchQuery}"`
+                    ].filter(Boolean).join(' • ') || 'None'}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <span className="font-bold text-[#0097A7]">
                     Found: {filteredRows.length} Service Entries
                   </span>
-                  {(selectedCompany || selectedAssembly || searchQuery) && (
+                  {(selectedCompany || selectedAssembly || searchJobNo || searchVehicleCount || searchQuery) && (
                     <button
                       onClick={() => {
                         setSelectedCompany('')
                         setSelectedAssembly('')
+                        setSearchJobNo('')
+                        setSearchVehicleCount('')
                         setSearchQuery('')
                         setFromDate('2026-04-01')
                         setToDate(today)
                       }}
-                      className="flex items-center gap-1 text-slate-500 hover:text-red-600 font-bold uppercase text-[11px]"
+                      className="flex items-center gap-1 text-slate-500 hover:text-red-600 font-bold uppercase text-[11px] transition-colors"
                     >
                       <RotateCcw size={12} /> Reset Filters
                     </button>
@@ -471,13 +634,14 @@ export default function ServiceDetailsReport() {
                       <th className="px-3 py-1 border-r border-slate-200 w-36 text-center">Service Job No</th>
                       <th className="px-3 py-1 border-r border-slate-200 w-24 text-center">Model No</th>
                       <th className="px-3 py-1 border-r border-slate-200 w-36">Vehicle Serial No</th>
-                      <th className="px-3 py-1">Assembly Item</th>
+                      <th className="px-3 py-1 border-r border-slate-200">Assembly Item</th>
+                      <th className="px-3 py-1 text-center w-20">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-[12.5px] text-slate-700">
                     {filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-12 text-center text-slate-400 italic">
+                        <td colSpan={10} className="py-12 text-center text-slate-400 italic">
                           No service entries match the selected filters.
                         </td>
                       </tr>
@@ -504,17 +668,26 @@ export default function ServiceDetailsReport() {
                               <td className="px-3 py-1 border-r border-slate-100 text-center font-bold text-[#0097A7]">{row.serviceJobNo}</td>
                               <td className="px-3 py-1 border-r border-slate-100 text-center font-semibold text-slate-700">{row.modelNo}</td>
                               <td className="px-3 py-1 border-r border-slate-100 font-mono text-[11.5px] text-slate-600">{row.vehicleSerialNo}</td>
-                              <td className="px-3 py-1 font-bold text-slate-800">
+                              <td className="px-3 py-1 font-bold text-slate-800 border-r border-slate-100">
                                 <span className="bg-[#0097A7]/10 text-[#0097A7] px-2 py-0.5 rounded text-[12px] inline-block">
                                   {row.assemblyItem}
                                 </span>
+                              </td>
+                              <td className="px-3 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => setDeleteTarget(row)}
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition-colors shadow-sm border border-rose-100"
+                                  title="Delete Service Detail Record"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
                               </td>
                             </tr>
 
                             {/* ── Child Part Breakdown Accordion View ── */}
                             {isExpanded && (
                               <tr key={`child-${row.id}`} className="bg-slate-50/80">
-                                <td colSpan={9} className="px-6 py-3 border-b border-slate-200">
+                                <td colSpan={10} className="px-6 py-3 border-b border-slate-200">
                                   <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 overflow-x-auto">
                                     <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
                                       <Layers size={14} className="text-[#0097A7]" />
@@ -581,6 +754,14 @@ export default function ServiceDetailsReport() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Confirm Delete Service Detail"
+        message={`Are you sure you want to delete the service detail record for "${deleteTarget?.serviceJobNo || deleteTarget?.customerName || 'this entry'}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import * as XLSX from 'xlsx'
 import {
   ChevronRight, X, Trash2, Edit, Search, Printer, List, Download, FileSpreadsheet, Filter, Settings, Save, RotateCcw, Copy
@@ -292,6 +293,7 @@ function matchedBomByGroup_groupName(bom) {
 
 export default function ServiceDetailsEntry() {
   const toast = useToast()
+  const queryClient = useQueryClient()
   const { show: showLoader, hide: hideLoader } = useLoading()
   const location = useLocation()
 
@@ -311,10 +313,15 @@ export default function ServiceDetailsEntry() {
   const [itemMasterList, setItemMasterList] = useState([])
   const [assembliesList, setAssembliesList] = useState([])
 
+  // Customers and vehicles lists for computing chosen vehicle
+  const [customersList, setCustomersList] = useState([])
+  const [vehiclesList, setVehiclesList] = useState([])
+
   // Form states
   const [serviceJobNo, setServiceJobNo] = useState('')
   const [customerCode, setCustomerCode] = useState('')
   const [vehicleCount, setVehicleCount] = useState('')
+  const [chosenVehicle, setChosenVehicle] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [bookingId, setBookingId] = useState('')
   const [bookingDate, setBookingDate] = useState('2026-04-15')
@@ -349,13 +356,19 @@ export default function ServiceDetailsEntry() {
           vehicleModelNo: b.vehicleModelNo,
           modelSubType: b.modelSubType,
           vehicleName: b.vehicleName,
-          count: b.customerVehicleCount || 1
+          count: b.customerVehicleCount || 1,
+          chooseOption: b.chooseOption || b.chosenOption || ''
         }))
         setJobsList(parsedFormatted)
 
         // 2. Gather unique options for Model, Sub Type and Vehicle Name
         const vehiclesRes = await api.get('/api/vehicle-master')
-        const vehiclesList = vehiclesRes.data?.data || []
+        const vehiclesData = vehiclesRes.data?.data || []
+        setVehiclesList(vehiclesData)
+
+        // 2.1 Fetch customers list for vehicle association
+        const custRes = await api.get('/api/customer-master').catch(() => ({ data: { data: [] } }))
+        setCustomersList(custRes.data?.data || [])
         const uniqueModels = [...new Set([
           ...vehiclesList.map(v => v.modelName).filter(Boolean),
           'VEDC', 'CORE DRILL', 'V2I', 'V3', 'V10', 'V2i'
@@ -424,11 +437,15 @@ export default function ServiceDetailsEntry() {
     }
   }, [location.state])
 
-  // Memoized unique Booking service job numbers (for dropdown)
+  // Memoized unique Booking service job numbers (only open bookings where tempStatus is Open)
   const serviceJobNoOptions = useMemo(() => {
-    let filteredJobs = jobsList
+    let filteredJobs = jobsList.filter(j => {
+      const ts = (j.tempStatus || 'Open').toLowerCase()
+      const s = (j.status || '').toLowerCase()
+      return ts !== 'close' && ts !== 'closed' && s !== 'close' && s !== 'closed'
+    })
     if (customerName) {
-      filteredJobs = jobsList.filter(j =>
+      filteredJobs = filteredJobs.filter(j =>
         j.customerName && j.customerName.trim().toLowerCase() === customerName.trim().toLowerCase()
       )
     }
@@ -480,7 +497,16 @@ export default function ServiceDetailsEntry() {
     if (editingRow && editingRow.serviceJobNo === serviceJobNo) {
       setCheckedAssemblies(editingRow.checkedAssemblies || [])
     } else {
-      setCheckedAssemblies([])
+      const existingForJob = serviceDetailsList.filter(s =>
+        s.serviceJobNo && s.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase() &&
+        s.status !== 'Inactive'
+      )
+      const alreadyAddedAssemblies = existingForJob.flatMap(s => 
+        Array.isArray(s.checkedAssemblies) && s.checkedAssemblies.length > 0 
+          ? s.checkedAssemblies 
+          : (s.servicePartNo ? [s.servicePartNo] : [])
+      )
+      setCheckedAssemblies(Array.from(new Set(alreadyAddedAssemblies.filter(Boolean))))
     }
 
     // 2. Fetch details from Booking list with BOM match as fallback info
@@ -508,8 +534,31 @@ export default function ServiceDetailsEntry() {
       if (!modelNo && primaryBom.model) modelNo = primaryBom.model
     }
 
+    let chosenVehVal = ''
+    if (matchingJob?.chooseOption) {
+      chosenVehVal = String(matchingJob.chooseOption)
+    } else if (custName) {
+      const cust = customersList.find(c => c.customerName && c.customerName.trim().toLowerCase() === custName.trim().toLowerCase())
+      if (cust) {
+        const custVehs = vehiclesList.filter(v => Number(v.customerId) === Number(cust.id))
+        const idx = custVehs.findIndex(v =>
+          (serNo && v.serialNumber && v.serialNumber.trim().toLowerCase() === serNo.trim().toLowerCase()) ||
+          (vehNo && v.vehicleNumber && v.vehicleNumber.trim().toLowerCase() === vehNo.trim().toLowerCase())
+        )
+        if (idx !== -1) {
+          chosenVehVal = String(idx + 1)
+        } else if (custVehs.length > 0) {
+          chosenVehVal = '1'
+        }
+      }
+    }
+    if (!chosenVehVal && serviceJobNo) {
+      chosenVehVal = '1'
+    }
+
     setCustomerCode(custCode)
     setVehicleCount(vehCount)
+    setChosenVehicle(chosenVehVal)
     setCustomerName(custName)
     setBookingId(bId)
     setBookingDate(bDate)
@@ -524,7 +573,7 @@ export default function ServiceDetailsEntry() {
     } else if (matchingBoms.length > 0) {
       toast.success(`Loaded details from BOM for Job No: ${serviceJobNo}`)
     }
-  }, [serviceJobNo, jobsList, bomCreationsList, editingId, serviceDetailsList])
+  }, [serviceJobNo, jobsList, bomCreationsList, editingId, serviceDetailsList, customersList, vehiclesList])
 
   // Reactive bottom table search filter
   useEffect(() => {
@@ -590,26 +639,26 @@ export default function ServiceDetailsEntry() {
       return
     }
 
-    // Unique assembly constraint check: filter duplicate assemblies
     const uniqueCheckedAssemblies = Array.from(new Set(checkedAssemblies.filter(Boolean)))
 
-    // Check existing active service entries for duplicate assembly numbers under this job
+    // Existing active service entries for this Service Job
     const existingJobEntries = serviceDetailsList.filter(s =>
       s.serviceJobNo && s.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase() &&
       s.status !== 'Inactive'
     )
     const existingAssemblySet = new Set(
-      existingJobEntries.flatMap(s => (s.checkedAssemblies || []).map(a => String(a).trim().toLowerCase()))
+      existingJobEntries.flatMap(s => 
+        Array.isArray(s.checkedAssemblies) && s.checkedAssemblies.length > 0
+          ? s.checkedAssemblies.map(a => String(a).trim().toLowerCase())
+          : (s.servicePartNo ? [String(s.servicePartNo).trim().toLowerCase()] : [])
+      )
     )
 
-    const duplicates = uniqueCheckedAssemblies.filter(a => existingAssemblySet.has(String(a).trim().toLowerCase()))
-    if (duplicates.length > 0 && editingId === null) {
-      toast.warning(`Assembly Number(s) "${duplicates.join(', ')}" already added for Service Job "${serviceJobNo}". Duplicate entries avoided.`)
-    }
+    // Newly added assembly part numbers
+    const newAssembliesToSave = uniqueCheckedAssemblies.filter(a => !existingAssemblySet.has(String(a).trim().toLowerCase()))
 
-    const assembliesToSave = uniqueCheckedAssemblies.filter(a => editingId !== null || !existingAssemblySet.has(String(a).trim().toLowerCase()))
-    if (assembliesToSave.length === 0 && uniqueCheckedAssemblies.length > 0) {
-      toast.error('All selected Assembly Numbers already exist for this Service Job.')
+    if (editingId === null && newAssembliesToSave.length === 0 && uniqueCheckedAssemblies.length > 0) {
+      toast.info('All selected part numbers are already added and up-to-date for this Service Job.')
       return
     }
 
@@ -628,28 +677,28 @@ export default function ServiceDetailsEntry() {
       vehicleName,
       status,
       remarks,
-      checkedAssemblies: assembliesToSave.length > 0 ? assembliesToSave : uniqueCheckedAssemblies,
+      checkedAssemblies: newAssembliesToSave.length > 0 ? newAssembliesToSave : uniqueCheckedAssemblies,
       createdAt: currentDateTime,
       createdDateTime: new Date().toLocaleString('en-GB')
     }
 
     try {
-      let updatedList
+      let updatedList = [...serviceDetailsList]
       if (editingId !== null) {
         const res = await api.put(`/api/service-detail/${editingId}`, newEntry, { loadingMessage: 'Updating record...' })
         updatedList = serviceDetailsList.map(s => s.id === editingId ? res.data.data : s)
         toast.success(`Service details log for Job ${serviceJobNo} updated successfully!`)
         setEditingId(null)
       } else {
-        if (assembliesToSave.length > 0) {
+        if (newAssembliesToSave.length > 0) {
           let newlyCreated = []
-          for (const ass of assembliesToSave) {
+          for (const ass of newAssembliesToSave) {
             const payload = { ...newEntry, checkedAssemblies: [ass], servicePartNo: ass }
             const res = await api.post('/api/service-detail', payload)
             newlyCreated.push(res.data.data)
           }
           updatedList = [...newlyCreated, ...serviceDetailsList]
-          toast.success(`Created ${assembliesToSave.length} separate service details entries with unique assemblies!`)
+          toast.success(`Saved ${newAssembliesToSave.length} new part number(s) alongside previously added parts for Job ${serviceJobNo}!`)
         } else {
           const res = await api.post('/api/service-detail', newEntry, { loadingMessage: 'Saving record...' })
           updatedList = [res.data.data, ...serviceDetailsList]
@@ -657,6 +706,8 @@ export default function ServiceDetailsEntry() {
         }
       }
 
+      queryClient.invalidateQueries({ queryKey: ['service-details'] })
+      queryClient.invalidateQueries({ queryKey: ['service-detail'] })
       setServiceDetailsList(updatedList)
       handleClear()
     } catch (err) {
@@ -708,12 +759,30 @@ export default function ServiceDetailsEntry() {
       toast.warning('Please select a service details log from the table below to delete.')
       return
     }
-    if (window.confirm('Are you sure you want to delete this Service Details Entry?')) {
+    const targetEntry = serviceDetailsList.find(s => s.id === selectedRowId)
+    if (window.confirm('Are you sure you want to delete this Service Details Entry? Associated spare entries for this service will also be removed.')) {
       try {
         await api.delete(`/api/service-detail/${selectedRowId}`, { loadingMessage: 'Deleting record...' })
+        
+        // Also cascade delete from service spare if present
+        if (targetEntry?.serviceJobNo) {
+          try {
+            const sparesRes = await api.get('/api/service-spare', { skipGlobalLoader: true })
+            const matchingSpares = (sparesRes.data?.data || []).filter(sp => sp.serviceJobNo === targetEntry.serviceJobNo)
+            for (const sp of matchingSpares) {
+              await api.delete(`/api/service-spare/${sp.id}`, { skipGlobalLoader: true })
+            }
+          } catch (spErr) {
+            console.warn('Could not cascade delete spare entries:', spErr)
+          }
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['service-details'] })
+        queryClient.invalidateQueries({ queryKey: ['service-spare'] })
+
         const updated = serviceDetailsList.filter(s => s.id !== selectedRowId)
         setServiceDetailsList(updated)
-        toast.error('Service entry deleted successfully.')
+        toast.success('Service entry and corresponding spare entry deleted successfully.')
         handleClear()
       } catch (err) {
         console.error('Failed to delete service detail', err)
@@ -737,6 +806,7 @@ export default function ServiceDetailsEntry() {
     setStatus(statusOptions[0] || 'Open')
     setRemarks('')
     setCheckedAssemblies([])
+    setChosenVehicle('')
     setEditingId(null)
   }
 
@@ -873,19 +943,19 @@ export default function ServiceDetailsEntry() {
                     />
                   </div>
                 </div>
-                {/* Row 2.5: Vehicle Count & Chosen Vehicle */}
+                {/* Row 2.5: Vehicle Count & Chosen Vehicle Count */}
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-4 text-left pr-1">
                     <Label>Vehicle Count :</Label>
                   </div>
                   <div className="col-span-2">
-                    <Input value={vehicleCount} readOnly className="text-center bg-slate-50 text-slate-500 font-bold h-[26px] text-[11px]" />
+                    <Input value={vehicleCount} readOnly placeholder="0" className="text-center bg-slate-50 text-slate-700 font-bold h-[26px] text-[11px]" />
                   </div>
-                  <div className="col-span-2 text-right pr-1">
-                    <Label>Chosen Vehicle:</Label>
+                  <div className="col-span-3 text-right pr-1">
+                    <Label>Chosen Vehicle Count :</Label>
                   </div>
-                  <div className="col-span-4">
-                    <Input value={serialNo || vehicleNo || vehicleModelNo || '—'} readOnly className="font-bold text-[#0097A7] bg-slate-50 h-[26px] text-[11px]" />
+                  <div className="col-span-3">
+                    <Input value={chosenVehicle || (serviceJobNo ? '1' : '—')} readOnly placeholder="—" className="text-center font-bold text-[#0097A7] bg-slate-50 h-[26px] text-[11px]" />
                   </div>
                 </div>
 

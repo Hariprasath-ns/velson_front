@@ -95,6 +95,8 @@ export default function BOMCreationReport() {
   const [serialNo, setSerialNo] = useState('')
   const [assemblyPartNo, setAssemblyPartNo] = useState('')
   const [vehicles, setVehicles] = useState([])
+  const [bookings, setBookings] = useState([])
+  const [customers, setCustomers] = useState([])
   const [data, setData] = useState([])
   const [filteredData, setFilteredData] = useState([])
   const [searching, setSearching] = useState(false)
@@ -218,10 +220,106 @@ export default function BOMCreationReport() {
     }
   }
 
+  const fetchBookings = async () => {
+    try {
+      const res = await api.get('/api/service-booking')
+      setBookings(res.data?.data || [])
+    } catch (err) {
+      console.error('Error fetching bookings', err)
+    }
+  }
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.get('/api/customer-master')
+      setCustomers(res.data?.data || [])
+    } catch (err) {
+      console.error('Error fetching customers', err)
+    }
+  }
+
   useEffect(() => {
     fetchBoms()
     fetchVehicles()
+    fetchBookings()
+    fetchCustomers()
   }, [])
+
+  // Helper to extract chosen vehicle count from open booking entries
+  const getChosenVehicleCount = (row) => {
+    if (!row) return '—'
+
+    // 1. Filter open booking entries where tempStatus / status is Open
+    const openBookings = (bookings || []).filter(b => {
+      const ts = String(b.tempStatus || b.status || 'Open').trim().toLowerCase()
+      const s = String(b.status || '').trim().toLowerCase()
+      return ts !== 'close' && ts !== 'closed' && s !== 'close' && s !== 'closed'
+    })
+
+    const jobNo = String(row.serviceJobNo || row.serialJobNo || '').trim().toLowerCase()
+    const custName = String(row.customerName || '').trim().toLowerCase()
+    const custCode = String(row.customerCode || '').trim().toLowerCase()
+    const serNo = String(row.vehicleSerialNo || '').trim().toLowerCase()
+
+    // 2. Find matching open booking by serviceJobNo
+    let matchingBooking = openBookings.find(b =>
+      jobNo && b.serviceJobNo && String(b.serviceJobNo).trim().toLowerCase() === jobNo
+    )
+
+    // 3. Fallback: match by customer and serial number
+    if (!matchingBooking && serNo) {
+      matchingBooking = openBookings.find(b =>
+        (String(b.vehicleSerialNo || b.serialNo || '').trim().toLowerCase() === serNo) &&
+        ((custName && String(b.customerName || '').trim().toLowerCase() === custName) ||
+         (custCode && String(b.customerCode || '').trim().toLowerCase() === custCode))
+      )
+    }
+
+    // 4. Fallback: match by customer
+    if (!matchingBooking && (custName || custCode)) {
+      matchingBooking = openBookings.find(b =>
+        (custName && String(b.customerName || '').trim().toLowerCase() === custName) ||
+        (custCode && String(b.customerCode || '').trim().toLowerCase() === custCode)
+      )
+    }
+
+    if (matchingBooking) {
+      if (matchingBooking.chooseOption !== undefined && matchingBooking.chooseOption !== null && String(matchingBooking.chooseOption).trim() !== '') {
+        return String(matchingBooking.chooseOption)
+      }
+      if (matchingBooking.customerVehicleCount !== undefined && matchingBooking.customerVehicleCount !== null && String(matchingBooking.customerVehicleCount).trim() !== '') {
+        return String(matchingBooking.customerVehicleCount)
+      }
+      if (matchingBooking.vehicleCount !== undefined && matchingBooking.vehicleCount !== null && String(matchingBooking.vehicleCount).trim() !== '') {
+        return String(matchingBooking.vehicleCount)
+      }
+      // Compute from customer vehicles if available
+      const custObj = (customers || []).find(c =>
+        (custName && String(c.customerName || '').trim().toLowerCase() === custName) ||
+        (custCode && String(c.cCode || c.customerCode || '').trim().toLowerCase() === custCode)
+      )
+      if (custObj) {
+        const custVehs = (vehicles || []).filter(v => Number(v.customerId) === Number(custObj.id))
+        const idx = custVehs.findIndex(v =>
+          (serNo && v.serialNumber && String(v.serialNumber).trim().toLowerCase() === serNo) ||
+          (matchingBooking.vehicleNo && v.vehicleNumber && String(v.vehicleNumber).trim().toLowerCase() === String(matchingBooking.vehicleNo).trim().toLowerCase())
+        )
+        if (idx !== -1) {
+          return String(idx + 1)
+        } else if (custVehs.length > 0) {
+          return '1'
+        }
+      }
+      return '1'
+    }
+
+    // If no open booking found or no match, check if row has vehicleCount / chooseOption
+    if (row.chooseOption) return String(row.chooseOption)
+    if (row.vehicleCount !== null && row.vehicleCount !== undefined && String(row.vehicleCount).trim() !== '') {
+      return String(row.vehicleCount)
+    }
+    return '—'
+  }
 
   useEffect(() => {
     if (data.length === 0) return
@@ -282,6 +380,9 @@ export default function BOMCreationReport() {
       const id = deleteTarget.id
       await api.delete(`/api/bom-creation/${id}`)
       queryClient.invalidateQueries({ queryKey: ['bom-creation'] })
+      queryClient.invalidateQueries({ queryKey: ['service-details'] })
+      queryClient.invalidateQueries({ queryKey: ['service-detail'] })
+      queryClient.invalidateQueries({ queryKey: ['service-spare'] })
       const next = data.filter(r => r.id !== id)
       setData(next)
       setFilteredData(filteredData.filter(r => r.id !== id))
@@ -321,8 +422,13 @@ export default function BOMCreationReport() {
       worksheet.columns = [
         { header: 'S.No', key: 'sno', width: 8 },
         { header: 'BOM No', key: 'bomNo', width: 15 },
+        { header: 'Customer Name', key: 'customerName', width: 25 },
+        { header: 'Customer Code', key: 'customerCode', width: 15 },
+        { header: 'Serial / Job No', key: 'serialJobNo', width: 20 },
         { header: 'Assembly Part No', key: 'assemblyPartNo', width: 25 },
         { header: 'Assembly Part Name', key: 'assemblyPartName', width: 30 },
+        { header: 'Model', key: 'model', width: 15 },
+        { header: 'Chosen Vehicle Count', key: 'chosenVehicle', width: 20 },
         { header: 'Created Date', key: 'date', width: 15 },
         { header: 'Created By', key: 'createdBy', width: 20 },
         { header: 'Status', key: 'status', width: 12 },
@@ -332,8 +438,13 @@ export default function BOMCreationReport() {
         worksheet.addRow({
           sno: idx + 1,
           bomNo: row.bomNo,
+          customerName: row.customerName || 'N/A',
+          customerCode: row.customerCode || 'N/A',
+          serialJobNo: row.serialJobNo || row.serviceJobNo || 'N/A',
           assemblyPartNo: row.assemblyPartNo || 'N/A',
           assemblyPartName: partNames[row.assemblyPartNo] || 'N/A',
+          model: row.model || 'N/A',
+          chosenVehicle: getChosenVehicleCount(row),
           date: row.date ? row.date.split('T')[0] : 'N/A',
           createdBy: row.createdBy || 'superadmin',
           status: row.status || 'Created',
@@ -380,8 +491,12 @@ export default function BOMCreationReport() {
             <tr>
               <th>S.No</th>
               <th>BOM No</th>
+              <th>Customer Name</th>
+              <th>Serial / Job No</th>
               <th>Assembly Part No</th>
               <th>Assembly Part Name</th>
+              <th>Model</th>
+              <th>Chosen Vehicle Count</th>
               <th>Created Date</th>
               <th>Created By</th>
             </tr>
@@ -394,8 +509,12 @@ export default function BOMCreationReport() {
         <tr>
           <td>${idx + 1}</td>
           <td><b>${row.bomNo}</b></td>
+          <td>${row.customerName || 'N/A'}</td>
+          <td>${row.serialJobNo || row.serviceJobNo || 'N/A'}</td>
           <td>${row.assemblyPartNo || 'N/A'}</td>
           <td>${partNames[row.assemblyPartNo] || 'N/A'}</td>
+          <td>${row.model || 'N/A'}</td>
+          <td>${getChosenVehicleCount(row)}</td>
           <td>${row.date ? row.date.split('T')[0] : 'N/A'}</td>
           <td>${row.createdBy || 'superadmin'}</td>
         </tr>
@@ -447,17 +566,20 @@ export default function BOMCreationReport() {
 
     doc.setTextColor(255, 255, 255)
     doc.setFont('Helvetica', 'bold')
-    doc.setFontSize(8.5)
+    doc.setFontSize(8)
     doc.text('S.No', 17, startY + 5.5)
-    doc.text('BOM No', 30, startY + 5.5)
-    doc.text('Assembly Part No', 65, startY + 5.5)
-    doc.text('Assembly Part Name', 115, startY + 5.5)
-    doc.text('Created Date', 195, startY + 5.5)
-    doc.text('Created By', 230, startY + 5.5)
+    doc.text('BOM No', 27, startY + 5.5)
+    doc.text('Customer Name', 52, startY + 5.5)
+    doc.text('Serial/Job No', 95, startY + 5.5)
+    doc.text('Assembly Part No', 135, startY + 5.5)
+    doc.text('Model', 180, startY + 5.5)
+    doc.text('Chosen Veh', 205, startY + 5.5)
+    doc.text('Created Date', 230, startY + 5.5)
+    doc.text('Created By', 255, startY + 5.5)
 
     let currentY = startY + 8
     doc.setFont('Helvetica', 'normal')
-    doc.setFontSize(8)
+    doc.setFontSize(7.5)
 
     filteredData.forEach((row, idx) => {
       if (idx % 2 === 1) {
@@ -470,17 +592,22 @@ export default function BOMCreationReport() {
 
       doc.setTextColor(0, 151, 167)
       doc.setFont('Helvetica', 'bold')
-      doc.text(row.bomNo, 30, currentY + 4.5)
+      doc.text(row.bomNo || '', 27, currentY + 4.5)
 
       doc.setTextColor(15, 23, 42)
       doc.setFont('Helvetica', 'normal')
-      doc.text(row.assemblyPartNo || 'N/A', 65, currentY + 4.5)
+      const cust = row.customerName || 'N/A'
+      doc.text(cust.length > 22 ? cust.substring(0, 22) + '...' : cust, 52, currentY + 4.5)
 
-      const partName = partNames[row.assemblyPartNo] || 'N/A'
-      doc.text(partName.length > 35 ? partName.substring(0, 35) + '...' : partName, 115, currentY + 4.5)
+      const jNo = row.serialJobNo || row.serviceJobNo || 'N/A'
+      doc.text(jNo.length > 20 ? jNo.substring(0, 20) + '...' : jNo, 95, currentY + 4.5)
 
-      doc.text(row.date ? row.date.split('T')[0] : 'N/A', 195, currentY + 4.5)
-      doc.text(row.createdBy || 'superadmin', 230, currentY + 4.5)
+      doc.text(row.assemblyPartNo || 'N/A', 135, currentY + 4.5)
+      doc.text(row.model || 'N/A', 180, currentY + 4.5)
+      doc.text(String(getChosenVehicleCount(row)), 208, currentY + 4.5)
+
+      doc.text(row.date ? row.date.split('T')[0] : 'N/A', 230, currentY + 4.5)
+      doc.text(row.createdBy || 'superadmin', 255, currentY + 4.5)
 
       doc.setDrawColor(241, 245, 249)
       doc.line(15, currentY + 7, 282, currentY + 7)
@@ -493,15 +620,19 @@ export default function BOMCreationReport() {
         doc.rect(15, 10, 267, 8, 'F')
         doc.setTextColor(255, 255, 255)
         doc.setFont('Helvetica', 'bold')
+        doc.setFontSize(8)
         doc.text('S.No', 17, 15.5)
-        doc.text('BOM No', 30, 15.5)
-        doc.text('Assembly Part No', 65, 15.5)
-        doc.text('Assembly Part Name', 115, 15.5)
-        doc.text('Created Date', 195, 15.5)
-        doc.text('Created By', 230, 15.5)
+        doc.text('BOM No', 27, 15.5)
+        doc.text('Customer Name', 52, 15.5)
+        doc.text('Serial/Job No', 95, 15.5)
+        doc.text('Assembly Part No', 135, 15.5)
+        doc.text('Model', 180, 15.5)
+        doc.text('Chosen Veh', 205, 15.5)
+        doc.text('Created Date', 230, 15.5)
+        doc.text('Created By', 255, 15.5)
         currentY = 18
         doc.setFont('Helvetica', 'normal')
-        doc.setFontSize(8)
+        doc.setFontSize(7.5)
       }
     })
 
@@ -546,11 +677,14 @@ export default function BOMCreationReport() {
             <thead>
               <tr>
                 <th style="width: 5%">S.No</th>
-                <th style="width: 15%">BOM No</th>
-                <th style="width: 25%">Assembly Part No</th>
-                <th style="width: 35%">Assembly Part Name</th>
-                <th style="width: 10%">Created Date</th>
-                <th style="width: 10%">Created By</th>
+                <th style="width: 12%">BOM No</th>
+                <th style="width: 18%">Customer Name</th>
+                <th style="width: 15%">Serial / Job No</th>
+                <th style="width: 15%">Assembly Part No</th>
+                <th style="width: 10%">Model</th>
+                <th style="width: 8%" class="text-center">Chosen Veh</th>
+                <th style="width: 9%">Created Date</th>
+                <th style="width: 8%">Created By</th>
               </tr>
             </thead>
             <tbody>
@@ -559,8 +693,11 @@ export default function BOMCreationReport() {
                 <tr>
                   <td class="text-center">${idx + 1}</td>
                   <td style="font-weight: bold; color: #0097A7;">${row.bomNo}</td>
+                  <td>${row.customerName || 'N/A'}</td>
+                  <td>${row.serialJobNo || row.serviceJobNo || 'N/A'}</td>
                   <td>${row.assemblyPartNo || 'N/A'}</td>
-                  <td><b>${partNames[row.assemblyPartNo] || 'N/A'}</b></td>
+                  <td>${row.model || 'N/A'}</td>
+                  <td class="text-center font-bold">${getChosenVehicleCount(row)}</td>
                   <td>${row.date ? row.date.split('T')[0] : 'N/A'}</td>
                   <td>${row.createdBy || 'superadmin'}</td>
                 </tr>
@@ -871,9 +1008,9 @@ export default function BOMCreationReport() {
                     <th className="px-5 py-4 border-r border-slate-100">Customer Name</th>
                     <th className="px-5 py-4 border-r border-slate-100">Customer Code</th>
                     <th className="px-5 py-4 border-r border-slate-100">Serial / Job No</th>
-                    <th className="px-5 py-4 border-r border-slate-100 text-center">Chosen Vehicle</th>
                     <th className="px-5 py-4 border-r border-slate-100">Assembly Part No</th>
                     <th className="px-5 py-4 border-r border-slate-100">Model</th>
+                    <th className="px-5 py-4 border-r border-slate-100 text-center">Chosen Vehicle</th>
                     <th className="px-5 py-4 border-r border-slate-100">Created Date</th>
                     <th className="px-5 py-4 text-center">Created By</th>
                     <th className="px-5 py-4 text-center w-24">Action</th>
@@ -912,11 +1049,11 @@ export default function BOMCreationReport() {
                           <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-700 group-hover:text-white">{row.customerName}</td>
                           <td className="px-5 py-2 border-r border-slate-50 text-slate-500 font-medium group-hover:text-white">{row.customerCode || 'N/A'}</td>
                           <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-600 uppercase text-[11px] truncate max-w-[300px] group-hover:text-white">{row.serialJobNo || row.serviceJobNo || 'N/A'}</td>
-                          <td className="px-5 py-2 border-r border-slate-50 font-semibold text-slate-600 uppercase text-[11px] text-center group-hover:text-white">
-                            {row.vehicleSerialNo || row.model || (row.vehicleCount ? `Count: ${row.vehicleCount}` : '—')}
-                          </td>
                           <td className="px-5 py-2 border-r border-slate-50 group-hover:text-white">{row.assemblyPartNo || 'N/A'}</td>
                           <td className="px-5 py-2 border-r border-slate-50 group-hover:text-white">{row.model || 'N/A'}</td>
+                          <td className="px-5 py-2 border-r border-slate-50 font-semibold text-slate-600 uppercase text-[11px] text-center group-hover:text-white">
+                            {getChosenVehicleCount(row)}
+                          </td>
                           <td className="px-5 py-2 border-r border-slate-50 font-bold text-slate-400 group-hover:text-white">{row.date ? row.date.split('T')[0] : 'N/A'}</td>
                           <td className="px-5 py-2 text-center font-black text-slate-700 text-[11px] group-hover:text-white">{row.createdBy || 'superadmin'}</td>
                           <td className="px-5 py-2 text-center">

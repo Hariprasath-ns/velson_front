@@ -9,6 +9,7 @@ import api from '../services/api'
 import { useServiceBookings, useBoms, useServiceSpares } from '../hooks/useMasterData'
 import { useQueryClient } from '@tanstack/react-query'
 import AuthenticatedImage from '../components/AuthenticatedImage'
+import { SEED_REPORT_ROWS } from './ServiceDetailsReport'
 
 
 // ── Ultra-compact, premium UI primitives ──
@@ -126,31 +127,32 @@ const Combobox = ({ options, placeholder, value, onChange, readOnly = false, cla
   )
 }
 
-// Helper to extract BOM parts from a BOM creation record's excelRows
+// Helper to extract BOM parts from a BOM creation record's excelRows, indexCreation excelData, or Service Details childParts
 const getBomRowsFromExcel = (excelRows, itemMasterList) => {
   if (!Array.isArray(excelRows)) return [];
 
   return excelRows.map((row, index) => {
+    if (!row || typeof row !== 'object') return null;
     const keys = Object.keys(row);
 
     const partNoKey = keys.find(k => {
       const l = k.toLowerCase();
-      return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno';
+      return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno' || l.includes('item no') || l.includes('item code') || l === 'item' || l.includes('childpart') || l.includes('child part');
     });
 
     const partNameKey = keys.find(k => {
       const l = k.toLowerCase();
-      return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description');
+      return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description') || l.includes('item name') || l.includes('childpartname') || l.includes('child part name');
     });
 
     const qtyKey = keys.find(k => {
       const l = k.toLowerCase();
-      return l.includes('qty') || l.includes('quantity') || l.includes('faster qty') || l.includes('req');
+      return l.includes('qty') || l.includes('quantity') || l.includes('faster qty') || l.includes('req') || l.includes('count');
     });
 
     const unitKey = keys.find(k => {
       const l = k.toLowerCase();
-      return l === 'uom' || l === 'unit' || l.includes('unit');
+      return l === 'uom' || l === 'unit' || l.includes('unit') || l.includes('uom');
     });
 
     const rateKey = keys.find(k => {
@@ -158,13 +160,13 @@ const getBomRowsFromExcel = (excelRows, itemMasterList) => {
       return l.includes('rate') || l.includes('price') || l.includes('amount') || l.includes('cost');
     });
 
-    const partNo = partNoKey ? String(row[partNoKey] || '').trim() : '';
+    const partNo = partNoKey ? String(row[partNoKey] || '').trim() : (row.childPart || row.ChildPart || row['Child Part'] || row.childPartNo || row.PartNo || row['Part No'] || row.partNo || row.part || row.itemCode || '');
     if (!partNo) return null;
 
-    let partName = partNameKey ? String(row[partNameKey] || '').trim() : '';
-    const fasterQty = qtyKey ? Number(row[qtyKey]) || 1 : 1;
-    const unit = unitKey ? String(row[unitKey] || '').trim() : 'Nos';
-    let rate = rateKey ? Number(row[rateKey]) || 0 : 0;
+    let partName = partNameKey ? String(row[partNameKey] || '').trim() : (row.childPartName || row.ChildPartName || row['Child Part Name'] || row.PartName || row['Part Name'] || row.partName || row.description || row.desc || '');
+    const fasterQty = qtyKey ? Number(row[qtyKey]) || 1 : (Number(row.Qty || row.qty || row.fasterQty) || 1);
+    const unit = unitKey ? String(row[unitKey] || '').trim() : (row.Unit || row.unit || row.UOM || row.uom || 'Nos');
+    let rate = rateKey ? Number(row[rateKey]) || 0 : (Number(row.Rate || row.rate || row.price || row.Price) || 0);
 
     if (Array.isArray(itemMasterList)) {
       const matchedItem = itemMasterList.find(
@@ -184,6 +186,277 @@ const getBomRowsFromExcel = (excelRows, itemMasterList) => {
       rate
     };
   }).filter(Boolean);
+};
+
+// Helper to extract assembly number from a spare record
+const getAssemblyNoFromRecord = (record, bomCreationsList = []) => {
+  if (!record) return '';
+  if (record.lastSavedAssName && record.lastSavedAssName.trim()) {
+    const raw = record.lastSavedAssName.trim();
+    return raw.includes(' - ') ? raw.split(' - ')[0].trim() : raw;
+  }
+  if (record.servicePartNo && record.servicePartNo.trim()) {
+    const raw = record.servicePartNo.trim();
+    return raw.includes(' - ') ? raw.split(' - ')[0].trim() : raw;
+  }
+  if (Array.isArray(record.items) && record.items.length > 0 && Array.isArray(bomCreationsList)) {
+    const itemPartNos = record.items.map(i => String(i.partNo || '').toLowerCase());
+    for (const b of bomCreationsList) {
+      if (Array.isArray(b.excelRows)) {
+        const hasItem = b.excelRows.some(r => {
+          const keys = Object.keys(r);
+          const pKey = keys.find(k => {
+            const l = k.toLowerCase();
+            return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno';
+          });
+          return pKey && itemPartNos.includes(String(r[pKey] || '').toLowerCase());
+        });
+        if (hasItem && b.assemblyPartNo) {
+          return b.assemblyPartNo;
+        }
+      }
+    }
+  }
+  return '';
+};
+
+// Helper to resolve status for a spare record
+const getSpareStatus = (row, serviceDetailsList = [], bookingsDataRes = []) => {
+  if (row?.status && String(row.status).trim()) return String(row.status).trim();
+  const jobNo = (row?.serviceJobNo || '').trim().toLowerCase();
+  if (jobNo) {
+    const detail = (serviceDetailsList || []).find(d => d.serviceJobNo && d.serviceJobNo.trim().toLowerCase() === jobNo);
+    if (detail?.status && String(detail.status).trim()) return String(detail.status).trim();
+    const booking = (bookingsDataRes || []).find(b => b.serviceJobNo && b.serviceJobNo.trim().toLowerCase() === jobNo);
+    if (booking?.status && String(booking.status).trim()) return String(booking.status).trim();
+  }
+  return 'Open';
+};
+
+const StatusBadge = ({ status }) => {
+  const s = String(status || 'Open').toLowerCase().trim();
+  let badgeClasses = 'bg-slate-100 text-slate-700 border border-slate-300';
+  if (s === 'completed' || s === 'closed') {
+    badgeClasses = 'bg-emerald-100 text-emerald-800 border border-emerald-400 font-bold';
+  } else if (s === 'in progress' || s === 'active' || s === 'progress') {
+    badgeClasses = 'bg-blue-100 text-blue-800 border border-blue-400 font-bold';
+  } else if (s === 'on hold' || s === 'hold' || s === 'waiting') {
+    badgeClasses = 'bg-amber-100 text-amber-800 border border-amber-400 font-bold';
+  } else if (s === 'pending' || s === 'open') {
+    badgeClasses = 'bg-cyan-100 text-cyan-800 border border-cyan-400 font-bold';
+  }
+
+  return (
+    <span className={`px-2.5 py-0.5 rounded text-[11.5px] uppercase font-extrabold shadow-sm inline-block ${badgeClasses}`}>
+      {status || 'Open'}
+    </span>
+  );
+};
+
+// Helper to find child rows and matching BOM assemblies from BOM Creations, Index Creation, or Service Details Report
+const resolveMatchingBomsWithChildParts = ({
+  serviceJobNo,
+  selectedPartNo,
+  bomCreationsList = [],
+  indexRecords = [],
+  serviceDetailsList = [],
+  vehicleModelNo = '',
+  itemMasterList = []
+}) => {
+  let matchingBoms = [];
+  const rawSelected = (selectedPartNo || '').trim();
+  const cleanSelected = rawSelected ? rawSelected.split(' - ')[0].trim().toLowerCase() : '';
+
+  // Helper to extract child rows from BOM, Index, or Service Details Report for a given assembly part no
+  const findExcelRows = (assPartNo) => {
+    if (!assPartNo) return [];
+    const cleanAss = String(assPartNo).trim().toLowerCase();
+    
+    // 1. BOM Creation records matching assemblyPartNo
+    const bMatch = bomCreationsList.find(b =>
+      b.assemblyPartNo && String(b.assemblyPartNo).trim().toLowerCase() === cleanAss &&
+      Array.isArray(b.excelRows) && b.excelRows.length > 0
+    );
+    if (bMatch) return bMatch.excelRows;
+
+    // 2. Index Creation records matching assemblyPartNo or modelNo or groupName
+    const iMatch = indexRecords.find(i =>
+      (i.assemblyPartNo && String(i.assemblyPartNo).trim().toLowerCase() === cleanAss) ||
+      (i.modelNo && String(i.modelNo).trim().toLowerCase() === cleanAss) ||
+      (i.groupName && String(i.groupName).trim().toLowerCase() === cleanAss)
+    );
+    if (iMatch) {
+      let raw = iMatch.excelData || iMatch.excelRows;
+      if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw); } catch (e) {}
+      }
+      const rows = Array.isArray(raw) ? raw : (Array.isArray(raw?.excelData) ? raw.excelData : []);
+      if (rows && rows.length > 0) return rows;
+    }
+
+    // 3. Service Details Report entries (SEED_REPORT_ROWS or serviceDetailsList with childParts/excelRows)
+    const reportMatch = (SEED_REPORT_ROWS || []).find(r =>
+      (r.assemblyItem && (String(r.assemblyItem).trim().toLowerCase() === cleanAss || String(r.assemblyItem).toLowerCase().startsWith(cleanAss) || cleanAss.startsWith(String(r.assemblyItem).split(' ')[0].toLowerCase()))) ||
+      (r.servicePartNo && (String(r.servicePartNo).trim().toLowerCase() === cleanAss || String(r.servicePartNo).toLowerCase().startsWith(cleanAss)))
+    );
+    if (reportMatch && Array.isArray(reportMatch.childParts) && reportMatch.childParts.length > 0) {
+      return reportMatch.childParts;
+    }
+
+    // Check serviceDetailsList for childParts
+    const detailMatch = (serviceDetailsList || []).find(d =>
+      (d.servicePartNo && String(d.servicePartNo).trim().toLowerCase() === cleanAss) ||
+      (Array.isArray(d.checkedAssemblies) && d.checkedAssemblies.some(a => String(a).trim().toLowerCase() === cleanAss))
+    );
+    if (detailMatch && Array.isArray(detailMatch.childParts) && detailMatch.childParts.length > 0) {
+      return detailMatch.childParts;
+    }
+
+    // 4. Fallback check by BOM No or groupName
+    const bAlt = bomCreationsList.find(b =>
+      ((b.bomNo && String(b.bomNo).trim().toLowerCase() === cleanAss) ||
+      (b.groupName && String(b.groupName).trim().toLowerCase() === cleanAss)) &&
+      Array.isArray(b.excelRows) && b.excelRows.length > 0
+    );
+    if (bAlt) return bAlt.excelRows;
+
+    return [];
+  };
+
+  if (cleanSelected) {
+    // 1. Try matching BOM by assemblyPartNo for this job
+    matchingBoms = bomCreationsList.filter(b =>
+      b.assemblyPartNo && (b.assemblyPartNo.trim().toLowerCase() === cleanSelected || b.assemblyPartNo.trim().toLowerCase() === rawSelected.toLowerCase()) &&
+      (!b.serviceJobNo || b.serviceJobNo.trim().toLowerCase() === (serviceJobNo || '').trim().toLowerCase())
+    );
+    // 2. Try any BOM matching assemblyPartNo
+    if (matchingBoms.length === 0) {
+      matchingBoms = bomCreationsList.filter(b =>
+        b.assemblyPartNo && (b.assemblyPartNo.trim().toLowerCase() === cleanSelected || b.assemblyPartNo.trim().toLowerCase() === rawSelected.toLowerCase())
+      );
+    }
+    // 3. Try matching by bomNo or groupName
+    if (matchingBoms.length === 0) {
+      matchingBoms = bomCreationsList.filter(b =>
+        (b.bomNo && (b.bomNo.trim().toLowerCase() === cleanSelected || b.bomNo.trim().toLowerCase() === rawSelected.toLowerCase())) ||
+        (b.groupName && (b.groupName.trim().toLowerCase() === cleanSelected || b.groupName.trim().toLowerCase() === rawSelected.toLowerCase()))
+      );
+    }
+    // 4. Try matching Index Creation record
+    if (matchingBoms.length === 0) {
+      const idxMatches = indexRecords.filter(i =>
+        (i.assemblyPartNo && (i.assemblyPartNo.trim().toLowerCase() === cleanSelected || i.assemblyPartNo.trim().toLowerCase() === rawSelected.toLowerCase())) ||
+        (i.modelNo && (i.modelNo.trim().toLowerCase() === cleanSelected || i.modelNo.trim().toLowerCase() === rawSelected.toLowerCase()))
+      );
+      if (idxMatches.length > 0) {
+        matchingBoms = idxMatches.map(i => ({
+          id: `idx-${i.id}`,
+          bomNo: i.modelNo || '—',
+          assemblyPartNo: i.assemblyPartNo || i.modelNo || rawSelected.split(' - ')[0].trim(),
+          groupName: i.groupName || (rawSelected.includes(' - ') ? rawSelected.split(' - ').slice(1).join(' - ').trim() : (i.assemblyPartNo || cleanSelected)),
+          model: i.modelNo || vehicleModelNo || '—',
+          excelRows: findExcelRows(i.assemblyPartNo || i.modelNo)
+        }));
+      }
+    }
+    // 5. Try matching Service Details Report records
+    if (matchingBoms.length === 0) {
+      const reportMatches = (SEED_REPORT_ROWS || []).filter(r =>
+        (r.assemblyItem && (r.assemblyItem.trim().toLowerCase() === cleanSelected || r.assemblyItem.trim().toLowerCase() === rawSelected.toLowerCase() || r.assemblyItem.toLowerCase().startsWith(cleanSelected) || cleanSelected.startsWith(r.assemblyItem.split(' ')[0].toLowerCase()))) ||
+        (r.servicePartNo && (r.servicePartNo.trim().toLowerCase() === cleanSelected || r.servicePartNo.trim().toLowerCase() === rawSelected.toLowerCase() || r.servicePartNo.toLowerCase().startsWith(cleanSelected)))
+      );
+      if (reportMatches.length > 0) {
+        matchingBoms = reportMatches.map(r => ({
+          id: `rep-${r.id}`,
+          bomNo: r.serviceJobNo || '—',
+          assemblyPartNo: r.assemblyItem || r.servicePartNo || rawSelected,
+          groupName: r.assemblyItem || r.servicePartNo || rawSelected,
+          model: r.modelNo || vehicleModelNo || '—',
+          excelRows: r.childParts || findExcelRows(r.assemblyItem || rawSelected)
+        }));
+      }
+    }
+    // 6. Synthesize assembly if needed
+    if (matchingBoms.length === 0) {
+      const groupName = rawSelected.includes(' - ') ? rawSelected.split(' - ').slice(1).join(' - ').trim() : rawSelected;
+      const assNo = rawSelected.includes(' - ') ? rawSelected.split(' - ')[0].trim() : rawSelected;
+      matchingBoms = [{
+        id: `ass-${assNo}`,
+        bomNo: '—',
+        assemblyPartNo: assNo,
+        groupName: groupName || assNo,
+        model: vehicleModelNo || '—',
+        excelRows: findExcelRows(assNo)
+      }];
+    }
+  } else {
+    // When no specific part is selected, get all checked assemblies for the job
+    const matchingDetails = (serviceDetailsList || []).filter(d =>
+      d.serviceJobNo && d.serviceJobNo.trim().toLowerCase() === (serviceJobNo || '').trim().toLowerCase() && d.status !== 'Inactive'
+    );
+    const allAssemblies = matchingDetails.flatMap(d =>
+      Array.isArray(d.checkedAssemblies) && d.checkedAssemblies.length > 0
+        ? d.checkedAssemblies
+        : (d.servicePartNo ? [d.servicePartNo] : [])
+    );
+    const uniqueAss = Array.from(new Set(allAssemblies.map(a => String(a).split(' - ')[0].trim()))).filter(Boolean);
+
+    uniqueAss.forEach(assPartNo => {
+      const cleanAss = assPartNo.toLowerCase();
+      const bom = bomCreationsList.find(b =>
+        b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === cleanAss
+      );
+      if (bom) {
+        matchingBoms.push(bom);
+      } else {
+        const idxMatch = indexRecords.find(i =>
+          (i.assemblyPartNo && i.assemblyPartNo.trim().toLowerCase() === cleanAss) ||
+          (i.modelNo && i.modelNo.trim().toLowerCase() === cleanAss)
+        );
+        const repMatch = (SEED_REPORT_ROWS || []).find(r =>
+          (r.assemblyItem && (r.assemblyItem.trim().toLowerCase() === cleanAss || r.assemblyItem.toLowerCase().startsWith(cleanAss) || cleanAss.startsWith(r.assemblyItem.split(' ')[0].toLowerCase()))) ||
+          (r.servicePartNo && (r.servicePartNo.trim().toLowerCase() === cleanAss || r.servicePartNo.toLowerCase().startsWith(cleanAss)))
+        );
+        let displayName = assPartNo;
+        if (repMatch && (repMatch.assemblyItem || repMatch.servicePartNo)) {
+          displayName = repMatch.assemblyItem || repMatch.servicePartNo;
+        } else if (idxMatch && (idxMatch.groupName || idxMatch.assemblyPartNo)) {
+          displayName = idxMatch.groupName || idxMatch.assemblyPartNo;
+        } else if (Array.isArray(itemMasterList)) {
+          const matchedItem = itemMasterList.find(
+            item => String(item.partNo || '').trim().toLowerCase() === cleanAss
+          );
+          if (matchedItem && matchedItem.partName) displayName = matchedItem.partName;
+        }
+        matchingBoms.push({
+          id: repMatch ? `rep-${repMatch.id}` : (idxMatch ? `idx-${idxMatch.id}` : `temp-${assPartNo}`),
+          bomNo: repMatch?.serviceJobNo || idxMatch?.modelNo || '—',
+          assemblyPartNo: assPartNo,
+          groupName: displayName,
+          model: repMatch?.modelNo || idxMatch?.modelNo || vehicleModelNo || '—',
+          excelRows: findExcelRows(assPartNo)
+        });
+      }
+    });
+
+    if (matchingBoms.length === 0) {
+      matchingBoms = bomCreationsList.filter(b =>
+        b.serviceJobNo && b.serviceJobNo.trim().toLowerCase() === (serviceJobNo || '').trim().toLowerCase()
+      );
+    }
+  }
+
+  // Ensure every matching BOM has its child excelRows populated if empty
+  return matchingBoms.map(b => {
+    let rows = Array.isArray(b.excelRows) ? b.excelRows : [];
+    if (rows.length === 0 && b.assemblyPartNo) {
+      rows = findExcelRows(b.assemblyPartNo);
+    }
+    return {
+      ...b,
+      excelRows: rows
+    };
+  });
 };
 
 // Helper to construct nested BOM rows (assemblies as parents, parts as children)
@@ -326,6 +599,7 @@ export default function ServiceSpareEntry() {
 
   const [filteredSpares, setFilteredSpares] = useState([])
   const [serviceDetailsList, setServiceDetailsList] = useState([])
+  const [indexRecords, setIndexRecords] = useState([])
   const [selectedRowId, setSelectedRowId] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [itemMasterList, setItemMasterList] = useState([])
@@ -375,6 +649,14 @@ export default function ServiceSpareEntry() {
         console.error('Failed to load service details:', err)
       }
     }
+    const fetchIndexRecords = async () => {
+      try {
+        const res = await api.get('/api/index-creation', { skipGlobalLoader: true })
+        setIndexRecords(res.data?.data || [])
+      } catch (err) {
+        console.error('Failed to fetch index records:', err)
+      }
+    }
     const fetchItemMaster = async () => {
       try {
         const res = await api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
@@ -384,6 +666,7 @@ export default function ServiceSpareEntry() {
       }
     }
     fetchServiceDetails()
+    fetchIndexRecords()
     fetchItemMaster()
   }, [])
 
@@ -412,11 +695,37 @@ export default function ServiceSpareEntry() {
       setVehicleModelNo(model)
       setModelSubType(subType)
       setVehicleName(vehName)
+      setStatus(matchedRecord.status || 'Open')
 
       // Field details loaded message
       toast.success(`Loaded details for Job No: ${serviceJobNo}`)
     }
   }, [serviceJobNo, jobsList, bomCreationsList, editingId, itemMasterList])
+
+  // Reactive synchronization for Last Saved Assembly Number based on selected job or latest record
+  useEffect(() => {
+    if (editingId !== null) return;
+    if (serviceJobNo) {
+      const jobSpares = sparesList.filter(s =>
+        s.serviceJobNo && s.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase()
+      );
+      if (jobSpares.length > 0) {
+        const lastRec = jobSpares[jobSpares.length - 1];
+        const lastAssNo = getAssemblyNoFromRecord(lastRec, bomCreationsList);
+        setLastSavedAssName(lastAssNo);
+      } else {
+        setLastSavedAssName('');
+      }
+    } else {
+      if (sparesList.length > 0) {
+        const lastRec = sparesList[sparesList.length - 1];
+        const lastAssNo = getAssemblyNoFromRecord(lastRec, bomCreationsList);
+        setLastSavedAssName(lastAssNo);
+      } else {
+        setLastSavedAssName('');
+      }
+    }
+  }, [serviceJobNo, sparesList, editingId, bomCreationsList])
 
   // Reactive dynamic populating of bomRows based on selected serviceJobNo and servicePartNo
   useEffect(() => {
@@ -429,39 +738,21 @@ export default function ServiceSpareEntry() {
 
     const selectedPartNo = servicePartNo ? servicePartNo.split(' - ')[0].trim() : '';
 
-    let matchingBoms = [];
-    if (selectedPartNo) {
-      matchingBoms = bomCreationsList.filter(b =>
-        b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === selectedPartNo.toLowerCase()
-      );
-    } else {
-      const detail = (serviceDetailsList || []).find(d => d.serviceJobNo && d.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase());
-      const checkedAssemblies = detail?.checkedAssemblies || [];
-
-      checkedAssemblies.forEach(assPartNo => {
-        const bom = bomCreationsList.find(b =>
-          b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === assPartNo.trim().toLowerCase()
-        );
-        if (bom) {
-          matchingBoms.push(bom);
-        } else {
-          matchingBoms.push({
-            id: `temp-${assPartNo}`,
-            bomNo: '—',
-            assemblyPartNo: assPartNo,
-            groupName: assPartNo,
-            model: vehicleModelNo || '—',
-            excelRows: []
-          });
-        }
-      });
-    }
+    const matchingBoms = resolveMatchingBomsWithChildParts({
+      serviceJobNo,
+      selectedPartNo,
+      bomCreationsList,
+      indexRecords,
+      serviceDetailsList,
+      vehicleModelNo,
+      itemMasterList
+    });
 
     if (matchingBoms.length > 0) {
       const nested = buildNestedBomRows(matchingBoms, itemMasterList, selectedPartNo, []);
       setBomRows(nested);
 
-      // Expand all assemblies by default
+      // Expand all assemblies by default so assembly part no and child parts are immediately visible
       const initialExpanded = {};
       nested.forEach(b => {
         initialExpanded[b.id] = true;
@@ -471,7 +762,7 @@ export default function ServiceSpareEntry() {
       setBomRows([]);
       setExpandedAssemblyIds({});
     }
-  }, [serviceJobNo, servicePartNo, bomCreationsList, serviceDetailsList, editingId, vehicleModelNo])
+  }, [serviceJobNo, servicePartNo, bomCreationsList, indexRecords, serviceDetailsList, editingId, vehicleModelNo, itemMasterList])
 
   const serviceJobNoOptions = useMemo(() => {
     const unique = [...new Set(jobsList.map(j => j.serviceJobNo).filter(j => j && j !== '—'))]
@@ -484,50 +775,29 @@ export default function ServiceSpareEntry() {
   // Memoized unique assembly parts from Service Details checklist matching selected job number
   const servicePartNoOptions = useMemo(() => {
     if (!serviceJobNo || !serviceDetailsList.length) return []
-    const detail = serviceDetailsList.find(
-      d => d.serviceJobNo && d.serviceJobNo.toLowerCase() === serviceJobNo.toLowerCase()
+    const matchingDetails = serviceDetailsList.filter(
+      d => d.serviceJobNo && d.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase() && d.status !== 'Inactive'
     )
-    if (!detail || !detail.checkedAssemblies?.length) return []
+    if (!matchingDetails.length) return []
 
-    const partMap = new Map()
-    bomCreationsList.forEach(b => {
-      if (b.assemblyPartNo) {
-        const pNo = b.assemblyPartNo.trim()
-        partMap.set(pNo.toLowerCase(), b.groupName ? `${pNo} - ${b.groupName}` : pNo)
+    const allAssemblies = matchingDetails.flatMap(d =>
+      Array.isArray(d.checkedAssemblies) && d.checkedAssemblies.length > 0
+        ? d.checkedAssemblies
+        : (d.servicePartNo ? [d.servicePartNo] : [])
+    ).filter(Boolean)
+
+    const uniqueAssemblies = Array.from(new Set(allAssemblies.map(a => String(a).trim())))
+
+    return uniqueAssemblies.map(assStr => {
+      const clean = assStr.split(' - ')[0].trim()
+      const bomMatch = bomCreationsList.find(b =>
+        b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === clean.toLowerCase()
+      )
+      if (bomMatch && bomMatch.groupName) {
+        return `${clean} - ${bomMatch.groupName.trim()}`
       }
-      if (Array.isArray(b.excelRows)) {
-        b.excelRows.forEach(row => {
-          const keys = Object.keys(row)
-          const pNoKey = keys.find(k => {
-            const l = k.toLowerCase()
-            return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno'
-          })
-          const pNameKey = keys.find(k => {
-            const l = k.toLowerCase()
-            return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description')
-          })
-          if (pNoKey) {
-            const partNo = String(row[pNoKey] || '').trim()
-            const partName = pNameKey ? String(row[pNameKey] || '').trim() : ''
-            partMap.set(partNo.toLowerCase(), partName ? `${partNo} - ${partName}` : partNo)
-          }
-        })
-      }
+      return assStr
     })
-
-    return detail.checkedAssemblies.map(id => {
-      const idStr = String(id).trim()
-      const matchedName = partMap.get(idStr.toLowerCase())
-      if (matchedName) return matchedName
-
-      // Fallback: search matchingBoms matching assemblyPartNo
-      const bom = bomCreationsList.find(b => b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === idStr.toLowerCase())
-      if (bom) {
-        return bom.groupName ? `${idStr} - ${bom.groupName}` : idStr
-      }
-
-      return idStr
-    }).filter(Boolean)
   }, [serviceJobNo, serviceDetailsList, bomCreationsList])
 
   useEffect(() => {
@@ -865,6 +1135,17 @@ export default function ServiceSpareEntry() {
       }
     })
 
+    // Determine assembly number for this save
+    let currentAssNo = ''
+    if (servicePartNo) {
+      currentAssNo = servicePartNo.includes(' - ') ? servicePartNo.split(' - ')[0].trim() : servicePartNo.trim()
+    } else {
+      const selectedAssies = bomRows.filter(b => (b.parts || []).some(p => p.selected))
+      if (selectedAssies.length > 0) {
+        currentAssNo = selectedAssies.map(b => b.assemblyPartNo || b.bomNo).filter(Boolean)[0] || ''
+      }
+    }
+
     const newEntry = {
       serviceJobNo,
       bookingCustomerCode,
@@ -872,8 +1153,8 @@ export default function ServiceSpareEntry() {
       customerCode,
       displayOrder: 1,
       displayDate,
-      lastSavedAssName,
-      servicePartNo,
+      lastSavedAssName: currentAssNo || lastSavedAssName || '',
+      servicePartNo: servicePartNo || currentAssNo || '',
       vehicleNo,
       serialNo,
       vehicleModelNo,
@@ -898,6 +1179,9 @@ export default function ServiceSpareEntry() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['service-spare'] })
+      if (currentAssNo) {
+        setLastSavedAssName(currentAssNo)
+      }
       handleClear()
     } catch (err) {
       console.error('Failed to save service spare entry', err)
@@ -915,7 +1199,8 @@ export default function ServiceSpareEntry() {
     setCustomerName(row.customerName)
     setCustomerCode(row.customerCode)
     setDisplayDate(row.displayDate || '')
-    setLastSavedAssName(row.lastSavedAssName || '')
+    const assNo = getAssemblyNoFromRecord(row, bomCreationsList) || row.lastSavedAssName || (row.servicePartNo ? row.servicePartNo.split(' - ')[0].trim() : '')
+    setLastSavedAssName(assNo)
     setServicePartNo(row.servicePartNo || '')
     setVehicleNo(row.vehicleNo)
     setSerialNo(row.serialNo)
@@ -927,47 +1212,15 @@ export default function ServiceSpareEntry() {
     const selectedPartNo = row.servicePartNo ? row.servicePartNo.split(' - ')[0].trim() : '';
 
     // Rebuild bomRows dynamically
-    let matchingBoms = [];
-    if (selectedPartNo) {
-      matchingBoms = bomCreationsList.filter(b =>
-        b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === selectedPartNo.toLowerCase()
-      );
-    } else {
-      const detail = serviceDetailsList.find(d => d.serviceJobNo === row.serviceJobNo);
-      const checkedAssemblies = detail?.checkedAssemblies || [];
-
-      checkedAssemblies.forEach(assPartNo => {
-        const bom = bomCreationsList.find(b =>
-          b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === assPartNo.trim().toLowerCase()
-        );
-        if (bom) {
-          matchingBoms.push(bom);
-        } else {
-          let displayName = assPartNo;
-          if (Array.isArray(itemMasterList)) {
-            const matchedItem = itemMasterList.find(
-              item => String(item.partNo || '').trim().toLowerCase() === assPartNo.trim().toLowerCase()
-            );
-            if (matchedItem && matchedItem.partName) displayName = matchedItem.partName;
-          }
-          matchingBoms.push({
-            id: `temp-${assPartNo}`,
-            bomNo: '—',
-            assemblyPartNo: assPartNo,
-            groupName: displayName,
-            model: row.vehicleModelNo || '—',
-            excelRows: []
-          });
-        }
-      });
-
-      if (matchingBoms.length === 0) {
-        matchingBoms = bomCreationsList.filter(b =>
-          (b.serviceJobNo && b.serviceJobNo === row.serviceJobNo) ||
-          (b.serialJobNo && b.serialJobNo === row.serviceJobNo)
-        );
-      }
-    }
+    const matchingBoms = resolveMatchingBomsWithChildParts({
+      serviceJobNo: row.serviceJobNo,
+      selectedPartNo,
+      bomCreationsList,
+      indexRecords,
+      serviceDetailsList,
+      vehicleModelNo: row.vehicleModelNo,
+      itemMasterList
+    });
 
     if (matchingBoms.length > 0) {
       const nested = buildNestedBomRows(matchingBoms, itemMasterList, selectedPartNo, row.selectedParts || []);
@@ -1015,49 +1268,28 @@ export default function ServiceSpareEntry() {
   }
 
   const getSpareChildEntries = (row) => {
-    const selectedPartNo = row.servicePartNo ? row.servicePartNo.split(' - ')[0].trim() : '';
-
-    let matchingBoms = [];
-    if (selectedPartNo) {
-      matchingBoms = bomCreationsList.filter(b =>
-        b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === selectedPartNo.toLowerCase()
-      );
-    } else {
-      const detail = serviceDetailsList.find(d => d.serviceJobNo === row.serviceJobNo);
-      const checkedAssemblies = detail?.checkedAssemblies || [];
-
-      checkedAssemblies.forEach(assPartNo => {
-        const bom = bomCreationsList.find(b =>
-          b.assemblyPartNo && b.assemblyPartNo.trim().toLowerCase() === assPartNo.trim().toLowerCase()
-        );
-        if (bom) {
-          matchingBoms.push(bom);
-        } else {
-          let displayName = assPartNo;
-          if (Array.isArray(itemMasterList)) {
-            const matchedItem = itemMasterList.find(
-              item => String(item.partNo || '').trim().toLowerCase() === assPartNo.trim().toLowerCase()
-            );
-            if (matchedItem && matchedItem.partName) displayName = matchedItem.partName;
-          }
-          matchingBoms.push({
-            id: `temp-${assPartNo}`,
-            bomNo: '—',
-            assemblyPartNo: assPartNo,
-            groupName: displayName,
-            model: row.vehicleModelNo || '—',
-            excelRows: []
-          });
-        }
-      });
-
-      if (matchingBoms.length === 0) {
-        matchingBoms = bomCreationsList.filter(b =>
-          (b.serviceJobNo && b.serviceJobNo === row.serviceJobNo) ||
-          (b.serialJobNo && b.serialJobNo === row.serviceJobNo)
-        );
-      }
+    if (Array.isArray(row.items) && row.items.length > 0) {
+      return row.items.map((item, idx) => ({
+        id: idx + 1,
+        partNo: item.partNo,
+        partName: item.partName || item.partNo,
+        fasterQty: item.requiredQty || item.fasterQty || 1,
+        issuedQty: item.issuedQty || 0,
+        unit: item.uom || item.unit || 'Nos',
+        rate: item.rate || 0
+      }));
     }
+
+    const selectedPartNo = row.servicePartNo ? row.servicePartNo.split(' - ')[0].trim() : '';
+    const matchingBoms = resolveMatchingBomsWithChildParts({
+      serviceJobNo: row.serviceJobNo,
+      selectedPartNo,
+      bomCreationsList,
+      indexRecords,
+      serviceDetailsList,
+      vehicleModelNo: row.vehicleModelNo,
+      itemMasterList
+    });
 
     if (selectedPartNo) {
       let allExtracted = [];
@@ -1253,6 +1485,7 @@ export default function ServiceSpareEntry() {
     const data = filteredSpares.map((s, idx) => ({
       'S.No': idx + 1,
       'Service Job No': s.serviceJobNo,
+      'Assembly Part No': getAssemblyNoFromRecord(s, bomCreationsList) || s.servicePartNo || s.lastSavedAssName || '—',
       'Customer Code': s.customerCode,
       'Customer Name': s.customerName,
       'Vehicle No': s.vehicleNo,
@@ -1441,7 +1674,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Status :</Label></div>
                   <div className="col-span-7">
-                    <Input value={status} readOnly placeholder="Auto-filled" />
+                    <Input value={status || 'Open'} readOnly placeholder="Auto-filled" className="font-bold !text-[#0097A7]" />
                   </div>
                 </div>
 
@@ -1551,7 +1784,7 @@ export default function ServiceSpareEntry() {
                         const rows = [
                           <tr
                             key={`parent-${assembly.id}`}
-                            className={`hover:bg-[#0097A7]/5 cursor-pointer h-9 transition-colors font-semibold ${isExpanded ? 'bg-slate-50/80 border-l-2 border-[#0097A7]' : ''}`}
+                            className={`hover:bg-slate-100/90 cursor-pointer h-9 transition-colors font-semibold ${isExpanded ? 'bg-slate-50/90 border-l-4 border-[#0097A7]' : ''}`}
                             onClick={() => {
                               setExpandedAssemblyIds(prev => ({
                                 ...prev,
@@ -1618,9 +1851,9 @@ export default function ServiceSpareEntry() {
                                                 handleBOMRowSelect(partRow.id);
                                                 setActiveBOMPartNo(partRow.partNo);
                                               }}
-                                              className={`cursor-pointer transition-colors ${isPartSelected || isPartActive
-                                                ? 'bg-[#0097A7]/10 font-semibold'
-                                                : 'hover:bg-[#0097A7]/5'
+                                              className={`cursor-pointer transition-colors ${isPartActive
+                                                ? 'bg-[#0097A7] text-white font-semibold'
+                                                : 'hover:bg-cyan-50/80 text-slate-700 bg-white'
                                                 }`}
                                             >
                                               <td className="px-3 py-1.5 border-r border-slate-50 text-center" onClick={(e) => e.stopPropagation()}>
@@ -1634,10 +1867,10 @@ export default function ServiceSpareEntry() {
                                                   className="w-3.5 h-3.5 text-[#0097A7] border-slate-300 rounded cursor-pointer"
                                                 />
                                               </td>
-                                              <td className="px-3 py-1.5 border-r border-slate-50 text-center text-slate-400 font-bold">{partIdx + 1}</td>
-                                              <td className="px-3 py-1.5 border-r border-slate-50 font-mono text-[11px] text-slate-500">{partRow.partNo}</td>
-                                              <td className="px-3 py-1.5 border-r border-slate-50 text-slate-700">{partRow.partName}</td>
-                                              <td className="px-3 py-1.5 border-r border-slate-50 text-center font-bold text-slate-500">{partRow.fasterQty}</td>
+                                              <td className={`px-3 py-1.5 border-r border-slate-50 text-center font-bold ${isPartActive ? 'text-white/80' : 'text-slate-400'}`}>{partIdx + 1}</td>
+                                              <td className={`px-3 py-1.5 border-r border-slate-50 font-mono text-[11.5px] font-bold ${isPartActive ? 'text-white' : 'text-[#0097A7]'}`}>{partRow.partNo}</td>
+                                              <td className={`px-3 py-1.5 border-r border-slate-50 font-medium ${isPartActive ? 'text-white' : 'text-slate-700'}`}>{partRow.partName}</td>
+                                              <td className={`px-3 py-1.5 border-r border-slate-50 text-center font-bold ${isPartActive ? 'text-white' : 'text-slate-700'}`}>{partRow.fasterQty}</td>
                                               <td className="px-3 py-1.5 border-r border-slate-50 text-center" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex flex-col items-center justify-center">
                                                   <input
@@ -1646,8 +1879,8 @@ export default function ServiceSpareEntry() {
                                                     value={partRow.issuedQty}
                                                     placeholder="0"
                                                     onChange={(e) => handleIssuedQtyChange(partRow.id, e.target.value)}
-                                                    className={`w-16 text-center px-1 py-0.5 text-[12px] h-[22px] border rounded focus:outline-none focus:ring-1 bg-white ${partRow.issuedQty > partRow.fasterQty
-                                                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                                                    className={`w-16 text-center px-1 py-0.5 text-[12px] h-[22px] border rounded focus:outline-none focus:ring-1 bg-white text-slate-800 ${partRow.issuedQty > partRow.fasterQty
+                                                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50 text-red-600'
                                                       : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'
                                                       }`}
                                                   />
@@ -1658,11 +1891,11 @@ export default function ServiceSpareEntry() {
                                                   )}
                                                 </div>
                                               </td>
-                                              <td className="px-3 py-1.5 border-r border-slate-50 text-center text-slate-500">{partRow.unit}</td>
-                                              <td className="px-3 py-1.5 border-r border-slate-50 text-right text-slate-600">
+                                              <td className={`px-3 py-1.5 border-r border-slate-50 text-center ${isPartActive ? 'text-white' : 'text-slate-600'}`}>{partRow.unit}</td>
+                                              <td className={`px-3 py-1.5 border-r border-slate-50 text-right ${isPartActive ? 'text-white' : 'text-slate-700'}`}>
                                                 {(partRow.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                               </td>
-                                              <td className="px-3 py-1.5 text-right font-bold text-[#0097A7]">
+                                              <td className={`px-3 py-1.5 text-right font-bold ${isPartActive ? 'text-white' : 'text-[#0097A7]'}`}>
                                                 {((partRow.issuedQty * partRow.rate) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                               </td>
                                             </tr>
@@ -1700,6 +1933,7 @@ export default function ServiceSpareEntry() {
                       <th className="px-3 py-1 border-r border-slate-100 w-12 text-center"></th>
                       <th className="px-3 py-1 border-r border-slate-100 w-14 text-center">S.No</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-36">Service Job No</th>
+                      <th className="px-3 py-1 border-r border-slate-100 w-44">Assembly Part No</th>
                       <th className="px-3 py-1 border-r border-slate-100">Item Name</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-24 text-center">Parts Qty</th>
                       <th className="px-3 py-1 border-r border-slate-100 w-28 text-right">Total (₹)</th>
@@ -1710,7 +1944,7 @@ export default function ServiceSpareEntry() {
                   <tbody className="divide-y divide-slate-100 text-[12.5px]">
                     {filteredSpares.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="py-10 text-center text-slate-300 italic">No spare entries saved.</td>
+                        <td colSpan={9} className="py-10 text-center text-slate-300 italic">No spare entries saved.</td>
                       </tr>
                     ) : (
                       filteredSpares.map((row, idx) => {
@@ -1719,7 +1953,7 @@ export default function ServiceSpareEntry() {
                           <tr
                             key={`main-${row.id}`}
                             onClick={() => setSelectedRowId(row.id)}
-                            className={`hover:bg-[#0097A7]/5 cursor-pointer h-9 transition-colors ${selectedRowId === row.id ? 'bg-[#0097A7]/10 font-semibold' : ''}`}
+                            className={`hover:bg-slate-100/90 cursor-pointer h-9 transition-colors ${selectedRowId === row.id ? 'bg-[#0097A7]/10 font-semibold border-l-4 border-[#0097A7]' : ''}`}
                           >
                             <td className="px-3 py-1 border-r border-slate-50 text-center" onClick={(e) => {
                               e.stopPropagation();
@@ -1734,6 +1968,11 @@ export default function ServiceSpareEntry() {
                             </td>
                             <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-slate-400">{idx + 1}</td>
                             <td className="px-3 py-1 border-r border-slate-50 font-bold text-[#0097A7]">{row.serviceJobNo}</td>
+                            <td className="px-3 py-1 border-r border-slate-50">
+                              <span className="font-extrabold text-[#0097A7] bg-[#0097A7]/10 px-2 py-0.5 rounded text-[11.5px] font-mono inline-block">
+                                {getAssemblyNoFromRecord(row, bomCreationsList) || row.servicePartNo || row.lastSavedAssName || '—'}
+                              </span>
+                            </td>
                             <td className="px-3 py-1 border-r border-slate-50 text-slate-700 max-w-[280px] truncate font-medium" title={(row.items || []).map(i => i.partName).join(', ')}>
                               {(row.items || []).map(i => i.partName).join(', ') || '—'}
                             </td>
@@ -1742,13 +1981,7 @@ export default function ServiceSpareEntry() {
                               {(row.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </td>
                             <td className="px-3 py-1 border-r border-slate-50">
-                              <span className={`px-2.5 py-0.5 rounded text-[12px] uppercase font-extrabold ${row.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                                row.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                                  row.status === 'On Hold' ? 'bg-amber-100 text-amber-700' :
-                                    'bg-slate-100 text-slate-600'
-                                }`}>
-                                {row.status || 'Open'}
-                              </span>
+                              <StatusBadge status={getSpareStatus(row, serviceDetailsList, bookingsDataRes)} />
                             </td>
                             <td className="px-3 py-1 text-center text-slate-500">{row.savedDate}</td>
                           </tr>
@@ -1756,7 +1989,7 @@ export default function ServiceSpareEntry() {
                         if (isExpanded) {
                           rows.push(
                             <tr key={`expanded-${row.id}`} className="bg-slate-50/70 hover:bg-slate-50/70 no-hover">
-                              <td colSpan={8} className="px-6 py-3 border-b border-slate-200">
+                              <td colSpan={9} className="px-6 py-3 border-b border-slate-200">
                                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 overflow-x-auto">
                                   <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                                     <h4 className="text-[11.5px] font-bold text-[#0097A7] uppercase tracking-wider">

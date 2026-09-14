@@ -64,7 +64,22 @@ const SearchableSelect = ({ options, value, onChange, placeholder, className = "
 
   const filtered = useMemo(() => {
     if (!query) return options
-    return options.filter(o => String(o).toLowerCase().includes(query.toLowerCase()))
+    const q = query.toLowerCase().trim()
+    return [...options]
+      .filter(o => String(o).toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aStr = String(a).toLowerCase()
+        const bStr = String(b).toLowerCase()
+        // Exact match comes first
+        if (aStr === q && bStr !== q) return -1
+        if (bStr === q && aStr !== q) return 1
+        // Starts with query comes second
+        const aStarts = aStr.startsWith(q)
+        const bStarts = bStr.startsWith(q)
+        if (aStarts && !bStarts) return -1
+        if (!aStarts && bStarts) return 1
+        return aStr.localeCompare(bStr)
+      })
   }, [options, query])
 
   return (
@@ -117,22 +132,27 @@ export default function UploadBOM() {
   })
 
   const [assemblyList, setAssemblyList] = useState([])
-  const [selectedParts, setSelectedParts] = useState([])
+  const [listSearch, setListSearch] = useState('')
+  const [selectedPartId, setSelectedPartId] = useState(null)
+  const [uploadedPartIds, setUploadedPartIds] = useState([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [indexRecords, setIndexRecords] = useState([])
   const [itemMaster, setItemMaster] = useState([])
+  const [bomRecords, setBomRecords] = useState([])
 
   const u = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
-  // 1. Fetch Index Records & Item Master
+  // 1. Fetch Index Records, Item Master & BOM Records
   const fetchData = useCallback(async () => {
     try {
-      const [idxRes, imRes] = await Promise.all([
+      const [idxRes, imRes, bomRes] = await Promise.all([
         api.get('/api/index-creation?limit=1000', { skipGlobalLoader: true }).catch(() => ({ data: { data: [] } })),
-        api.get('/api/item-master?limit=10000', { skipGlobalLoader: true }).catch(() => ({ data: { data: [] } }))
+        api.get('/api/item-master?limit=10000', { skipGlobalLoader: true }).catch(() => ({ data: { data: [] } })),
+        api.get('/api/bom-creation?limit=1000', { skipGlobalLoader: true }).catch(() => ({ data: { data: [] } }))
       ])
       setIndexRecords(idxRes.data?.data || [])
       setItemMaster(imRes.data?.data || [])
+      setBomRecords(bomRes.data?.data || [])
     } catch (e) {
       console.error('Failed to load reference data in UploadBOM:', e)
     }
@@ -147,12 +167,14 @@ export default function UploadBOM() {
     return Array.from(new Set(indexRecords.map(i => i.modelNo).filter(Boolean))).sort()
   }, [indexRecords])
 
-  // 3. All Assembly Part No Options
+  // 3. All Assembly Part No Options from Item Master, Index Creation & BOM Records
   const assemblyPartNoOptions = useMemo(() => {
     const imParts = itemMaster.map(item => item.partNo).filter(Boolean)
     const idxModels = indexRecords.map(i => i.modelNo).filter(Boolean)
-    return Array.from(new Set([...imParts, ...idxModels])).sort()
-  }, [itemMaster, indexRecords])
+    const idxAssemblies = indexRecords.map(i => i.assemblyPartNo).filter(Boolean)
+    const bomAssemblies = bomRecords.map(b => b.assemblyPartNo || b.bomNo).filter(Boolean)
+    return Array.from(new Set([...imParts, ...idxModels, ...idxAssemblies, ...bomAssemblies])).sort()
+  }, [itemMaster, indexRecords, bomRecords])
 
   // Helper to extract clean text from any Excel cell
   const extractCellText = (cell) => {
@@ -195,28 +217,46 @@ export default function UploadBOM() {
           return { id: idx + 1, part: partNo, desc, qty, unit, image }
         })
         setAssemblyList(formatted)
-        setSelectedParts(formatted.map(item => item.id))
+        setSelectedPartId(null)
+        setUploadedPartIds([])
         toast.success(`Loaded ${formatted.length} child components for Index Model No "${modelNoVal}".`)
       }
     }
   }
 
-  // 5. Handle Assembly Part No Selection -> Auto-load child components
+  // 5. Handle Assembly Part No Selection / Typing -> Fetch matching assembly & auto-load child components (matching part comes first)
   const handleAssemblyPartNoChange = (partNoVal) => {
     setForm(f => ({ ...f, assemblyPartNo: partNoVal }))
 
+    if (!partNoVal || !String(partNoVal).trim()) return
+
     const pValLower = String(partNoVal).trim().toLowerCase()
+
+    // Match in indexRecords (exact match first, then partial match)
     const matchingIndex = indexRecords.find(i => 
-      (i.modelNo && String(i.modelNo).trim().toLowerCase() === pValLower) ||
       (i.assemblyPartNo && String(i.assemblyPartNo).trim().toLowerCase() === pValLower) ||
+      (i.modelNo && String(i.modelNo).trim().toLowerCase() === pValLower)
+    ) || indexRecords.find(i =>
+      (i.assemblyPartNo && String(i.assemblyPartNo).trim().toLowerCase().includes(pValLower)) ||
+      (i.modelNo && String(i.modelNo).trim().toLowerCase().includes(pValLower)) ||
       (i.excelData && JSON.stringify(i.excelData).toLowerCase().includes(pValLower))
+    )
+
+    // Match in bomRecords
+    const matchingBom = bomRecords.find(b =>
+      (b.assemblyPartNo && String(b.assemblyPartNo).trim().toLowerCase() === pValLower) ||
+      (b.bomNo && String(b.bomNo).trim().toLowerCase() === pValLower)
+    ) || bomRecords.find(b =>
+      (b.assemblyPartNo && String(b.assemblyPartNo).trim().toLowerCase().includes(pValLower)) ||
+      (b.bomNo && String(b.bomNo).trim().toLowerCase().includes(pValLower)) ||
+      (b.excelRows && JSON.stringify(b.excelRows).toLowerCase().includes(pValLower))
     )
 
     if (matchingIndex) {
       const rawRows = matchingIndex.excelData
       const rows = Array.isArray(rawRows) ? rawRows : (rawRows?.excelData || [])
       if (rows && rows.length > 0) {
-        const formatted = rows.map((r, idx) => {
+        let formatted = rows.map((r, idx) => {
           const partNo = r.PartNo || r['Part No'] || r.partNo || r['Part Number'] || r.itemCode || `P-${idx + 1}`
           const desc = r.PartName || r['Part Name'] || r.partName || r.description || r.desc || r.Name || '—'
           const qty = r.Qty || r.qty || 1
@@ -224,8 +264,21 @@ export default function UploadBOM() {
           const image = r.Image || r.image || r.Pic || r.pic || null
           return { id: idx + 1, part: partNo, desc, qty, unit, image }
         })
+
+        // Sort so the searched part number comes first
+        formatted.sort((a, b) => {
+          const aP = String(a.part || '').toLowerCase()
+          const bP = String(b.part || '').toLowerCase()
+          if (aP === pValLower && bP !== pValLower) return -1
+          if (bP === pValLower && aP !== pValLower) return 1
+          if (aP.startsWith(pValLower) && !bP.startsWith(pValLower)) return -1
+          if (!aP.startsWith(pValLower) && bP.startsWith(pValLower)) return 1
+          return 0
+        })
+
         setAssemblyList(formatted)
-        setSelectedParts(formatted.map(item => item.id))
+        setSelectedPartId(null)
+        setUploadedPartIds([])
         if (matchingIndex.modelNo && !form.modelNo) {
           setForm(f => ({
             ...f,
@@ -236,9 +289,76 @@ export default function UploadBOM() {
           }))
         }
         toast.success(`Loaded ${formatted.length} child components for Assembly Part No "${partNoVal}".`)
+        return
+      }
+    }
+
+    if (matchingBom) {
+      const rawRows = matchingBom.excelRows
+      const rows = Array.isArray(rawRows) ? rawRows : []
+      if (rows && rows.length > 0) {
+        let formatted = rows.map((r, idx) => {
+          const partNo = r.PartNo || r['Part No'] || r.partNo || r['Part Number'] || r.itemCode || `P-${idx + 1}`
+          const desc = r.PartName || r['Part Name'] || r.partName || r.description || r.desc || r.Name || '—'
+          const qty = r.Qty || r.qty || 1
+          const unit = r.Unit || r.unit || r.UOM || r.uom || 'PCS'
+          const image = r.Image || r.image || r.Pic || r.pic || null
+          return { id: idx + 1, part: partNo, desc, qty, unit, image }
+        })
+
+        // Sort so the searched part number comes first
+        formatted.sort((a, b) => {
+          const aP = String(a.part || '').toLowerCase()
+          const bP = String(b.part || '').toLowerCase()
+          if (aP === pValLower && bP !== pValLower) return -1
+          if (bP === pValLower && aP !== pValLower) return 1
+          if (aP.startsWith(pValLower) && !bP.startsWith(pValLower)) return -1
+          if (!aP.startsWith(pValLower) && bP.startsWith(pValLower)) return 1
+          return 0
+        })
+
+        setAssemblyList(formatted)
+        setSelectedPartId(null)
+        setUploadedPartIds([])
+        if (matchingBom.model && !form.model) {
+          setForm(f => ({
+            ...f,
+            model: matchingBom.model || f.model,
+            fileName: matchingBom.fileName || f.fileName,
+          }))
+        }
+        toast.success(`Loaded ${formatted.length} child components from BOM for "${partNoVal}".`)
+        return
       }
     }
   }
+
+  // Prioritize searched part numbers to come first in table view
+  const displayedAssemblyList = useMemo(() => {
+    const q = (listSearch || '').trim().toLowerCase()
+    if (!q) return assemblyList
+
+    const exact = []
+    const startsWith = []
+    const includes = []
+    const others = []
+
+    assemblyList.forEach(item => {
+      const p = String(item.part || '').toLowerCase()
+      const d = String(item.desc || '').toLowerCase()
+      if (p === q) {
+        exact.push(item)
+      } else if (p.startsWith(q)) {
+        startsWith.push(item)
+      } else if (p.includes(q) || d.includes(q)) {
+        includes.push(item)
+      } else {
+        others.push(item)
+      }
+    })
+
+    return [...exact, ...startsWith, ...includes, ...others]
+  }, [assemblyList, listSearch])
 
   // 6. Handle Browse Click & Excel File Upload
   const handleBrowseClick = () => {
@@ -404,7 +524,8 @@ export default function UploadBOM() {
       }).filter(item => item.part && item.part !== '—')
 
       setAssemblyList(itemsList)
-      setSelectedParts(itemsList.map(item => item.id))
+      setSelectedPartId(null)
+      setUploadedPartIds([])
       toast.success(`Excel file processed! Loaded ${itemsList.length} parts into Processed Assembly List.`)
     } catch (err) {
       console.error('Error processing Excel file in UploadBOM:', err)
@@ -415,19 +536,28 @@ export default function UploadBOM() {
   }
 
   const handleProcess = () => {
-    if (!form.modelNo && !form.assemblyPartNo && !form.fileName) {
-      toast.warning('Please select a Model No, Assembly Part No, or upload an Excel file.')
-      return
-    }
     if (assemblyList.length === 0) {
       toast.warning('No items in Processed Assembly List to upload.')
       return
     }
+    if (selectedPartId === null) {
+      toast.warning('Please select a record from the Processed Assembly List to upload.')
+      return
+    }
+    if (uploadedPartIds.includes(selectedPartId)) {
+      toast.info('This record is already uploaded.')
+      return
+    }
+
+    const selectedItem = assemblyList.find(item => item.id === selectedPartId)
+    if (!selectedItem) return
+
     setIsProcessing(true)
     setTimeout(() => {
+      setUploadedPartIds(prev => [...prev, selectedPartId])
       setIsProcessing(false)
-      toast.success(`Successfully uploaded BOM Specification (${selectedParts.length} / ${assemblyList.length} items active)!`)
-    }, 600)
+      toast.success(`Successfully uploaded BOM Specification for Part "${selectedItem.part}"!`)
+    }, 400)
   }
 
   const handleReset = () => {
@@ -440,10 +570,13 @@ export default function UploadBOM() {
       fileName: ''
     })
     setAssemblyList([])
-    setSelectedParts([])
+    setListSearch('')
+    setSelectedPartId(null)
+    setUploadedPartIds([])
   }
 
-  const unUploadCount = assemblyList.length - selectedParts.length
+  const uploadedCount = uploadedPartIds.length
+  const unUploadCount = assemblyList.length - uploadedCount
 
   return (
     <div className="bg-[#f4f6f8] min-h-full pb-10">
@@ -506,7 +639,7 @@ export default function UploadBOM() {
                       options={assemblyPartNoOptions}
                       value={form.assemblyPartNo}
                       onChange={handleAssemblyPartNoChange}
-                      placeholder="Search Assembly Part No..."
+                      placeholder="Search / Type Assembly Part No..."
                       className="w-full"
                     />
                   </div>
@@ -533,7 +666,7 @@ export default function UploadBOM() {
                 <div className="pt-2">
                   <button 
                     onClick={handleProcess}
-                    disabled={isProcessing || assemblyList.length === 0}
+                    disabled={isProcessing || assemblyList.length === 0 || selectedPartId === null}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
                     {isProcessing ? <RotateCcw size={15} className="animate-spin" /> : <Upload size={15} />}
@@ -546,30 +679,46 @@ export default function UploadBOM() {
               <div className="grid grid-cols-2 gap-4">
                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">BOM Upload Count</p>
-                   <p className="text-[24px] font-black text-[#0097A7]">{selectedParts.length}</p>
+                   <p className={`text-[24px] font-black ${uploadedCount > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                     {uploadedCount}
+                   </p>
                  </div>
                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">BOM Un Upload Count</p>
-                   <p className={`text-[24px] font-black ${unUploadCount > 0 ? 'text-rose-500' : 'text-slate-400'}`}>{unUploadCount}</p>
+                   <p className={`text-[24px] font-black ${unUploadCount > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                     {unUploadCount}
+                   </p>
                  </div>
               </div>
             </div>
 
             {/* Right Section: Interactive Assembly List */}
             <div className="col-span-7 flex flex-col gap-4">
-               <div className="flex items-center justify-between">
+               <div className="flex items-center justify-between gap-2 flex-wrap">
                  <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
                     <div className="w-2 h-4 bg-[#0097A7] rounded-full" />
                     Processed Assembly List
                  </h3>
                  <div className="flex items-center gap-3">
                    {assemblyList.length > 0 && (
+                     <div className="relative">
+                       <input
+                         type="text"
+                         value={listSearch}
+                         onChange={(e) => setListSearch(e.target.value)}
+                         placeholder="Search part no..."
+                         className="pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-36"
+                       />
+                       <Search size={12} className="absolute left-2 top-2 text-slate-400" />
+                     </div>
+                   )}
+                   {assemblyList.length > 0 && (
                      <span className="text-[11px] font-bold text-slate-500">
-                       Selected: {selectedParts.length} / {assemblyList.length}
+                       Total: {assemblyList.length} | Uploaded: <span className="text-emerald-600 font-bold">{uploadedCount}</span> | Un-uploaded: <span className="text-red-600 font-bold">{unUploadCount}</span>
                      </span>
                    )}
                    {assemblyList.length > 0 && (
-                     <button onClick={() => { setAssemblyList([]); setSelectedParts([]) }} className="text-rose-500 hover:text-rose-600 text-[11px] font-bold uppercase flex items-center gap-1 transition-colors">
+                     <button onClick={() => { setAssemblyList([]); setSelectedPartId(null); setUploadedPartIds([]); setListSearch('') }} className="text-rose-500 hover:text-rose-600 text-[11px] font-bold uppercase flex items-center gap-1 transition-colors">
                        <Trash2 size={14} /> Clear List
                      </button>
                    )}
@@ -592,17 +741,7 @@ export default function UploadBOM() {
                       <table className="w-full text-left border-collapse border border-slate-200">
                         <thead className="bg-slate-100 text-[10px] uppercase text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
                           <tr>
-                            <th className="px-4 py-3 w-12 text-center border-r border-slate-200">
-                              <input 
-                                type="checkbox" 
-                                checked={selectedParts.length === assemblyList.length && assemblyList.length > 0}
-                                onChange={(e) => {
-                                  if (e.target.checked) setSelectedParts(assemblyList.map(item => item.id))
-                                  else setSelectedParts([])
-                                }}
-                                className="w-4 h-4 rounded border-slate-300 text-[#0097A7] focus:ring-[#0097A7] cursor-pointer"
-                              />
-                            </th>
+                            <th className="px-4 py-3 w-12 text-center border-r border-slate-200">Select</th>
                             <th className="px-4 py-3 w-12 text-center border-r border-slate-200">#</th>
                             <th className="px-4 py-3 border-r border-slate-200">Part Number</th>
                             <th className="px-4 py-3 border-r border-slate-200">Description</th>
@@ -612,37 +751,51 @@ export default function UploadBOM() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-[12px]">
-                          {assemblyList.map((item, idx) => (
-                            <tr key={item.id} className={`${selectedParts.includes(item.id) ? 'bg-[#0097A7]/5' : 'hover:bg-slate-50'} transition-colors group h-12 border-b border-slate-100`}>
-                              <td className="px-4 py-2 text-center border-r border-slate-100">
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedParts.includes(item.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) setSelectedParts(s => [...s, item.id])
-                                    else setSelectedParts(s => s.filter(id => id !== item.id))
-                                  }}
-                                  className="w-4 h-4 rounded border-slate-300 text-[#0097A7] focus:ring-[#0097A7] cursor-pointer"
-                                />
-                              </td>
-                              <td className="px-4 py-2 text-center text-slate-400 font-bold border-r border-slate-100">{idx + 1}</td>
-                              <td className="px-4 py-2 font-black text-[#0097A7] border-r border-slate-100">{item.part}</td>
-                              <td className="px-4 py-2 font-semibold text-slate-700 uppercase text-[11px] border-r border-slate-100">{item.desc}</td>
-                              <td className="px-4 py-2 text-center border-r border-slate-100">
-                                {item.image ? (
-                                  <div className="w-8 h-8 rounded border border-slate-200 overflow-hidden inline-flex items-center justify-center bg-slate-50">
-                                    <img src={item.image} alt="preview" className="w-full h-full object-contain" />
-                                  </div>
-                                ) : (
-                                  <span className="text-slate-300">—</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2 text-right font-black text-slate-900 border-r border-slate-100">{item.qty}</td>
-                              <td className="px-4 py-2 text-center">
-                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-black">{item.unit}</span>
-                              </td>
-                            </tr>
-                          ))}
+                          {displayedAssemblyList.map((item, idx) => {
+                            const isUploaded = uploadedPartIds.includes(item.id)
+                            const isSelected = selectedPartId === item.id
+                            const textColor = isUploaded ? 'text-emerald-600' : 'text-red-600'
+                            const unitBadge = isUploaded 
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                              : 'bg-red-50 text-red-700 border border-red-200'
+                            const rowBg = isSelected 
+                              ? 'bg-[#0097A7]/10 ring-1 ring-[#0097A7]/40' 
+                              : (isUploaded ? 'bg-emerald-50/30 hover:bg-emerald-50/60' : 'hover:bg-red-50/30')
+
+                            return (
+                              <tr 
+                                key={item.id} 
+                                onClick={() => setSelectedPartId(item.id)}
+                                className={`${rowBg} transition-colors group h-12 border-b border-slate-100 cursor-pointer`}
+                              >
+                                <td className="px-4 py-2 text-center border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
+                                  <input 
+                                    type="radio"
+                                    name="selectedAssemblyPart"
+                                    checked={isSelected}
+                                    onChange={() => setSelectedPartId(item.id)}
+                                    className="w-4 h-4 text-[#0097A7] focus:ring-[#0097A7] cursor-pointer"
+                                  />
+                                </td>
+                                <td className={`px-4 py-2 text-center font-bold border-r border-slate-100 ${textColor}`}>{idx + 1}</td>
+                                <td className={`px-4 py-2 font-black border-r border-slate-100 ${textColor}`}>{item.part}</td>
+                                <td className={`px-4 py-2 font-semibold uppercase text-[11px] border-r border-slate-100 ${textColor}`}>{item.desc}</td>
+                                <td className="px-4 py-2 text-center border-r border-slate-100">
+                                  {item.image ? (
+                                    <div className="w-8 h-8 rounded border border-slate-200 overflow-hidden inline-flex items-center justify-center bg-slate-50">
+                                      <img src={item.image} alt="preview" className="w-full h-full object-contain" />
+                                    </div>
+                                  ) : (
+                                    <span className={textColor}>—</span>
+                                  )}
+                                </td>
+                                <td className={`px-4 py-2 text-right font-black border-r border-slate-100 ${textColor}`}>{item.qty}</td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${unitBadge}`}>{item.unit}</span>
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>

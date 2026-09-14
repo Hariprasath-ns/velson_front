@@ -156,6 +156,7 @@ export default function IndexCreation() {
   const [selectedIds, setSelectedIds] = useState([])
   const [isSaving, setIsSaving] = useState(false)
   const [vehicleModels, setVehicleModels] = useState([])
+  const [itemMaster, setItemMaster] = useState([])
   const [excelData, setExcelData] = useState([])
   const [excelHeaders, setExcelHeaders] = useState([])
   const [skippedRecords, setSkippedRecords] = useState([])
@@ -244,10 +245,39 @@ export default function IndexCreation() {
         }
       } catch {}
 
+      // Ensure Item Master list is ready for matching
+      let currentItemMaster = itemMaster
+      if (!currentItemMaster || currentItemMaster.length === 0) {
+        try {
+          const imRes = await api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
+          currentItemMaster = imRes.data?.data || []
+          setItemMaster(currentItemMaster)
+        } catch {}
+      }
+
+      const itemMasterMap = new Map()
+      currentItemMaster.forEach(im => {
+        if (im.partNo) {
+          itemMasterMap.set(String(im.partNo).trim().toLowerCase(), im)
+        }
+      })
+
       if (data.length > 1) {
         const headers = data[0].map(h => h ? String(h).trim() : '')
         const validRows = []
         const skippedRows = []
+
+        const partNoHeader = headers.find(h => {
+          if (!h) return false
+          const l = h.toLowerCase()
+          return l.includes('part number') || l.includes('part no') || l === 'part' || l === 'partno' || l === 'part_no' || l.includes('item code')
+        })
+
+        const partNameHeader = headers.find(h => {
+          if (!h) return false
+          const l = h.toLowerCase()
+          return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description') || l === 'partname' || l === 'part_name'
+        })
         
         for (let i = 1; i < data.length; i++) {
           const rowArr = data[i]
@@ -266,16 +296,38 @@ export default function IndexCreation() {
                 }
              }
           })
-          
-          if (missingFields.length > 0) {
-              skippedRows.push({
-                row: i + 1,
-                data: rowObj,
-                reason: `Missing data for: ${missingFields.join(', ')}`,
-                missingFields
-              })
+
+          const partNoVal = partNoHeader ? String(rowObj[partNoHeader] || '').trim() : ''
+          const matchedItem = partNoVal ? itemMasterMap.get(partNoVal.toLowerCase()) : null
+
+          if (matchedItem) {
+            if (partNameHeader && matchedItem.partName && !rowObj[partNameHeader]) {
+              rowObj[partNameHeader] = matchedItem.partName
+            }
+            if (matchedItem.hasImage || matchedItem.imageMimeType) {
+              const imgH = headers.find(isImageHeader) || 'Image'
+              if (!rowObj[imgH]) {
+                rowObj[imgH] = `/api/item-master/${matchedItem.id}/download-image`
+              }
+            }
+          }
+
+          if (partNoHeader && !matchedItem) {
+            skippedRows.push({
+              row: i + 1,
+              data: rowObj,
+              reason: partNoVal ? `Part No "${partNoVal}" not found in Item Master` : 'Missing Part Number',
+              missingFields: partNoVal ? ['Not in Item Master', ...missingFields] : missingFields
+            })
+          } else if (missingFields.length > 0) {
+            skippedRows.push({
+              row: i + 1,
+              data: rowObj,
+              reason: `Missing data for: ${missingFields.join(', ')}`,
+              missingFields
+            })
           } else {
-             validRows.push({ ...rowObj, _rowNum: i + 1 })
+            validRows.push({ ...rowObj, _rowNum: i + 1 })
           }
         }
         
@@ -286,6 +338,12 @@ export default function IndexCreation() {
         setSearchQuery('')
         setFilterColumn('')
         setCurrentPage(1)
+
+        if (validRows.length === 0 && skippedRows.length > 0) {
+          toast.warning(`All ${skippedRows.length} item(s) were moved to Skipped Records (not found in Item Master or missing data).`)
+        } else if (skippedRows.length > 0) {
+          toast.info(`${skippedRows.length} item(s) moved to Skipped Records (not found in Item Master or missing data).`)
+        }
       } else {
         setExcelHeaders([])
         setExcelData([])
@@ -348,11 +406,25 @@ export default function IndexCreation() {
       if (i === index) {
          const newData = { ...r.data, [header]: newVal }
          const missing = excelHeaders.filter(h => !newData[h])
+         
+         const partNoHeader = excelHeaders.find(isPartNoHeader)
+         const partNoVal = partNoHeader ? String(newData[partNoHeader] || '').trim() : ''
+         const matchedItem = partNoVal ? itemMaster.find(im => String(im.partNo).trim().toLowerCase() === partNoVal.toLowerCase()) : null
+
+         let reason = ''
+         if (partNoHeader && !matchedItem) {
+           reason = partNoVal ? `Part No "${partNoVal}" not found in Item Master` : 'Missing Part Number'
+         } else if (missing.length > 0) {
+           reason = `Missing data for: ${missing.join(', ')}`
+         } else {
+           reason = 'All issues fixed. Ready for download/saving.'
+         }
+
          return {
            ...r,
            data: newData,
            missingFields: missing,
-           reason: missing.length > 0 ? `Missing data for: ${missing.join(', ')}` : 'All issues fixed. Ready for download.'
+           reason
          }
       }
       return r
@@ -484,10 +556,20 @@ export default function IndexCreation() {
     }
   }, [])
 
+  const fetchItemMaster = useCallback(async () => {
+    try {
+      const res = await api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
+      setItemMaster(res.data?.data || [])
+    } catch {
+      setItemMaster([])
+    }
+  }, [])
+
   useEffect(() => {
     fetchModels()
     fetchIndices()
-  }, [fetchModels, fetchIndices])
+    fetchItemMaster()
+  }, [fetchModels, fetchIndices, fetchItemMaster])
 
   /* check for edit intent from IndexCreationReport */
   useEffect(() => {
@@ -567,6 +649,20 @@ export default function IndexCreation() {
       toast.warning('Required: Model and Model No.')
       return
     }
+
+    const trimmedModel = (form.model || '').trim().toLowerCase()
+    const trimmedModelNo = (form.modelNo || '').trim().toLowerCase()
+
+    const duplicate = indices.find(item =>
+      (!editRecordId || item.id !== editRecordId) &&
+      (item.model || '').trim().toLowerCase() === trimmedModel &&
+      (item.modelNo || '').trim().toLowerCase() === trimmedModelNo
+    )
+    if (duplicate) {
+      toast.warning(`Index with Model "${form.model}" and Model No "${form.modelNo}" already exists!`)
+      return
+    }
+
     setIsSaving(true)
     try {
       const combined = []
