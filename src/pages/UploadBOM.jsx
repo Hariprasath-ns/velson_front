@@ -162,19 +162,55 @@ export default function UploadBOM() {
     fetchData()
   }, [fetchData])
 
+  // Helper to check if a part is already uploaded in BOM records for a model
+  const isPartUploadedInBom = useCallback((partNo, modelName, modelNoVal) => {
+    if (!partNo) return false
+    const pLower = String(partNo).trim().toLowerCase()
+    const mLower = modelName ? String(modelName).trim().toLowerCase() : ''
+    const mnoLower = modelNoVal ? String(modelNoVal).trim().toLowerCase() : ''
+
+    return bomRecords.some(b => {
+      const bModel = String(b.model || '').trim().toLowerCase()
+      const bModelNo = String(b.modelNo || '').trim().toLowerCase()
+      const bAssembly = String(b.assemblyPartNo || '').trim().toLowerCase()
+
+      const modelMatches =
+        (!mLower && !mnoLower) ||
+        (mLower && (bModel === mLower || bModelNo === mLower)) ||
+        (mnoLower && (bModel === mnoLower || bModelNo === mnoLower)) ||
+        bAssembly === pLower
+
+      if (!modelMatches) return false
+
+      if (bAssembly === pLower) return true
+
+      const rows = Array.isArray(b.excelRows) ? b.excelRows : []
+      return rows.some(r => {
+        const rp = r.PartNo || r['Part No'] || r.partNo || r['Part Number'] || r.itemCode || r.part
+        return rp && String(rp).trim().toLowerCase() === pLower
+      })
+    })
+  }, [bomRecords])
+
   // 2. All Model No Options from Index Creation
   const modelNoOptions = useMemo(() => {
-    return Array.from(new Set(indexRecords.map(i => i.modelNo).filter(Boolean))).sort()
+    const list = []
+    indexRecords.forEach(i => {
+      if (i.modelNo) list.push(i.modelNo)
+      if (i.model && !list.includes(i.model)) list.push(i.model)
+    })
+    return Array.from(new Set(list)).sort()
   }, [indexRecords])
 
-  // 3. All Assembly Part No Options from Item Master, Index Creation & BOM Records
+  // 3. All Assembly Part No Options (Prioritizing loaded components of selected model, then item master, index & BOM)
   const assemblyPartNoOptions = useMemo(() => {
+    const currentListParts = assemblyList.map(item => item.part).filter(Boolean)
     const imParts = itemMaster.map(item => item.partNo).filter(Boolean)
     const idxModels = indexRecords.map(i => i.modelNo).filter(Boolean)
     const idxAssemblies = indexRecords.map(i => i.assemblyPartNo).filter(Boolean)
     const bomAssemblies = bomRecords.map(b => b.assemblyPartNo || b.bomNo).filter(Boolean)
-    return Array.from(new Set([...imParts, ...idxModels, ...idxAssemblies, ...bomAssemblies])).sort()
-  }, [itemMaster, indexRecords, bomRecords])
+    return Array.from(new Set([...currentListParts, ...imParts, ...idxModels, ...idxAssemblies, ...bomAssemblies])).sort()
+  }, [assemblyList, itemMaster, indexRecords, bomRecords])
 
   // Helper to extract clean text from any Excel cell
   const extractCellText = (cell) => {
@@ -193,15 +229,23 @@ export default function UploadBOM() {
     return String(cell.value).trim()
   }
 
-  // 4. Handle Model No Selection -> Auto-load child components from Index Creation
+  // 4. Handle Model No Selection -> Auto-load child components & fetch previously uploaded BOM count
   const handleModelNoSelect = (modelNoVal) => {
-    const matchedIndex = indexRecords.find(i => String(i.modelNo).trim().toLowerCase() === String(modelNoVal).trim().toLowerCase())
+    const matchedIndex = indexRecords.find(i => 
+      String(i.modelNo).trim().toLowerCase() === String(modelNoVal).trim().toLowerCase() ||
+      String(i.model).trim().toLowerCase() === String(modelNoVal).trim().toLowerCase()
+    )
+
+    const targetModel = matchedIndex?.model || ''
+    const targetModelNo = matchedIndex?.modelNo || modelNoVal
+
     setForm(f => ({
       ...f,
-      modelNo: modelNoVal,
-      model: matchedIndex?.model || f.model,
+      modelNo: targetModelNo,
+      model: targetModel || f.model,
       fileName: matchedIndex?.fileName || f.fileName,
       fileLocation: matchedIndex?.fileLocation || f.fileLocation,
+      assemblyPartNo: ''
     }))
 
     if (matchedIndex) {
@@ -216,15 +260,52 @@ export default function UploadBOM() {
           const image = r.Image || r.image || r.Pic || r.pic || null
           return { id: idx + 1, part: partNo, desc, qty, unit, image }
         })
+
+        // Automatically fetch previously uploaded BOM parts for this model
+        const prevUploadedIds = formatted
+          .filter(item => isPartUploadedInBom(item.part, targetModel, targetModelNo))
+          .map(item => item.id)
+
         setAssemblyList(formatted)
         setSelectedPartId(null)
-        setUploadedPartIds([])
-        toast.success(`Loaded ${formatted.length} child components for Index Model No "${modelNoVal}".`)
+        setUploadedPartIds(prevUploadedIds)
+        toast.success(`Loaded ${formatted.length} parts for Model "${targetModelNo}". ${prevUploadedIds.length} previously uploaded to BOM.`)
+        return
+      }
+    }
+
+    // Fallback: Check matching BOM records for this model if index has no excel rows
+    const matchingBoms = bomRecords.filter(b => 
+      (b.model && String(b.model).trim().toLowerCase() === String(targetModelNo).trim().toLowerCase()) ||
+      (b.modelNo && String(b.modelNo).trim().toLowerCase() === String(targetModelNo).trim().toLowerCase())
+    )
+    if (matchingBoms.length > 0) {
+      const allRows = []
+      matchingBoms.forEach(b => {
+        const rows = Array.isArray(b.excelRows) ? b.excelRows : []
+        rows.forEach((r, idx) => {
+          const partNo = r.PartNo || r['Part No'] || r.partNo || r['Part Number'] || r.itemCode || `P-${idx + 1}`
+          const desc = r.PartName || r['Part Name'] || r.partName || r.description || r.desc || r.Name || '—'
+          allRows.push({
+            id: allRows.length + 1,
+            part: partNo,
+            desc,
+            qty: r.Qty || r.qty || 1,
+            unit: r.Unit || r.unit || 'PCS',
+            image: r.Image || r.image || null
+          })
+        })
+      })
+      if (allRows.length > 0) {
+        setAssemblyList(allRows)
+        setUploadedPartIds(allRows.map(r => r.id))
+        setSelectedPartId(null)
+        toast.success(`Loaded ${allRows.length} previously uploaded BOM parts for Model "${targetModelNo}".`)
       }
     }
   }
 
-  // 5. Handle Assembly Part No Selection / Typing -> Fetch matching assembly & auto-load child components (matching part comes first)
+  // 5. Handle Assembly Part No Selection / Typing -> Works like table search, prioritizing matching part to the top & auto-selecting
   const handleAssemblyPartNoChange = (partNoVal) => {
     setForm(f => ({ ...f, assemblyPartNo: partNoVal }))
 
@@ -232,110 +313,100 @@ export default function UploadBOM() {
 
     const pValLower = String(partNoVal).trim().toLowerCase()
 
-    // Match in indexRecords (exact match first, then partial match)
-    const matchingIndex = indexRecords.find(i => 
-      (i.assemblyPartNo && String(i.assemblyPartNo).trim().toLowerCase() === pValLower) ||
-      (i.modelNo && String(i.modelNo).trim().toLowerCase() === pValLower)
-    ) || indexRecords.find(i =>
-      (i.assemblyPartNo && String(i.assemblyPartNo).trim().toLowerCase().includes(pValLower)) ||
-      (i.modelNo && String(i.modelNo).trim().toLowerCase().includes(pValLower)) ||
-      (i.excelData && JSON.stringify(i.excelData).toLowerCase().includes(pValLower))
-    )
-
-    // Match in bomRecords
-    const matchingBom = bomRecords.find(b =>
-      (b.assemblyPartNo && String(b.assemblyPartNo).trim().toLowerCase() === pValLower) ||
-      (b.bomNo && String(b.bomNo).trim().toLowerCase() === pValLower)
-    ) || bomRecords.find(b =>
-      (b.assemblyPartNo && String(b.assemblyPartNo).trim().toLowerCase().includes(pValLower)) ||
-      (b.bomNo && String(b.bomNo).trim().toLowerCase().includes(pValLower)) ||
-      (b.excelRows && JSON.stringify(b.excelRows).toLowerCase().includes(pValLower))
-    )
-
-    if (matchingIndex) {
-      const rawRows = matchingIndex.excelData
-      const rows = Array.isArray(rawRows) ? rawRows : (rawRows?.excelData || [])
-      if (rows && rows.length > 0) {
-        let formatted = rows.map((r, idx) => {
-          const partNo = r.PartNo || r['Part No'] || r.partNo || r['Part Number'] || r.itemCode || `P-${idx + 1}`
-          const desc = r.PartName || r['Part Name'] || r.partName || r.description || r.desc || r.Name || '—'
-          const qty = r.Qty || r.qty || 1
-          const unit = r.Unit || r.unit || r.UOM || r.uom || 'PCS'
-          const image = r.Image || r.image || r.Pic || r.pic || null
-          return { id: idx + 1, part: partNo, desc, qty, unit, image }
-        })
-
-        // Sort so the searched part number comes first
-        formatted.sort((a, b) => {
-          const aP = String(a.part || '').toLowerCase()
-          const bP = String(b.part || '').toLowerCase()
-          if (aP === pValLower && bP !== pValLower) return -1
-          if (bP === pValLower && aP !== pValLower) return 1
-          if (aP.startsWith(pValLower) && !bP.startsWith(pValLower)) return -1
-          if (!aP.startsWith(pValLower) && bP.startsWith(pValLower)) return 1
-          return 0
-        })
-
-        setAssemblyList(formatted)
-        setSelectedPartId(null)
-        setUploadedPartIds([])
-        if (matchingIndex.modelNo && !form.modelNo) {
-          setForm(f => ({
-            ...f,
-            modelNo: matchingIndex.modelNo,
-            model: matchingIndex.model || f.model,
-            fileName: matchingIndex.fileName || f.fileName,
-            fileLocation: matchingIndex.fileLocation || f.fileLocation
-          }))
-        }
-        toast.success(`Loaded ${formatted.length} child components for Assembly Part No "${partNoVal}".`)
-        return
-      }
+    // If assemblyList is already loaded, auto-select if exact match found
+    const matchingInList = assemblyList.find(item => String(item.part || '').trim().toLowerCase() === pValLower)
+    if (matchingInList) {
+      setSelectedPartId(matchingInList.id)
+      return
     }
 
-    if (matchingBom) {
-      const rawRows = matchingBom.excelRows
-      const rows = Array.isArray(rawRows) ? rawRows : []
-      if (rows && rows.length > 0) {
-        let formatted = rows.map((r, idx) => {
-          const partNo = r.PartNo || r['Part No'] || r.partNo || r['Part Number'] || r.itemCode || `P-${idx + 1}`
-          const desc = r.PartName || r['Part Name'] || r.partName || r.description || r.desc || r.Name || '—'
-          const qty = r.Qty || r.qty || 1
-          const unit = r.Unit || r.unit || r.UOM || r.uom || 'PCS'
-          const image = r.Image || r.image || r.Pic || r.pic || null
-          return { id: idx + 1, part: partNo, desc, qty, unit, image }
-        })
+    // If assemblyList is empty, allow loading from index/bom records
+    if (assemblyList.length === 0) {
+      const matchingIndex = indexRecords.find(i => 
+        (i.assemblyPartNo && String(i.assemblyPartNo).trim().toLowerCase() === pValLower) ||
+        (i.modelNo && String(i.modelNo).trim().toLowerCase() === pValLower)
+      ) || indexRecords.find(i =>
+        (i.assemblyPartNo && String(i.assemblyPartNo).trim().toLowerCase().includes(pValLower)) ||
+        (i.modelNo && String(i.modelNo).trim().toLowerCase().includes(pValLower)) ||
+        (i.excelData && JSON.stringify(i.excelData).toLowerCase().includes(pValLower))
+      )
 
-        // Sort so the searched part number comes first
-        formatted.sort((a, b) => {
-          const aP = String(a.part || '').toLowerCase()
-          const bP = String(b.part || '').toLowerCase()
-          if (aP === pValLower && bP !== pValLower) return -1
-          if (bP === pValLower && aP !== pValLower) return 1
-          if (aP.startsWith(pValLower) && !bP.startsWith(pValLower)) return -1
-          if (!aP.startsWith(pValLower) && bP.startsWith(pValLower)) return 1
-          return 0
-        })
+      const matchingBom = bomRecords.find(b =>
+        (b.assemblyPartNo && String(b.assemblyPartNo).trim().toLowerCase() === pValLower) ||
+        (b.bomNo && String(b.bomNo).trim().toLowerCase() === pValLower)
+      ) || bomRecords.find(b =>
+        (b.assemblyPartNo && String(b.assemblyPartNo).trim().toLowerCase().includes(pValLower)) ||
+        (b.bomNo && String(b.bomNo).trim().toLowerCase().includes(pValLower)) ||
+        (b.excelRows && JSON.stringify(b.excelRows).toLowerCase().includes(pValLower))
+      )
 
-        setAssemblyList(formatted)
-        setSelectedPartId(null)
-        setUploadedPartIds([])
-        if (matchingBom.model && !form.model) {
-          setForm(f => ({
-            ...f,
-            model: matchingBom.model || f.model,
-            fileName: matchingBom.fileName || f.fileName,
-          }))
+      if (matchingIndex) {
+        const rawRows = matchingIndex.excelData
+        const rows = Array.isArray(rawRows) ? rawRows : (rawRows?.excelData || [])
+        if (rows && rows.length > 0) {
+          let formatted = rows.map((r, idx) => {
+            const partNo = r.PartNo || r['Part No'] || r.partNo || r['Part Number'] || r.itemCode || `P-${idx + 1}`
+            const desc = r.PartName || r['Part Name'] || r.partName || r.description || r.desc || r.Name || '—'
+            const qty = r.Qty || r.qty || 1
+            const unit = r.Unit || r.unit || r.UOM || r.uom || 'PCS'
+            const image = r.Image || r.image || r.Pic || r.pic || null
+            return { id: idx + 1, part: partNo, desc, qty, unit, image }
+          })
+
+          const prevUploadedIds = formatted
+            .filter(item => isPartUploadedInBom(item.part, matchingIndex.model, matchingIndex.modelNo))
+            .map(item => item.id)
+
+          setAssemblyList(formatted)
+          setSelectedPartId(null)
+          setUploadedPartIds(prevUploadedIds)
+          if (matchingIndex.modelNo && !form.modelNo) {
+            setForm(f => ({
+              ...f,
+              modelNo: matchingIndex.modelNo,
+              model: matchingIndex.model || f.model,
+              fileName: matchingIndex.fileName || f.fileName,
+              fileLocation: matchingIndex.fileLocation || f.fileLocation
+            }))
+          }
+          toast.success(`Loaded ${formatted.length} child components for "${partNoVal}". ${prevUploadedIds.length} previously uploaded to BOM.`)
+          return
         }
-        toast.success(`Loaded ${formatted.length} child components from BOM for "${partNoVal}".`)
-        return
+      }
+
+      if (matchingBom) {
+        const rawRows = matchingBom.excelRows
+        const rows = Array.isArray(rawRows) ? rawRows : []
+        if (rows && rows.length > 0) {
+          let formatted = rows.map((r, idx) => {
+            const partNo = r.PartNo || r['Part No'] || r.partNo || r['Part Number'] || r.itemCode || `P-${idx + 1}`
+            const desc = r.PartName || r['Part Name'] || r.partName || r.description || r.desc || r.Name || '—'
+            const qty = r.Qty || r.qty || 1
+            const unit = r.Unit || r.unit || r.UOM || r.uom || 'PCS'
+            const image = r.Image || r.image || r.Pic || r.pic || null
+            return { id: idx + 1, part: partNo, desc, qty, unit, image }
+          })
+
+          setAssemblyList(formatted)
+          setSelectedPartId(null)
+          setUploadedPartIds(formatted.map(r => r.id))
+          if (matchingBom.model && !form.model) {
+            setForm(f => ({
+              ...f,
+              model: matchingBom.model || f.model,
+              fileName: matchingBom.fileName || f.fileName,
+            }))
+          }
+          toast.success(`Loaded ${formatted.length} child components from BOM for "${partNoVal}".`)
+          return
+        }
       }
     }
   }
 
-  // Prioritize searched part numbers to come first in table view
+  // Prioritize searched part numbers to come first in table view (reacts to both listSearch and assemblyPartNo)
   const displayedAssemblyList = useMemo(() => {
-    const q = (listSearch || '').trim().toLowerCase()
+    const q = (listSearch || form.assemblyPartNo || '').trim().toLowerCase()
     if (!q) return assemblyList
 
     const exact = []
@@ -358,7 +429,7 @@ export default function UploadBOM() {
     })
 
     return [...exact, ...startsWith, ...includes, ...others]
-  }, [assemblyList, listSearch])
+  }, [assemblyList, listSearch, form.assemblyPartNo])
 
   // 6. Handle Browse Click & Excel File Upload
   const handleBrowseClick = () => {
@@ -535,7 +606,7 @@ export default function UploadBOM() {
     }
   }
 
-  const handleProcess = () => {
+  const handleProcess = async () => {
     if (assemblyList.length === 0) {
       toast.warning('No items in Processed Assembly List to upload.')
       return
@@ -553,11 +624,31 @@ export default function UploadBOM() {
     if (!selectedItem) return
 
     setIsProcessing(true)
-    setTimeout(() => {
+    try {
+      const payload = {
+        date: form.date,
+        customerName: 'Internal Customer',
+        serviceJobNo: `JOB-${form.modelNo || 'BOM'}`,
+        model: form.model || form.modelNo || '',
+        assemblyPartNo: selectedItem.part,
+        fileName: form.fileName || `${selectedItem.part}.xlsx`,
+        fileLocation: form.fileLocation || '',
+        excelRows: [selectedItem]
+      }
+      try {
+        const res = await api.post('/api/bom-creation', payload)
+        if (res.data?.success && res.data?.data) {
+          setBomRecords(prev => [res.data.data, ...prev])
+        }
+      } catch (e) {
+        console.warn('Backend BOM save notice:', e)
+      }
+
       setUploadedPartIds(prev => [...prev, selectedPartId])
-      setIsProcessing(false)
       toast.success(`Successfully uploaded BOM Specification for Part "${selectedItem.part}"!`)
-    }, 400)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleReset = () => {
@@ -765,7 +856,10 @@ export default function UploadBOM() {
                             return (
                               <tr 
                                 key={item.id} 
-                                onClick={() => setSelectedPartId(item.id)}
+                                onClick={() => {
+                                  setSelectedPartId(item.id)
+                                  setForm(f => ({ ...f, assemblyPartNo: item.part }))
+                                }}
                                 className={`${rowBg} transition-colors group h-12 border-b border-slate-100 cursor-pointer`}
                               >
                                 <td className="px-4 py-2 text-center border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
@@ -773,7 +867,10 @@ export default function UploadBOM() {
                                     type="radio"
                                     name="selectedAssemblyPart"
                                     checked={isSelected}
-                                    onChange={() => setSelectedPartId(item.id)}
+                                    onChange={() => {
+                                      setSelectedPartId(item.id)
+                                      setForm(f => ({ ...f, assemblyPartNo: item.part }))
+                                    }}
                                     className="w-4 h-4 text-[#0097A7] focus:ring-[#0097A7] cursor-pointer"
                                   />
                                 </td>
