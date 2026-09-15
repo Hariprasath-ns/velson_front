@@ -70,7 +70,7 @@ const resolveImageSrc = (val) => {
 
 const reorderHeaders = (headers) => {
   if (!headers || !headers.length) return [];
-  
+
   // Find Part No header
   const partNoHeader = headers.find(h => {
     const l = h.toLowerCase();
@@ -170,7 +170,7 @@ export default function IndexCreation() {
   const [viewPopupImage, setViewPopupImage] = useState(null)
 
 
-  
+
   const [searchQuery, setSearchQuery] = useState('')
   const [filterColumn, setFilterColumn] = useState('')
   const [rowsPerPage, setRowsPerPage] = useState(10)
@@ -199,7 +199,7 @@ export default function IndexCreation() {
       const val = row[filterColumn]
       return val && String(val).toLowerCase().includes(searchQuery.toLowerCase())
     }
-    return Object.values(row).some(val => 
+    return Object.values(row).some(val =>
       val && String(val).toLowerCase().includes(searchQuery.toLowerCase())
     )
   })
@@ -243,7 +243,7 @@ export default function IndexCreation() {
             imageMap[`${rowIdx}_${colIdx}`] = imgSrc
           })
         }
-      } catch {}
+      } catch { }
 
       // Ensure Item Master list is ready for matching
       let currentItemMaster = itemMaster
@@ -252,7 +252,7 @@ export default function IndexCreation() {
           const imRes = await api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
           currentItemMaster = imRes.data?.data || []
           setItemMaster(currentItemMaster)
-        } catch {}
+        } catch { }
       }
 
       const itemMasterMap = new Map()
@@ -278,23 +278,23 @@ export default function IndexCreation() {
           const l = h.toLowerCase()
           return l.includes('part name') || l.includes('name') || l.includes('desc') || l.includes('description') || l === 'partname' || l === 'part_name'
         })
-        
+
         for (let i = 1; i < data.length; i++) {
           const rowArr = data[i]
           if (!rowArr || rowArr.length === 0 || rowArr.every(cell => !cell)) continue
-          
+
           const rowObj = {}
           let missingFields = []
-          
+
           headers.forEach((h, idx) => {
-             if (h) {
-                const val = rowArr[idx] !== undefined && rowArr[idx] !== null ? String(rowArr[idx]).trim() : ''
-                const imgKey = `${i}_${idx}`
-                rowObj[h] = imageMap[imgKey] || val
-                if (!val && !imageMap[imgKey]) {
-                   missingFields.push(h)
-                }
-             }
+            if (h) {
+              const val = rowArr[idx] !== undefined && rowArr[idx] !== null ? String(rowArr[idx]).trim() : ''
+              const imgKey = `${i}_${idx}`
+              rowObj[h] = imageMap[imgKey] || val
+              if (!val && !imageMap[imgKey]) {
+                missingFields.push(h)
+              }
+            }
           })
 
           const partNoVal = partNoHeader ? String(rowObj[partNoHeader] || '').trim() : ''
@@ -330,7 +330,7 @@ export default function IndexCreation() {
             validRows.push({ ...rowObj, _rowNum: i + 1 })
           }
         }
-        
+
         setExcelHeaders(reorderHeaders(headers.filter(h => h)))
         setExcelData(validRows)
         setSkippedRecords(skippedRows)
@@ -404,28 +404,28 @@ export default function IndexCreation() {
   const handleSkippedCellEdit = (index, header, newVal) => {
     setSkippedRecords(prev => prev.map((r, i) => {
       if (i === index) {
-         const newData = { ...r.data, [header]: newVal }
-         const missing = excelHeaders.filter(h => !newData[h])
-         
-         const partNoHeader = excelHeaders.find(isPartNoHeader)
-         const partNoVal = partNoHeader ? String(newData[partNoHeader] || '').trim() : ''
-         const matchedItem = partNoVal ? itemMaster.find(im => String(im.partNo).trim().toLowerCase() === partNoVal.toLowerCase()) : null
+        const newData = { ...r.data, [header]: newVal }
+        const missing = excelHeaders.filter(h => !newData[h])
 
-         let reason = ''
-         if (partNoHeader && !matchedItem) {
-           reason = partNoVal ? `Part No "${partNoVal}" not found in Item Master` : 'Missing Part Number'
-         } else if (missing.length > 0) {
-           reason = `Missing data for: ${missing.join(', ')}`
-         } else {
-           reason = 'All issues fixed. Ready for download/saving.'
-         }
+        const partNoHeader = excelHeaders.find(isPartNoHeader)
+        const partNoVal = partNoHeader ? String(newData[partNoHeader] || '').trim() : ''
+        const matchedItem = partNoVal ? itemMaster.find(im => String(im.partNo).trim().toLowerCase() === partNoVal.toLowerCase()) : null
 
-         return {
-           ...r,
-           data: newData,
-           missingFields: missing,
-           reason
-         }
+        let reason = ''
+        if (partNoHeader && !matchedItem) {
+          reason = partNoVal ? `Part No "${partNoVal}" not found in Item Master` : 'Missing Part Number'
+        } else if (missing.length > 0) {
+          reason = `Missing data for: ${missing.join(', ')}`
+        } else {
+          reason = 'All issues fixed. Ready for download/saving.'
+        }
+
+        return {
+          ...r,
+          data: newData,
+          missingFields: missing,
+          reason
+        }
       }
       return r
     }))
@@ -589,7 +589,7 @@ export default function IndexCreation() {
         const next = res.data.nextNo
         setForm(f => ({ ...f, indexNo: String(next).padStart(3, '0') }))
       }
-    } catch {}
+    } catch { }
   }
 
   const loadForEdit = async (id) => {
@@ -650,6 +650,16 @@ export default function IndexCreation() {
       return
     }
 
+    if (excelData.length === 0 && skippedRecords.length > 0) {
+      toast.warning(`Cannot Save: All ${skippedRecords.length} item(s) were moved to Skipped Records (not found in Item Master or missing data).`)
+      return
+    }
+
+    if (excelData.length === 0) {
+      toast.warning('Cannot Save: No valid Excel items loaded to save.')
+      return
+    }
+
     const trimmedModel = (form.model || '').trim().toLowerCase()
     const trimmedModelNo = (form.modelNo || '').trim().toLowerCase()
 
@@ -668,9 +678,9 @@ export default function IndexCreation() {
       const combined = []
       excelData.forEach(r => combined.push({ _rowNum: r._rowNum, ...r }))
       skippedRecords.forEach(r => combined.push({ _rowNum: r.row, ...r.data }))
-      
+
       combined.sort((a, b) => a._rowNum - b._rowNum)
-      
+
       const finalExcelData = combined.map(row => {
         const { _rowNum, ...cleanRow } = row
         return cleanRow
@@ -780,310 +790,310 @@ export default function IndexCreation() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            <div className="grid grid-cols-12 gap-10">
-              {/* Center Column: Form Fields */}
-              <div className="col-span-12 max-w-2xl mx-auto w-full">
-                <div className="space-y-5 bg-slate-50/30 p-6 rounded-2xl border border-slate-100 shadow-inner">
-                  <div className="grid grid-cols-12 items-center gap-4">
-                    <div className="col-span-3"><Label>Creation Date</Label></div>
-                    <div className="col-span-4"><Input type="date" value={form.date} readOnly /></div>
-                    <div className="col-span-2 text-right"><Label>ID No</Label></div>
-                    <div className="col-span-3"><Input value={form.indexNo} readOnly className="!font-black text-[#0097A7] !bg-white text-center tracking-widest" /></div>
-                  </div>
+          <div className="grid grid-cols-12 gap-10">
+            {/* Center Column: Form Fields */}
+            <div className="col-span-12 max-w-2xl mx-auto w-full">
+              <div className="space-y-5 bg-slate-50/30 p-6 rounded-2xl border border-slate-100 shadow-inner">
+                <div className="grid grid-cols-12 items-center gap-4">
+                  <div className="col-span-3"><Label>Creation Date</Label></div>
+                  <div className="col-span-4"><Input type="date" value={form.date} readOnly /></div>
+                  <div className="col-span-2 text-right"><Label>ID No</Label></div>
+                  <div className="col-span-3"><Input value={form.indexNo} readOnly className="!font-black text-[#0097A7] !bg-white text-center tracking-widest" /></div>
+                </div>
 
-                  <div className="grid grid-cols-12 items-center gap-4">
-                    <div className="col-span-3"><Label required>Model</Label></div>
-                    <div className="col-span-9">
-                      <Select
-                        options={vehicleModels}
-                        value={form.model}
-                        onChange={u('model')}
-                        placeholder="--- Select Primary Model ---"
-                      />
-                    </div>
+                <div className="grid grid-cols-12 items-center gap-4">
+                  <div className="col-span-3"><Label required>Model</Label></div>
+                  <div className="col-span-9">
+                    <Select
+                      options={vehicleModels}
+                      value={form.model}
+                      onChange={u('model')}
+                      placeholder="--- Select Primary Model ---"
+                    />
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-12 items-center gap-4">
-                    <div className="col-span-3"><Label required>Model No</Label></div>
-                    <div className="col-span-9"><Input placeholder="Enter Model Serial Number..." value={form.modelNo} onChange={u('modelNo')} /></div>
+                <div className="grid grid-cols-12 items-center gap-4">
+                  <div className="col-span-3"><Label required>Model No</Label></div>
+                  <div className="col-span-9"><Input placeholder="Enter Model Serial Number..." value={form.modelNo} onChange={u('modelNo')} /></div>
+                </div>
+
+                <div className="grid grid-cols-12 items-center gap-4">
+                  <div className="col-span-3"><Label>File Name & Location</Label></div>
+                  <div className="col-span-9">
+                    <Input placeholder="Index_V1.xlsx" value={form.fileName} onChange={u('fileName')} />
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-12 items-center gap-4">
-                    <div className="col-span-3"><Label>File Name & Location</Label></div>
-                    <div className="col-span-9">
-                      <Input placeholder="Index_V1.xlsx" value={form.fileName} onChange={u('fileName')} />
-                    </div>
+                <div className="grid grid-cols-12 items-center gap-4">
+                  <div className="col-span-3"><Label>Excel Sheet number</Label></div>
+                  <div className="col-span-9">
+                    <Input placeholder="1" value={form.fileLocation} readOnly onChange={u('fileLocation')} />
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-12 items-center gap-4">
-                    <div className="col-span-3"><Label>Excel Sheet number</Label></div>
-                    <div className="col-span-9">
-                      <Input placeholder="1" value={form.fileLocation} readOnly onChange={u('fileLocation')} />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 pt-4 border-t border-slate-100">
-                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx, .xls" className="hidden" />
-                    <button type="button" onClick={handleBrowseClick} className="flex-1 flex items-center justify-center gap-2 py-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-[13px] font-bold rounded-xl transition-all shadow-sm active:scale-95">
-                      <Search size={18} className="text-[#0097A7]" /> Browse
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#0097A7] hover:bg-[#007a87] text-white text-[13px] font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                    >
+                <div className="flex gap-4 pt-4 border-t border-slate-100">
+                  <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx, .xls" className="hidden" />
+                  <button type="button" onClick={handleBrowseClick} className="flex-1 flex items-center justify-center gap-2 py-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-[13px] font-bold rounded-xl transition-all shadow-sm active:scale-95">
+                    <Search size={18} className="text-[#0097A7]" /> Browse
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#0097A7] hover:bg-[#007a87] text-white text-[13px] font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  >
                     {isSaving ? <RotateCcw size={18} className="animate-spin" /> : <Save size={18} />}
                     {isSaving ? 'Saving...' : editRecordId ? 'Update Index' : 'Save Index'}
-                    </button>
-                  </div>
+                  </button>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Table Section */}
-            {allRows.length > 0 && (
-              <div className="mt-12">
-                <div className="space-y-3 px-2 mb-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[14px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 whitespace-nowrap">
-                      <div className="w-3 h-3 bg-red-700 rounded-full" />
-                      Excel Data Preview
-                    </h3>
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
-                      {isEditMode ? (
-                        <>
-                          <button 
-                            onClick={() => {
-                              if (backupData) {
-                                setExcelData(backupData.excelData)
-                                setSkippedRecords(backupData.skippedRecords)
-                              }
-                              setIsEditMode(false)
-                              setBackupData(null)
-                            }}
-                            className="flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] font-bold rounded-lg transition-all shadow-sm bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                          >
-                            Exit Edit Mode
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setIsEditMode(false)
-                              setBackupData(null)
-                            }}
-                            className="flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] font-bold rounded-lg transition-all shadow-sm bg-slate-700 text-white border-slate-700 hover:bg-slate-800"
-                          >
-                            Save
-                          </button>
-                        </>
-                      ) : (
-                        <button 
+          {/* Table Section */}
+          {allRows.length > 0 && (
+            <div className="mt-12">
+              <div className="space-y-3 px-2 mb-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[14px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 whitespace-nowrap">
+                    <div className="w-3 h-3 bg-red-700 rounded-full" />
+                    Excel Data Preview
+                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {isEditMode ? (
+                      <>
+                        <button
                           onClick={() => {
-                            setBackupData({
-                              excelData: JSON.parse(JSON.stringify(excelData)),
-                              skippedRecords: JSON.parse(JSON.stringify(skippedRecords))
-                            })
-                            setIsEditMode(true)
+                            if (backupData) {
+                              setExcelData(backupData.excelData)
+                              setSkippedRecords(backupData.skippedRecords)
+                            }
+                            setIsEditMode(false)
+                            setBackupData(null)
                           }}
                           className="flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] font-bold rounded-lg transition-all shadow-sm bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                         >
-                          Enter Edit Mode
+                          Exit Edit Mode
                         </button>
-                      )}
-                      {isEditMode && (
-                        <button 
-                          onClick={() => setShowSkippedOnly(!showSkippedOnly)}
-                          className={`flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] font-bold rounded-lg transition-all shadow-sm ${showSkippedOnly ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                        <button
+                          onClick={() => {
+                            setIsEditMode(false)
+                            setBackupData(null)
+                          }}
+                          className="flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] font-bold rounded-lg transition-all shadow-sm bg-slate-700 text-white border-slate-700 hover:bg-slate-800"
                         >
-                          <FileSpreadsheet size={14} /> {showSkippedOnly ? 'Show All' : `Skipped Records (${skippedRecords.length})`}
+                          Save
                         </button>
-                      )}
-                      <button 
-                        onClick={handleDownloadFixedExcel}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm"
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setBackupData({
+                            excelData: JSON.parse(JSON.stringify(excelData)),
+                            skippedRecords: JSON.parse(JSON.stringify(skippedRecords))
+                          })
+                          setIsEditMode(true)
+                        }}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] font-bold rounded-lg transition-all shadow-sm bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                       >
-                        <Download size={14} /> Download Excel
+                        Enter Edit Mode
                       </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-end gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[12px] font-bold text-slate-500">Rows per page:</span>
-                      <select 
-                        value={rowsPerPage} 
-                        onChange={e => setRowsPerPage(Number(e.target.value))}
-                        className="px-2 py-1.5 text-[12px] font-bold border border-slate-200 rounded-lg focus:outline-none focus:border-[#0097A7] text-slate-700 bg-white cursor-pointer"
+                    )}
+                    {isEditMode && (
+                      <button
+                        onClick={() => setShowSkippedOnly(!showSkippedOnly)}
+                        className={`flex items-center gap-1.5 px-3.5 py-1.5 border text-[11px] font-bold rounded-lg transition-all shadow-sm ${showSkippedOnly ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                       >
-                        <option value={10}>10</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                        <option value={allRows.length}>All</option>
-                      </select>
-                    </div>
-                    <div className="h-5 w-px bg-slate-200" />
-                    <select 
-                      value={filterColumn} 
-                      onChange={e => setFilterColumn(e.target.value)}
-                      className="px-3 py-1.5 text-[12px] font-bold border border-slate-200 rounded-lg focus:outline-none focus:border-[#0097A7] text-slate-700 bg-white min-w-[120px] cursor-pointer"
+                        <FileSpreadsheet size={14} /> {showSkippedOnly ? 'Show All' : `Skipped Records (${skippedRecords.length})`}
+                      </button>
+                    )}
+                    <button
+                      onClick={handleDownloadFixedExcel}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm"
                     >
-                      <option value="">All Columns</option>
-                      {excelHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-                    </select>
-                    <div className="relative">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input 
-                        type="text" 
-                        placeholder="Search data..." 
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        className="pl-8 pr-3 py-1.5 text-[12px] font-medium border border-slate-200 rounded-lg focus:outline-none focus:border-[#0097A7] focus:ring-1 focus:ring-[#0097A7] w-64 bg-white"
-                      />
-                    </div>
+                      <Download size={14} /> Download Excel
+                    </button>
                   </div>
                 </div>
-                <div className="border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm overflow-x-auto bg-white">
-                  <table className="w-full text-left border-collapse border border-slate-300 table-fixed">
-                    <thead className="bg-slate-100 text-[11px] uppercase text-slate-700 font-black border-b-2 border-slate-300 whitespace-nowrap">
-                      <tr>
-                        <th className="px-4 py-3.5 border-r border-slate-300 w-16 text-center bg-slate-100">#</th>
-                        {excelHeaders.map(header => {
-                          const isPartName = isPartNameHeader(header);
-                          const isPartNo = isPartNoHeader(header);
-                          const isImg = isImageHeader(header);
-                          const isUom = isUOMHeader(header);
-                          let widthClass = "w-[150px]";
-                          if (isPartNo) widthClass = "w-[160px]";
-                          else if (isPartName) widthClass = "w-[280px]";
-                          else if (isImg) widthClass = "w-[120px]";
-                          else if (isUom) widthClass = "w-[100px]";
+                <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-bold text-slate-500">Rows per page:</span>
+                    <select
+                      value={rowsPerPage}
+                      onChange={e => setRowsPerPage(Number(e.target.value))}
+                      className="px-2 py-1.5 text-[12px] font-bold border border-slate-200 rounded-lg focus:outline-none focus:border-[#0097A7] text-slate-700 bg-white cursor-pointer"
+                    >
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={allRows.length}>All</option>
+                    </select>
+                  </div>
+                  <div className="h-5 w-px bg-slate-200" />
+                  <select
+                    value={filterColumn}
+                    onChange={e => setFilterColumn(e.target.value)}
+                    className="px-3 py-1.5 text-[12px] font-bold border border-slate-200 rounded-lg focus:outline-none focus:border-[#0097A7] text-slate-700 bg-white min-w-[120px] cursor-pointer"
+                  >
+                    <option value="">All Columns</option>
+                    {excelHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search data..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 text-[12px] font-medium border border-slate-200 rounded-lg focus:outline-none focus:border-[#0097A7] focus:ring-1 focus:ring-[#0097A7] w-64 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="border-2 border-slate-300 rounded-xl overflow-hidden shadow-sm overflow-x-auto bg-white">
+                <table className="w-full text-left border-collapse border border-slate-300 table-fixed">
+                  <thead className="bg-slate-100 text-[11px] uppercase text-slate-700 font-black border-b-2 border-slate-300 whitespace-nowrap">
+                    <tr>
+                      <th className="px-4 py-3.5 border-r border-slate-300 w-16 text-center bg-slate-100">#</th>
+                      {excelHeaders.map(header => {
+                        const isPartName = isPartNameHeader(header);
+                        const isPartNo = isPartNoHeader(header);
+                        const isImg = isImageHeader(header);
+                        const isUom = isUOMHeader(header);
+                        let widthClass = "w-[150px]";
+                        if (isPartNo) widthClass = "w-[160px]";
+                        else if (isPartName) widthClass = "w-[280px]";
+                        else if (isImg) widthClass = "w-[120px]";
+                        else if (isUom) widthClass = "w-[100px]";
 
-                          return (
-                            <th 
-                              key={header} 
-                              className={`px-4 py-3.5 border-r border-slate-300 bg-slate-100 ${widthClass} ${isPartName ? 'max-w-[200px] truncate' : ''}`}
-                              title={isPartName ? header : undefined}
-                            >
-                              {header}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 text-[13px]">
-                      {paginatedData.length > 0 ? paginatedData.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 border-b border-slate-200 transition-colors h-16 group">
-                          <td className="px-4 py-3 border-r border-slate-300 text-center text-slate-500 font-bold bg-slate-50/50">
-                            {(currentPage - 1) * rowsPerPage + idx + 1}
-                          </td>
-                          {excelHeaders.map(header => {
-                            const isImg = isImageHeader(header) || !!resolveImageSrc(row[header])
-                            if (isImg) {
-                              const imgSrc = resolveImageSrc(row[header])
-                              return (
-                                <td key={header} className="px-4 py-3 border-r border-slate-200 text-center align-middle">
-                                  {imgSrc ? (
-                                    <div 
-                                      className="w-20 h-20 rounded border border-slate-300 overflow-hidden bg-slate-50 cursor-pointer hover:opacity-85 transition-opacity inline-flex items-center justify-center shadow-sm"
-                                      onClick={() => setViewPopupImage(row[header])}
-                                    >
-                                      <img src={imgSrc} alt="preview" className="w-full h-full object-contain" />
-                                    </div>
-                                  ) : row[header] ? (
-                                    <span className="text-slate-700 text-xs font-semibold bg-slate-100 px-2 py-1 rounded border border-slate-300 truncate max-w-[120px] inline-block shadow-inner" title={row[header]}>
-                                      📄 {row[header]}
-                                    </span>
-                                  ) : isEditMode ? (
-                                    <label className="inline-flex items-center justify-center w-8 h-8 rounded bg-slate-100 hover:bg-[#0097A7] text-slate-500 hover:text-white cursor-pointer transition-colors shadow-sm border border-slate-300">
-                                      <Upload size={14} />
-                                      <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="hidden" 
-                                        onChange={(e) => {
-                                          const file = e.target.files[0]
-                                          if (file) {
-                                            const reader = new FileReader()
-                                            reader.onload = (evt) => {
-                                              handleCellEdit(row._rowNum, header, evt.target.result, row._isSkipped)
-                                            }
-                                            reader.readAsDataURL(file)
-                                          }
-                                        }}
-                                      />
-                                    </label>
-                                  ) : (
-                                    <span className="text-slate-400 italic">—</span>
-                                  )}
-                                </td>
-                              )
-                            }
-                            const isPartName = isPartNameHeader(header);
+                        return (
+                          <th
+                            key={header}
+                            className={`px-4 py-3.5 border-r border-slate-300 bg-slate-100 ${widthClass} ${isPartName ? 'max-w-[200px] truncate' : ''}`}
+                            title={isPartName ? header : undefined}
+                          >
+                            {header}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 text-[13px]">
+                    {paginatedData.length > 0 ? paginatedData.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50 border-b border-slate-200 transition-colors h-16 group">
+                        <td className="px-4 py-3 border-r border-slate-300 text-center text-slate-500 font-bold bg-slate-50/50">
+                          {(currentPage - 1) * rowsPerPage + idx + 1}
+                        </td>
+                        {excelHeaders.map(header => {
+                          const isImg = isImageHeader(header) || !!resolveImageSrc(row[header])
+                          if (isImg) {
+                            const imgSrc = resolveImageSrc(row[header])
                             return (
-                              <td 
-                                key={header} 
-                                className={`px-4 py-3 border-r border-slate-200 font-medium whitespace-nowrap truncate ${isPartName ? 'max-w-[200px]' : ''} ${!row[header] ? 'bg-rose-50/80 text-slate-400' : 'text-slate-800'} ${isEditMode ? 'hover:bg-slate-50 cursor-text outline-none focus:bg-white focus:ring-2 focus:ring-[#0097A7]/40 focus:ring-inset' : ''}`}
-                                contentEditable={isEditMode}
-                                suppressContentEditableWarning
-                                onBlur={(e) => handleCellEdit(row._rowNum, header, e.target.textContent, row._isSkipped)}
-                                title={row[header] || ''}
-                              >
-                                {row[header] || ''}
+                              <td key={header} className="px-4 py-3 border-r border-slate-200 text-center align-middle">
+                                {imgSrc ? (
+                                  <div
+                                    className="w-20 h-20 rounded border border-slate-300 overflow-hidden bg-slate-50 cursor-pointer hover:opacity-85 transition-opacity inline-flex items-center justify-center shadow-sm"
+                                    onClick={() => setViewPopupImage(row[header])}
+                                  >
+                                    <img src={imgSrc} alt="preview" className="w-full h-full object-contain" />
+                                  </div>
+                                ) : row[header] ? (
+                                  <span className="text-slate-700 text-xs font-semibold bg-slate-100 px-2 py-1 rounded border border-slate-300 truncate max-w-[120px] inline-block shadow-inner" title={row[header]}>
+                                    📄 {row[header]}
+                                  </span>
+                                ) : isEditMode ? (
+                                  <label className="inline-flex items-center justify-center w-8 h-8 rounded bg-slate-100 hover:bg-[#0097A7] text-slate-500 hover:text-white cursor-pointer transition-colors shadow-sm border border-slate-300">
+                                    <Upload size={14} />
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files[0]
+                                        if (file) {
+                                          const reader = new FileReader()
+                                          reader.onload = (evt) => {
+                                            handleCellEdit(row._rowNum, header, evt.target.result, row._isSkipped)
+                                          }
+                                          reader.readAsDataURL(file)
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                ) : (
+                                  <span className="text-slate-400 italic">—</span>
+                                )}
                               </td>
                             )
-                          })}
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td colSpan={excelHeaders.length + 1} className="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/50">
-                            <div className="flex flex-col items-center justify-center gap-2">
-                              <Search size={24} className="text-slate-300" />
-                              <p>No matching data found.</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-2 mt-4">
-                    <p className="text-[12px] font-medium text-slate-500">
-                      Showing <span className="font-bold text-slate-700">{(currentPage - 1) * rowsPerPage + 1}</span> to <span className="font-bold text-slate-700">{Math.min(currentPage * rowsPerPage, filteredData.length)}</span> of <span className="font-bold text-slate-700">{filteredData.length}</span> entries
-                    </p>
-                    <div className="flex gap-1.5">
-                      <button 
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="px-3.5 py-1.5 text-[12px] font-bold text-slate-600 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition-colors disabled:hover:bg-white"
-                      >
-                        Prev
-                      </button>
-                      <div className="flex items-center gap-1 mx-2">
-                        <span className="text-[12px] font-bold text-slate-700">Page {currentPage}</span>
-                        <span className="text-[12px] font-medium text-slate-500">of {totalPages}</span>
-                      </div>
-                      <button 
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3.5 py-1.5 text-[12px] font-bold text-slate-600 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition-colors disabled:hover:bg-white"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                )}
+                          }
+                          const isPartName = isPartNameHeader(header);
+                          return (
+                            <td
+                              key={header}
+                              className={`px-4 py-3 border-r border-slate-200 font-medium whitespace-nowrap truncate ${isPartName ? 'max-w-[200px]' : ''} ${!row[header] ? 'bg-rose-50/80 text-slate-400' : 'text-slate-800'} ${isEditMode ? 'hover:bg-slate-50 cursor-text outline-none focus:bg-white focus:ring-2 focus:ring-[#0097A7]/40 focus:ring-inset' : ''}`}
+                              contentEditable={isEditMode}
+                              suppressContentEditableWarning
+                              onBlur={(e) => handleCellEdit(row._rowNum, header, e.target.textContent, row._isSkipped)}
+                              title={row[header] || ''}
+                            >
+                              {row[header] || ''}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={excelHeaders.length + 1} className="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/50">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Search size={24} className="text-slate-300" />
+                            <p>No matching data found.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
 
-          </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-2 mt-4">
+                  <p className="text-[12px] font-medium text-slate-500">
+                    Showing <span className="font-bold text-slate-700">{(currentPage - 1) * rowsPerPage + 1}</span> to <span className="font-bold text-slate-700">{Math.min(currentPage * rowsPerPage, filteredData.length)}</span> of <span className="font-bold text-slate-700">{filteredData.length}</span> entries
+                  </p>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3.5 py-1.5 text-[12px] font-bold text-slate-600 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition-colors disabled:hover:bg-white"
+                    >
+                      Prev
+                    </button>
+                    <div className="flex items-center gap-1 mx-2">
+                      <span className="text-[12px] font-bold text-slate-700">Page {currentPage}</span>
+                      <span className="text-[12px] font-medium text-slate-500">of {totalPages}</span>
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3.5 py-1.5 text-[12px] font-bold text-slate-600 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition-colors disabled:hover:bg-white"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
-        {viewPopupImage && (
-        <div 
+      </div>
+      {viewPopupImage && (
+        <div
           className="fixed inset-0 z-[10000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setViewPopupImage(null)}
         >
-          <div 
+          <div
             className="relative max-w-4xl max-h-[90vh] bg-white rounded-lg p-2 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
@@ -1093,9 +1103,9 @@ export default function IndexCreation() {
             >
               ✕
             </button>
-            <img 
-              src={viewPopupImage.startsWith('data:') ? viewPopupImage : `data:image/png;base64,${viewPopupImage}`} 
-              alt="full size preview" 
+            <img
+              src={viewPopupImage.startsWith('data:') ? viewPopupImage : `data:image/png;base64,${viewPopupImage}`}
+              alt="full size preview"
               className="max-w-full max-h-[80vh] object-contain rounded"
             />
           </div>

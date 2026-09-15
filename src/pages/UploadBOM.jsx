@@ -404,32 +404,17 @@ export default function UploadBOM() {
     }
   }
 
-  // Prioritize searched part numbers to come first in table view (reacts to both listSearch and assemblyPartNo)
+  // Processed Assembly List filter (preserves original fixed row order)
   const displayedAssemblyList = useMemo(() => {
-    const q = (listSearch || form.assemblyPartNo || '').trim().toLowerCase()
+    const q = (listSearch || '').trim().toLowerCase()
     if (!q) return assemblyList
 
-    const exact = []
-    const startsWith = []
-    const includes = []
-    const others = []
-
-    assemblyList.forEach(item => {
+    return assemblyList.filter(item => {
       const p = String(item.part || '').toLowerCase()
       const d = String(item.desc || '').toLowerCase()
-      if (p === q) {
-        exact.push(item)
-      } else if (p.startsWith(q)) {
-        startsWith.push(item)
-      } else if (p.includes(q) || d.includes(q)) {
-        includes.push(item)
-      } else {
-        others.push(item)
-      }
+      return p.includes(q) || d.includes(q)
     })
-
-    return [...exact, ...startsWith, ...includes, ...others]
-  }, [assemblyList, listSearch, form.assemblyPartNo])
+  }, [assemblyList, listSearch])
 
   // 6. Handle Browse Click & Excel File Upload
   const handleBrowseClick = () => {
@@ -650,6 +635,15 @@ export default function UploadBOM() {
     const selectedItem = assemblyList.find(item => item.id === selectedPartId)
     if (!selectedItem) return
 
+    // Enforce data presence in Item Master
+    const partNoClean = String(selectedItem.part || '').trim().toLowerCase()
+    const isPresentInItemMaster = itemMaster.some(im => String(im.partNo || '').trim().toLowerCase() === partNoClean)
+
+    if (!isPresentInItemMaster) {
+      toast.warning(`Part "${selectedItem.part}" is not present in Item Master. Cannot upload.`)
+      return
+    }
+
     setIsProcessing(true)
     try {
       const payload = {
@@ -675,6 +669,69 @@ export default function UploadBOM() {
       toast.success(`Successfully uploaded BOM Specification for Part "${selectedItem.part}"!`)
     } finally {
       setIsProcessing(false)
+    }
+  }
+
+  const handleDeleteUpload = async () => {
+    if (selectedPartId === null) {
+      toast.warning('Please select an uploaded record to delete.')
+      return
+    }
+    if (!uploadedPartIds.includes(selectedPartId)) {
+      toast.info('Selected record is not uploaded yet.')
+      return
+    }
+
+    const selectedItem = assemblyList.find(item => item.id === selectedPartId)
+    if (!selectedItem) return
+
+    try {
+      const selectedPartNoClean = String(selectedItem.part || '').trim().toLowerCase()
+      const matchingBoms = bomRecords.filter(b =>
+        String(b.assemblyPartNo || '').trim().toLowerCase() === selectedPartNoClean ||
+        (Array.isArray(b.excelRows) && b.excelRows.some(r => String(r.PartNo || r.partNo || r.part || '').trim().toLowerCase() === selectedPartNoClean))
+      )
+
+      for (const b of matchingBoms) {
+        if (b.id) {
+          await api.delete(`/api/bom-creation/${b.id}`).catch(() => { })
+        }
+      }
+
+      setBomRecords(prev => prev.filter(b => !matchingBoms.some(m => m.id === b.id)))
+      setUploadedPartIds(prev => prev.filter(id => id !== selectedPartId))
+      toast.success(`Deleted upload for Part "${selectedItem.part}".`)
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to delete upload.')
+    }
+  }
+
+  const handleDeleteAllUploads = async () => {
+    if (uploadedPartIds.length === 0 && assemblyList.length === 0) {
+      toast.warning('No uploads to delete.')
+      return
+    }
+
+    try {
+      const currentParts = assemblyList.map(item => String(item.part || '').trim().toLowerCase())
+      const bomsToDelete = bomRecords.filter(b => {
+        const bAss = String(b.assemblyPartNo || '').trim().toLowerCase()
+        return currentParts.includes(bAss) || (b.model && String(b.model).trim().toLowerCase() === String(form.modelNo || '').trim().toLowerCase())
+      })
+
+      for (const b of bomsToDelete) {
+        if (b.id) {
+          await api.delete(`/api/bom-creation/${b.id}`).catch(() => { })
+        }
+      }
+
+      setBomRecords(prev => prev.filter(b => !bomsToDelete.some(d => d.id === b.id)))
+      setUploadedPartIds([])
+      toast.success('All uploads deleted successfully.')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to delete all uploads.')
     }
   }
 
@@ -781,14 +838,22 @@ export default function UploadBOM() {
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-2 grid grid-cols-2 gap-3">
                   <button
                     onClick={handleProcess}
                     disabled={isProcessing || assemblyList.length === 0 || selectedPartId === null}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
                     {isProcessing ? <RotateCcw size={15} className="animate-spin" /> : <Upload size={15} />}
                     Upload BOM
+                  </button>
+                  <button
+                    onClick={handleDeleteUpload}
+                    disabled={selectedPartId === null || !uploadedPartIds.includes(selectedPartId)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-[12px] font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Trash2 size={15} />
+                    Delete Upload
                   </button>
                 </div>
               </div>
@@ -836,8 +901,16 @@ export default function UploadBOM() {
                     </span>
                   )}
                   {assemblyList.length > 0 && (
-                    <button onClick={() => { setAssemblyList([]); setSelectedPartId(null); setUploadedPartIds([]); setListSearch('') }} className="text-rose-500 hover:text-rose-600 text-[11px] font-bold uppercase flex items-center gap-1 transition-colors">
-                      <Trash2 size={14} /> Clear List
+                    <button
+                      onClick={handleDeleteAllUploads}
+                      className="text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase flex items-center gap-1 transition-all shadow-sm"
+                    >
+                      <Trash2 size={13} /> Delete All Uploads
+                    </button>
+                  )}
+                  {assemblyList.length > 0 && (
+                    <button onClick={() => { setAssemblyList([]); setSelectedPartId(null); setUploadedPartIds([]); setListSearch('') }} className="text-slate-500 hover:text-slate-600 text-[11px] font-bold uppercase flex items-center gap-1 transition-colors">
+                      <RotateCcw size={13} /> Clear List
                     </button>
                   )}
                 </div>
