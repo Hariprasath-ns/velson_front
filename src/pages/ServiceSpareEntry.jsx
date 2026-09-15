@@ -271,7 +271,7 @@ const resolveMatchingBomsWithChildParts = ({
   const findExcelRows = (assPartNo) => {
     if (!assPartNo) return [];
     const cleanAss = String(assPartNo).trim().toLowerCase();
-    
+
     // 1. BOM Creation records matching assemblyPartNo
     const bMatch = bomCreationsList.find(b =>
       b.assemblyPartNo && String(b.assemblyPartNo).trim().toLowerCase() === cleanAss &&
@@ -288,7 +288,7 @@ const resolveMatchingBomsWithChildParts = ({
     if (iMatch) {
       let raw = iMatch.excelData || iMatch.excelRows;
       if (typeof raw === 'string') {
-        try { raw = JSON.parse(raw); } catch (e) {}
+        try { raw = JSON.parse(raw); } catch (e) { }
       }
       const rows = Array.isArray(raw) ? raw : (Array.isArray(raw?.excelData) ? raw.excelData : []);
       if (rows && rows.length > 0) return rows;
@@ -315,7 +315,7 @@ const resolveMatchingBomsWithChildParts = ({
     // 4. Fallback check by BOM No or groupName
     const bAlt = bomCreationsList.find(b =>
       ((b.bomNo && String(b.bomNo).trim().toLowerCase() === cleanAss) ||
-      (b.groupName && String(b.groupName).trim().toLowerCase() === cleanAss)) &&
+        (b.groupName && String(b.groupName).trim().toLowerCase() === cleanAss)) &&
       Array.isArray(b.excelRows) && b.excelRows.length > 0
     );
     if (bAlt) return bAlt.excelRows;
@@ -1035,7 +1035,7 @@ export default function ServiceSpareEntry() {
     if (sameFasterQty) {
       setBomRows(prev => prev.map(assembly => ({
         ...assembly,
-        parts: (assembly.parts || []).map(p => p.selected ? { ...p, issuedQty: p.fasterQty } : p)
+        parts: (assembly.parts || []).map(p => ({ ...p, issuedQty: p.fasterQty }))
       })))
     }
   }, [sameFasterQty])
@@ -1050,7 +1050,7 @@ export default function ServiceSpareEntry() {
             return {
               ...p,
               selected: nextSelected,
-              issuedQty: nextSelected ? ((p.issuedQty && p.issuedQty > 0) ? p.issuedQty : (p.fasterQty || 1)) : 0
+              issuedQty: sameFasterQty ? (p.fasterQty || 1) : (nextSelected ? ((p.issuedQty && p.issuedQty > 0) ? p.issuedQty : (p.fasterQty || 1)) : 0)
             }
           }
           return p
@@ -1574,12 +1574,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Customer Name :</Label></div>
                   <div className="col-span-7">
-                    <Select
-                      options={customerNameOptions}
-                      placeholder="Select Name..."
-                      value={customerName}
-                      onChange={e => handleCustomerNameChange(e.target.value)}
-                    />
+                    <Input value={customerName} readOnly placeholder="Auto-filled from Booking" className="font-bold bg-slate-50 text-slate-700 h-[26px] text-[11px]" />
                   </div>
                 </div>
 
@@ -1587,7 +1582,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Customer Code :</Label></div>
                   <div className="col-span-7">
-                    <Input value={customerCode} readOnly className='!text-[#0097A7]' />
+                    <Input value={customerCode} readOnly className='!text-[#0097A7] bg-slate-50 font-bold' />
                   </div>
                 </div>
 
@@ -1595,7 +1590,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Date :</Label></div>
                   <div className="col-span-7">
-                    <Input type="date" value={displayDate} onChange={e => setDisplayDate(e.target.value)} />
+                    <Input type="date" value={displayDate} readOnly className="bg-slate-50 text-slate-700 font-bold" />
                   </div>
                 </div>
 
@@ -1611,12 +1606,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Service Part No :</Label></div>
                   <div className="col-span-7">
-                    <Select
-                      options={servicePartNoOptions}
-                      placeholder="Select Part No..."
-                      value={servicePartNo}
-                      onChange={e => setServicePartNo(e.target.value)}
-                    />
+                    <Input value={servicePartNo} readOnly placeholder="Auto-filled" className="bg-slate-50 text-slate-700 font-bold h-[26px] text-[11px]" />
                   </div>
                 </div>
 
@@ -1629,7 +1619,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Vehicle No :</Label></div>
                   <div className="col-span-7">
-                    <Input value={vehicleNo} onChange={e => setVehicleNo(e.target.value)} placeholder="Auto-filled" />
+                    <Input value={vehicleNo} readOnly placeholder="Auto-filled" className="bg-slate-50 text-slate-700 font-bold" />
                   </div>
                 </div>
 
@@ -1637,7 +1627,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Serial No :</Label></div>
                   <div className="col-span-7">
-                    <Input value={serialNo} onChange={e => setSerialNo(e.target.value)} placeholder="Auto-filled" />
+                    <Input value={serialNo} readOnly placeholder="Auto-filled" className="bg-slate-50 text-slate-700 font-bold" />
                   </div>
                 </div>
 
@@ -1645,12 +1635,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Vehicle Model No :</Label></div>
                   <div className="col-span-7">
-                    <Select
-                      options={['VEDC', 'V2I', 'V3', 'V7', 'V10', 'CORE DRILL']}
-                      placeholder="Select Model..."
-                      value={vehicleModelNo}
-                      onChange={e => setVehicleModelNo(e.target.value)}
-                    />
+                    <Input value={vehicleModelNo} readOnly placeholder="Auto-filled" className="bg-slate-50 text-slate-700 font-bold" />
                   </div>
                 </div>
 
@@ -1658,7 +1643,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Model Sub Type :</Label></div>
                   <div className="col-span-7">
-                    <Input value={modelSubType} readOnly placeholder="Auto-filled" />
+                    <Input value={modelSubType} readOnly placeholder="Auto-filled" className="bg-slate-50 text-slate-700 font-bold" />
                   </div>
                 </div>
 
@@ -1666,7 +1651,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Vehicle Name :</Label></div>
                   <div className="col-span-7">
-                    <Input value={vehicleName} readOnly placeholder="Auto-filled" />
+                    <Input value={vehicleName} readOnly placeholder="Auto-filled" className="bg-slate-50 text-slate-700 font-bold" />
                   </div>
                 </div>
 
@@ -1674,7 +1659,7 @@ export default function ServiceSpareEntry() {
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-5 text-left pr-1"><Label>Status :</Label></div>
                   <div className="col-span-7">
-                    <Input value={status || 'Open'} readOnly placeholder="Auto-filled" className="font-bold !text-[#0097A7]" />
+                    <Input value={status || 'Open'} readOnly placeholder="Auto-filled" className="font-bold !text-[#0097A7] bg-slate-50" />
                   </div>
                 </div>
 
@@ -1703,25 +1688,6 @@ export default function ServiceSpareEntry() {
                     className="flex items-center justify-center gap-1 px-3 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded shadow-sm h-[32px] transition-all active:scale-95 w-full"
                   >
                     <Save size={12} /> {editingId !== null ? 'Update' : 'Save'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (selectedRowId) {
-                        const row = sparesList.find(s => s.id === selectedRowId)
-                        if (row) handleEditRow(row)
-                      } else {
-                        toast.warning('Please select a row to edit.')
-                      }
-                    }}
-                    className="flex items-center justify-center gap-1 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[12px] font-bold rounded shadow-sm h-[32px] transition-all active:scale-95 w-full"
-                  >
-                    <Edit size={12} className="text-[#0097A7]" /> Edit
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="flex items-center justify-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold rounded shadow-sm h-[32px] transition-all active:scale-95 w-full"
-                  >
-                    <Trash2 size={12} /> Delete
                   </button>
                   <button
                     onClick={handleClear}
@@ -1915,188 +1881,6 @@ export default function ServiceSpareEntry() {
                   </tbody>
                 </table>
               </div>
-
-              {/* BOM Footer summary */}
-              <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-t border-slate-200 text-[12px] font-bold text-slate-500 uppercase tracking-wider">
-                <span>{selectedPartsCount} Part(s) Selected</span>
-              </div>
-            </div>
-
-
-
-            {/* ── Bottom Saved Spares Registry Table ── */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden shadow-sm bg-white mb-2">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1100px]">
-                  <thead className="bg-slate-50 text-[12px] uppercase text-slate-400 font-bold border-b border-slate-200">
-                    <tr className="h-8">
-                      <th className="px-3 py-1 border-r border-slate-100 w-12 text-center"></th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-14 text-center">S.No</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-36">Service Job No</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-44">Assembly Part No</th>
-                      <th className="px-3 py-1 border-r border-slate-100">Item Name</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-24 text-center">Parts Qty</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-28 text-right">Total (₹)</th>
-                      <th className="px-3 py-1 border-r border-slate-100 w-24">Status</th>
-                      <th className="px-3 py-1 w-24 text-center">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-[12.5px]">
-                    {filteredSpares.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="py-10 text-center text-slate-300 italic">No spare entries saved.</td>
-                      </tr>
-                    ) : (
-                      filteredSpares.map((row, idx) => {
-                        const isExpanded = !!expandedSpareIds[row.id]
-                        const rows = [
-                          <tr
-                            key={`main-${row.id}`}
-                            onClick={() => setSelectedRowId(row.id)}
-                            className={`hover:bg-slate-100/90 cursor-pointer h-9 transition-colors ${selectedRowId === row.id ? 'bg-[#0097A7]/10 font-semibold border-l-4 border-[#0097A7]' : ''}`}
-                          >
-                            <td className="px-3 py-1 border-r border-slate-50 text-center" onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedSpareIds(prev => ({
-                                ...prev,
-                                [row.id]: !prev[row.id]
-                              }));
-                            }}>
-                              <button className="p-1 rounded bg-[#0097A7]/10 hover:bg-[#0097A7]/20 text-[#0097A7] transition-all flex items-center justify-center mx-auto">
-                                {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                              </button>
-                            </td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-slate-400">{idx + 1}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 font-bold text-[#0097A7]">{row.serviceJobNo}</td>
-                            <td className="px-3 py-1 border-r border-slate-50">
-                              <span className="font-extrabold text-[#0097A7] bg-[#0097A7]/10 px-2 py-0.5 rounded text-[11.5px] font-mono inline-block">
-                                {getAssemblyNoFromRecord(row, bomCreationsList) || row.servicePartNo || row.lastSavedAssName || '—'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-slate-700 max-w-[280px] truncate font-medium" title={(row.items || []).map(i => i.partName).join(', ')}>
-                              {(row.items || []).map(i => i.partName).join(', ') || '—'}
-                            </td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-center font-bold text-slate-600">{(row.selectedParts || []).length}</td>
-                            <td className="px-3 py-1 border-r border-slate-50 text-right font-bold text-[#0097A7]">
-                              {(row.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="px-3 py-1 border-r border-slate-50">
-                              <StatusBadge status={getSpareStatus(row, serviceDetailsList, bookingsDataRes)} />
-                            </td>
-                            <td className="px-3 py-1 text-center text-slate-500">{row.savedDate}</td>
-                          </tr>
-                        ];
-                        if (isExpanded) {
-                          rows.push(
-                            <tr key={`expanded-${row.id}`} className="bg-slate-50/70 hover:bg-slate-50/70 no-hover">
-                              <td colSpan={9} className="px-6 py-3 border-b border-slate-200">
-                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 overflow-x-auto">
-                                  <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-                                    <h4 className="text-[11.5px] font-bold text-[#0097A7] uppercase tracking-wider">
-                                      Child Parts for Spare Entry (Job No: {row.serviceJobNo})
-                                    </h4>
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleExportSpareChildExcel(row);
-                                        }}
-                                        className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[10.5px] font-bold rounded shadow-sm transition-all"
-                                        title="Export Excel"
-                                      >
-                                        <FileSpreadsheet size={12} className="text-green-600" /> Export Excel
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handlePrintSpareChild(row);
-                                        }}
-                                        className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[10.5px] font-bold rounded shadow-sm transition-all"
-                                        title="Print Child Entries"
-                                      >
-                                        <svg className="w-3.5 h-3.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                                        </svg>
-                                        Print
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {(() => {
-                                    const childEntries = getSpareChildEntries(row);
-                                    if (childEntries.length === 0) {
-                                      return (
-                                        <div className="text-center text-slate-400 py-4 italic text-[11.5px]">
-                                          No child entries selected for this spare entry.
-                                        </div>
-                                      );
-                                    }
-                                    return (
-                                      <table className="w-full text-left border-collapse text-[12px]">
-                                        <thead className="bg-slate-50 text-[11px] uppercase text-slate-400 font-bold border-b border-slate-200">
-                                          <tr>
-                                            <th className="px-3 py-1.5 border-r border-slate-100 w-14 text-center">S.No</th>
-                                            <th className="px-3 py-1.5 border-r border-slate-100 w-36">Part No</th>
-                                            <th className="px-3 py-1.5 border-r border-slate-100">Part Name</th>
-                                            <th className="px-3 py-1.5 border-r border-slate-100 w-24 text-center">Faster Qty</th>
-                                            <th className="px-3 py-1.5 border-r border-slate-100 w-24 text-center">Issued Qty</th>
-                                            <th className="px-3 py-1.5 border-r border-slate-100 w-16 text-center">Unit</th>
-                                            <th className="px-3 py-1.5 border-r border-slate-100 w-24 text-right">Rate (₹)</th>
-                                            <th className="px-3 py-1.5 w-28 text-right">Amount (₹)</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 bg-white">
-                                          {childEntries.map((childRow, childIdx) => {
-                                            const rowKey = `${row.id}-${childIdx}`;
-                                            const isChildSelected = selectedChildRowKey === rowKey;
-                                            return (
-                                              <tr
-                                                key={childIdx}
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setSelectedRowId(row.id);
-                                                  setSelectedChildRowKey(isChildSelected ? '' : rowKey);
-                                                  setSelectedChildPartNo(isChildSelected ? '' : childRow.partNo);
-                                                }}
-                                                className={`cursor-pointer transition-colors ${isChildSelected
-                                                  ? 'bg-[#0097A7]/10 font-semibold'
-                                                  : 'hover:bg-[#0097A7]/5'
-                                                  }`}
-                                              >
-                                                <td className="px-3 py-1.5 border-r border-slate-50 text-center text-slate-400 font-bold">{childIdx + 1}</td>
-                                                <td className="px-3 py-1.5 border-r border-slate-50 font-mono text-[11px] text-slate-500">{childRow.partNo}</td>
-                                                <td className="px-3 py-1.5 border-r border-slate-50 text-slate-700">{childRow.partName}</td>
-                                                <td className="px-3 py-1.5 border-r border-slate-50 text-center text-slate-500">{childRow.fasterQty}</td>
-                                                <td className="px-3 py-1.5 border-r border-slate-50 text-center font-bold text-slate-600">{childRow.issuedQty}</td>
-                                                <td className="px-3 py-1.5 border-r border-slate-50 text-center text-slate-500">{childRow.unit}</td>
-                                                <td className="px-3 py-1.5 border-r border-slate-50 text-right text-slate-600">
-                                                  {(childRow.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="px-3 py-1.5 text-right font-bold text-[#0097A7]">
-                                                  {((childRow.issuedQty * childRow.rate) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </td>
-                                              </tr>
-                                            );
-                                          })}
-                                        </tbody>
-                                      </table>
-                                    );
-                                  })()}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        }
-                        return rows;
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            {/* Bottom Row Counter */}
-            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-[12px] font-bold text-slate-500 uppercase tracking-wider shadow-sm">
-              <span>Row : {filteredSpares.length}</span>
             </div>
 
           </div>

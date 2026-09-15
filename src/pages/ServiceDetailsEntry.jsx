@@ -182,8 +182,8 @@ const AutocompleteSelect = ({ options = [], placeholder, value, onChange, classN
                 onClick={() => handleSelect(opt)}
                 onMouseEnter={() => setHighlightedIndex(idx)}
                 className={`px-3 py-2 text-[12.5px] cursor-pointer transition-colors ${highlightedIndex === idx
-                    ? 'bg-[#0097A7] text-white'
-                    : 'text-slate-700 hover:bg-slate-50'
+                  ? 'bg-[#0097A7] text-white'
+                  : 'text-slate-700 hover:bg-slate-50'
                   }`}
               >
                 {opt.label}
@@ -234,7 +234,7 @@ const resolvePartInfo = (row, bomCreationsList = [], itemMasterList = []) => {
 
   // Check matching BOM for this Service Job
   const rJob = String(row.serviceJobNo || '').trim().toLowerCase();
-  const jobBoms = bomCreationsList.filter(b => 
+  const jobBoms = bomCreationsList.filter(b =>
     (b.serviceJobNo && b.serviceJobNo.trim().toLowerCase() === rJob) ||
     (b.serialJobNo && b.serialJobNo.trim().toLowerCase() === rJob)
   );
@@ -437,12 +437,17 @@ export default function ServiceDetailsEntry() {
     }
   }, [location.state])
 
-  // Memoized unique Booking service job numbers (only open bookings where tempStatus is Open)
+  // Memoized unique Booking service job numbers (only open bookings with active BOM entries)
   const serviceJobNoOptions = useMemo(() => {
+    const activeBomJobs = new Set(
+      bomCreationsList.map(b => (b.serviceJobNo || b.serialJobNo || '').trim().toLowerCase()).filter(Boolean)
+    )
     let filteredJobs = jobsList.filter(j => {
+      const jobNoClean = (j.serviceJobNo || '').trim().toLowerCase()
+      const hasActiveBom = activeBomJobs.has(jobNoClean)
       const ts = (j.tempStatus || 'Open').toLowerCase()
       const s = (j.status || '').toLowerCase()
-      return ts !== 'close' && ts !== 'closed' && s !== 'close' && s !== 'closed'
+      return hasActiveBom && ts !== 'close' && ts !== 'closed' && s !== 'close' && s !== 'closed'
     })
     if (customerName) {
       filteredJobs = filteredJobs.filter(j =>
@@ -454,7 +459,7 @@ export default function ServiceDetailsEntry() {
       uniqueJobs.push(serviceJobNo)
     }
     return uniqueJobs
-  }, [jobsList, serviceJobNo, customerName])
+  }, [jobsList, bomCreationsList, serviceJobNo, customerName])
 
 
   // Memoized unique Customer Names list
@@ -470,7 +475,7 @@ export default function ServiceDetailsEntry() {
       return
     }
 
-    const matchingBoms = bomCreationsList.filter(b => 
+    const matchingBoms = bomCreationsList.filter(b =>
       (b.serviceJobNo && b.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase()) ||
       (b.serialJobNo && b.serialJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase())
     )
@@ -501,9 +506,9 @@ export default function ServiceDetailsEntry() {
         s.serviceJobNo && s.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase() &&
         s.status !== 'Inactive'
       )
-      const alreadyAddedAssemblies = existingForJob.flatMap(s => 
-        Array.isArray(s.checkedAssemblies) && s.checkedAssemblies.length > 0 
-          ? s.checkedAssemblies 
+      const alreadyAddedAssemblies = existingForJob.flatMap(s =>
+        Array.isArray(s.checkedAssemblies) && s.checkedAssemblies.length > 0
+          ? s.checkedAssemblies
           : (s.servicePartNo ? [s.servicePartNo] : [])
       )
       setCheckedAssemblies(Array.from(new Set(alreadyAddedAssemblies.filter(Boolean))))
@@ -641,25 +646,16 @@ export default function ServiceDetailsEntry() {
 
     const uniqueCheckedAssemblies = Array.from(new Set(checkedAssemblies.filter(Boolean)))
 
-    // Existing active service entries for this Service Job
+    // For same service job no, delete existing entries before adding/updating assembly list
     const existingJobEntries = serviceDetailsList.filter(s =>
-      s.serviceJobNo && s.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase() &&
-      s.status !== 'Inactive'
+      s.serviceJobNo && s.serviceJobNo.trim().toLowerCase() === serviceJobNo.trim().toLowerCase()
     )
-    const existingAssemblySet = new Set(
-      existingJobEntries.flatMap(s => 
-        Array.isArray(s.checkedAssemblies) && s.checkedAssemblies.length > 0
-          ? s.checkedAssemblies.map(a => String(a).trim().toLowerCase())
-          : (s.servicePartNo ? [String(s.servicePartNo).trim().toLowerCase()] : [])
-      )
-    )
-
-    // Newly added assembly part numbers
-    const newAssembliesToSave = uniqueCheckedAssemblies.filter(a => !existingAssemblySet.has(String(a).trim().toLowerCase()))
-
-    if (editingId === null && newAssembliesToSave.length === 0 && uniqueCheckedAssemblies.length > 0) {
-      toast.info('All selected part numbers are already added and up-to-date for this Service Job.')
-      return
+    for (const oldEntry of existingJobEntries) {
+      try {
+        await api.delete(`/api/service-detail/${oldEntry.id}`)
+      } catch (err) {
+        console.warn('Old service detail deletion before update:', err)
+      }
     }
 
     const currentDateTime = new Date().toISOString()
@@ -677,34 +673,19 @@ export default function ServiceDetailsEntry() {
       vehicleName,
       status,
       remarks,
-      checkedAssemblies: newAssembliesToSave.length > 0 ? newAssembliesToSave : uniqueCheckedAssemblies,
+      checkedAssemblies: uniqueCheckedAssemblies,
       createdAt: currentDateTime,
       createdDateTime: new Date().toLocaleString('en-GB')
     }
 
     try {
-      let updatedList = [...serviceDetailsList]
-      if (editingId !== null) {
-        const res = await api.put(`/api/service-detail/${editingId}`, newEntry, { loadingMessage: 'Updating record...' })
-        updatedList = serviceDetailsList.map(s => s.id === editingId ? res.data.data : s)
-        toast.success(`Service details log for Job ${serviceJobNo} updated successfully!`)
-        setEditingId(null)
-      } else {
-        if (newAssembliesToSave.length > 0) {
-          let newlyCreated = []
-          for (const ass of newAssembliesToSave) {
-            const payload = { ...newEntry, checkedAssemblies: [ass], servicePartNo: ass }
-            const res = await api.post('/api/service-detail', payload)
-            newlyCreated.push(res.data.data)
-          }
-          updatedList = [...newlyCreated, ...serviceDetailsList]
-          toast.success(`Saved ${newAssembliesToSave.length} new part number(s) alongside previously added parts for Job ${serviceJobNo}!`)
-        } else {
-          const res = await api.post('/api/service-detail', newEntry, { loadingMessage: 'Saving record...' })
-          updatedList = [res.data.data, ...serviceDetailsList]
-          toast.success(`Service details log for Job ${serviceJobNo} created successfully!`)
-        }
-      }
+      const res = await api.post('/api/service-detail', newEntry, { loadingMessage: 'Saving updated assembly list...' })
+      const remainingList = serviceDetailsList.filter(s =>
+        !s.serviceJobNo || s.serviceJobNo.trim().toLowerCase() !== serviceJobNo.trim().toLowerCase()
+      )
+      const updatedList = [res.data.data, ...remainingList]
+      toast.success(`Service details log for Job ${serviceJobNo} saved successfully!`)
+      setEditingId(null)
 
       queryClient.invalidateQueries({ queryKey: ['service-details'] })
       queryClient.invalidateQueries({ queryKey: ['service-detail'] })
@@ -763,7 +744,7 @@ export default function ServiceDetailsEntry() {
     if (window.confirm('Are you sure you want to delete this Service Details Entry? Associated spare entries for this service will also be removed.')) {
       try {
         await api.delete(`/api/service-detail/${selectedRowId}`, { loadingMessage: 'Deleting record...' })
-        
+
         // Also cascade delete from service spare if present
         if (targetEntry?.serviceJobNo) {
           try {
@@ -935,12 +916,7 @@ export default function ServiceDetailsEntry() {
                     <Label>Customer Name :</Label>
                   </div>
                   <div className="col-span-8">
-                    <Select
-                      options={uniqueCustomerNames}
-                      placeholder="Select Customer Name..."
-                      value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                    />
+                    <Input value={customerName} readOnly placeholder="Auto-filled from Booking" className="!font-bold bg-slate-50 text-slate-700 h-[26px] text-[11px]" />
                   </div>
                 </div>
                 {/* Row 2.5: Vehicle Count & Chosen Vehicle Count */}
@@ -965,7 +941,7 @@ export default function ServiceDetailsEntry() {
                     <Label>Serial No :</Label>
                   </div>
                   <div className="col-span-8">
-                    <Input value={serialNo} onChange={e => setSerialNo(e.target.value)} placeholder="Auto Serial No" />
+                    <Input value={serialNo} readOnly placeholder="Auto Serial No" className="bg-slate-50 text-slate-700 font-bold h-[26px] text-[11px]" />
                   </div>
                 </div>
 
@@ -975,52 +951,37 @@ export default function ServiceDetailsEntry() {
                     <Label>Vehicle No :</Label>
                   </div>
                   <div className="col-span-8">
-                    <Input value={vehicleNo} onChange={e => setVehicleNo(e.target.value)} placeholder="Auto Vehicle No" />
+                    <Input value={vehicleNo} readOnly placeholder="Auto Vehicle No" className="bg-slate-50 text-slate-700 font-bold h-[26px] text-[11px]" />
                   </div>
                 </div>
 
                 {/* Row 7: Vehicle Model No */}
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-4 text-left pr-1">
-                    <Label required>Vehicle Model No :</Label>
+                    <Label>Vehicle Model No :</Label>
                   </div>
                   <div className="col-span-8">
-                    <Select
-                      options={modelOptions}
-                      placeholder="Select Model..."
-                      value={vehicleModelNo}
-                      onChange={e => setVehicleModelNo(e.target.value)}
-                    />
+                    <Input value={vehicleModelNo} readOnly placeholder="Auto Model" className="bg-slate-50 text-slate-700 font-bold h-[26px] text-[11px]" />
                   </div>
                 </div>
 
                 {/* Row 8: Model Sub Type */}
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-4 text-left pr-1">
-                    <Label required>Model Sub Type :</Label>
+                    <Label>Model Sub Type :</Label>
                   </div>
                   <div className="col-span-8">
-                    <Select
-                      options={subTypeOptions}
-                      placeholder="Select Sub Type..."
-                      value={modelSubType}
-                      onChange={e => setModelSubType(e.target.value)}
-                    />
+                    <Input value={modelSubType} readOnly placeholder="Auto Sub Type" className="bg-slate-50 text-slate-700 font-bold h-[26px] text-[11px]" />
                   </div>
                 </div>
 
                 {/* Row 9: Vehicle Name */}
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-4 text-left pr-1">
-                    <Label required>Vehicle Name :</Label>
+                    <Label>Vehicle Name :</Label>
                   </div>
                   <div className="col-span-8">
-                    <Select
-                      options={vehicleNameOptions}
-                      placeholder="Select Vehicle Name..."
-                      value={vehicleName}
-                      onChange={e => setVehicleName(e.target.value)}
-                    />
+                    <Input value={vehicleName} readOnly placeholder="Auto Vehicle Name" className="bg-slate-50 text-slate-700 font-bold h-[26px] text-[11px]" />
                   </div>
                 </div>
 
@@ -1192,16 +1153,16 @@ export default function ServiceDetailsEntry() {
                       displayList.map((row, idx) => {
                         const { partNo, partName } = resolvePartInfo(row, bomCreationsList, itemMasterList);
                         const createdBy = row.createdBy || 'Admin';
-                        const createdDateTime = row.createdAt 
+                        const createdDateTime = row.createdAt
                           ? new Date(row.createdAt).toLocaleString('en-GB', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              hour12: true
-                            })
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                          })
                           : (row.createdDateTime || '—');
                         const status = row.status || 'Active';
 
@@ -1225,12 +1186,11 @@ export default function ServiceDetailsEntry() {
                               {createdDateTime}
                             </td>
                             <td className="px-3 py-1 text-center">
-                              <span className={`px-2.5 py-0.5 rounded text-[11px] uppercase font-extrabold ${
-                                status === 'Active' || status === 'Completed' ? 'bg-green-100 text-green-700' :
+                              <span className={`px-2.5 py-0.5 rounded text-[11px] uppercase font-extrabold ${status === 'Active' || status === 'Completed' ? 'bg-green-100 text-green-700' :
                                 status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                                status === 'Inactive' ? 'bg-rose-100 text-rose-700' :
-                                'bg-slate-100 text-slate-600'
-                              }`}>
+                                  status === 'Inactive' ? 'bg-rose-100 text-rose-700' :
+                                    'bg-slate-100 text-slate-600'
+                                }`}>
                                 {status}
                               </span>
                             </td>

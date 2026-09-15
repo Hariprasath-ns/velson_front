@@ -186,10 +186,18 @@ export default function ServiceDetailsReport() {
             })
           })
         })
+        const deletedKeys = JSON.parse(localStorage.getItem('deletedServiceDetailReportKeys') || '[]')
+        const filteredCombined = combined.filter(r =>
+          !deletedKeys.includes(r.id) &&
+          !deletedKeys.includes(r.backendId) &&
+          !deletedKeys.includes(`${r.serviceJobNo}-${r.assemblyItem}`)
+        )
+        setAllEntries(filteredCombined)
       } catch (err) {
         console.error('Failed to load live service detail report data', err)
+        const deletedKeys = JSON.parse(localStorage.getItem('deletedServiceDetailReportKeys') || '[]')
+        setAllEntries(combined.filter(r => !deletedKeys.includes(r.id)))
       }
-      setAllEntries(combined)
     }
 
     fetchData()
@@ -273,7 +281,7 @@ export default function ServiceDetailsReport() {
       if (deleteTarget.backendId) {
         await api.delete(`/api/service-detail/${deleteTarget.backendId}`)
       }
-      
+
       // Also cascade delete corresponding spare records
       if (deleteTarget.serviceJobNo) {
         try {
@@ -286,6 +294,14 @@ export default function ServiceDetailsReport() {
           console.warn('Could not cascade delete spare entries in report:', spErr)
         }
       }
+
+      const deletedKeys = JSON.parse(localStorage.getItem('deletedServiceDetailReportKeys') || '[]')
+      if (deleteTarget.id) deletedKeys.push(deleteTarget.id)
+      if (deleteTarget.backendId) deletedKeys.push(deleteTarget.backendId)
+      if (deleteTarget.serviceJobNo && deleteTarget.assemblyItem) {
+        deletedKeys.push(`${deleteTarget.serviceJobNo}-${deleteTarget.assemblyItem}`)
+      }
+      localStorage.setItem('deletedServiceDetailReportKeys', JSON.stringify(deletedKeys))
 
       queryClient.invalidateQueries({ queryKey: ['service-details'] })
       queryClient.invalidateQueries({ queryKey: ['service-spare'] })

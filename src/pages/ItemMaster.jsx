@@ -36,11 +36,10 @@ const Input = ({ placeholder, value, onChange, type = 'text', disabled, readOnly
     readOnly={readOnly}
     list={list}
     min={type === 'number' ? '0' : undefined}
-    className={`w-full px-2.5 py-1.5 text-[13px] border rounded text-slate-800 placeholder-slate-400 focus:outline-none transition-all duration-200 disabled:bg-slate-50 disabled:text-slate-400 ${
-      hasError
+    className={`w-full px-2.5 py-1.5 text-[13px] border rounded text-slate-800 placeholder-slate-400 focus:outline-none transition-all duration-200 disabled:bg-slate-50 disabled:text-slate-400 ${hasError
         ? 'border-red-500 focus:ring-2 focus:ring-red-500/20 focus:border-red-500'
         : 'border-slate-200 focus:ring-2 focus:ring-[#0097A7]/20 focus:border-[#0097A7] hover:border-slate-300'
-    } ${readOnly ? 'bg-slate-50 cursor-not-allowed border-[#0097A7]/40' : 'bg-white'}`}
+      } ${readOnly ? 'bg-slate-50 cursor-not-allowed border-[#0097A7]/40' : 'bg-white'}`}
   />
 )
 
@@ -50,11 +49,10 @@ const Select = ({ options = [], placeholder, value, onChange, loading, hasError,
       value={value}
       onChange={onChange}
       disabled={loading || disabled}
-      className={`w-full px-2.5 py-1.5 pr-8 text-[13px] border rounded bg-white text-slate-700 appearance-none focus:outline-none transition-all duration-200 hover:border-slate-300 cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 ${
-        hasError
+      className={`w-full px-2.5 py-1.5 pr-8 text-[13px] border rounded bg-white text-slate-700 appearance-none focus:outline-none transition-all duration-200 hover:border-slate-300 cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 ${hasError
           ? 'border-red-500 focus:ring-2 focus:ring-red-500/20 focus:border-red-500'
           : 'border-slate-200 focus:ring-2 focus:ring-[#0097A7]/20 focus:border-[#0097A7]'
-      }`}
+        }`}
     >
       <option value="">{loading ? 'Loading…' : placeholder}</option>
       {options.map(o => (
@@ -217,8 +215,8 @@ const AutocompleteSelect = ({ options = [], placeholder, value, onChange, loadin
                 onClick={() => handleSelect(opt)}
                 onMouseEnter={() => setHighlightedIndex(idx)}
                 className={`px-3 py-2 text-[12.5px] cursor-pointer transition-colors ${highlightedIndex === idx
-                    ? 'bg-[#0097A7] text-white'
-                    : 'text-slate-700 hover:bg-slate-50'
+                  ? 'bg-[#0097A7] text-white'
+                  : 'text-slate-700 hover:bg-slate-50'
                   }`}
               >
                 {opt.label}
@@ -699,7 +697,7 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                 onChange={e => { setShowEntries(e.target.value); setPage(1) }}
                 className="border border-slate-200 rounded px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] bg-white"
               >
-                {['10', '25', '50', '100'].map(v => <option key={v} value={v}>{v}</option>)}
+                {['10', '25', '50', '100', '250', '500', '1000', '10000'].map(v => <option key={v} value={v}>{v === '10000' ? 'All' : v}</option>)}
               </select>
               <span>entries</span>
             </div>
@@ -745,106 +743,105 @@ function IndexView({ onCreate, onEdit, onView, dropdowns }) {
                     const isSelected = selectedRowId === item.id;
                     const rcPdfName = item.routeCardNo || (item.pdfPath ? item.pdfPath.split('/').pop().replace(/\.[^/.]+$/, '') : '');
                     return (
-                    <tr
-                      key={item.id}
-                      onClick={() => setSelectedRowId(item.id)}
-                      className={`cursor-pointer transition-colors ${
-                        isSelected
-                          ? 'bg-[#0097A7]/20 border-l-4 border-[#0097A7] font-semibold text-slate-900 shadow-inner'
-                          : idx % 2 === 0
-                            ? 'bg-white hover:bg-[#f0fdfe]'
-                            : 'bg-slate-50 hover:bg-[#f0fdfe]'
-                      }`}
-                    >
-                      {/* <td className={tdCls + ' font-medium text-slate-800'}>{item.id}</td> */}
-                      <td className={tdCls}>{from + idx}</td>
-                      <td className={tdCls + ' font-medium text-[#0097A7]'}>{item.partNo}</td>
-                      <td className={`${tdCls} text-left font-medium`}>{item.partName}</td>
-                      <td className={tdCls + ' text-slate-500'}>{item.outsourcePartNo || ''}</td>
-                      <td className={tdCls}>{resolveModel(item)}</td>
-                      <td className={tdCls}>{item.brand || ''}</td>
-                      <td className={tdCls}>{item.reorderLevel ?? 0}</td>
-                      <td className={tdCls}>{item.minStock ?? 0}</td>
-                      <td className={`${tdCls} font-semibold text-slate-500`}>{item.currentStock ?? 0}</td>
+                      <tr
+                        key={item.id}
+                        onClick={() => setSelectedRowId(item.id)}
+                        className={`cursor-pointer transition-colors ${isSelected
+                            ? 'bg-[#0097A7]/20 border-l-4 border-[#0097A7] font-semibold text-slate-900 shadow-inner'
+                            : idx % 2 === 0
+                              ? 'bg-white hover:bg-[#f0fdfe]'
+                              : 'bg-slate-50 hover:bg-[#f0fdfe]'
+                          }`}
+                      >
+                        {/* <td className={tdCls + ' font-medium text-slate-800'}>{item.id}</td> */}
+                        <td className={tdCls}>{from + idx}</td>
+                        <td className={tdCls + ' font-medium text-[#0097A7]'}>{item.partNo}</td>
+                        <td className={`${tdCls} text-left font-medium`}>{item.partName}</td>
+                        <td className={tdCls + ' text-slate-500'}>{item.outsourcePartNo || ''}</td>
+                        <td className={tdCls}>{resolveModel(item)}</td>
+                        <td className={tdCls}>{item.brand || ''}</td>
+                        <td className={tdCls}>{item.reorderLevel ?? 0}</td>
+                        <td className={tdCls}>{item.minStock ?? 0}</td>
+                        <td className={`${tdCls} font-semibold text-slate-500`}>{item.currentStock ?? 0}</td>
 
-                      {/* R.C.No. (Mapped to PDF File Name) */}
-                      <td className={`${tdCls} font-mono text-[11px] text-[#0097A7] font-bold`}>
-                        {rcPdfName || '—'}
-                      </td>
+                        {/* R.C.No. (Mapped to PDF File Name) */}
+                        <td className={`${tdCls} font-mono text-[11px] text-[#0097A7] font-bold`}>
+                          {rcPdfName || '—'}
+                        </td>
 
-                      {/* Image */}
-                      <td className={tdCls}>
-                        <div className="flex items-center justify-center">
-                          {item.hasImage
-                            ? <button
-                              type="button"
-                              onClick={() => setPreviewModal({ open: true, type: 'image', src: `/api/item-master/${item.id}/download-image`, title: item.partName || 'Item Image', partNo: item.partNo })}
-                              onMouseEnter={e => {
-                                const r = e.currentTarget.getBoundingClientRect()
-                                setHoverImage({ src: `/api/item-master/${item.id}/download-image`, x: r.left + r.width / 2, y: r.top })
-                              }}
-                              onMouseLeave={() => setHoverImage(null)}
-                              className="w-8 h-8 rounded bg-[#0097A7] hover:bg-[#007a87] flex items-center justify-center shadow-sm text-white transition-all hover:scale-105 active:scale-95"
-                              title="Click for full-screen preview"
-                            >
-                              <ImageIcon className="w-4 h-4 text-white" />
-                            </button>
-                            : <span className="text-slate-300 text-[10px]">—</span>
-                          }
-                        </div>
-                      </td>
+                        {/* Image */}
+                        <td className={tdCls}>
+                          <div className="flex items-center justify-center">
+                            {item.hasImage
+                              ? <button
+                                type="button"
+                                onClick={() => setPreviewModal({ open: true, type: 'image', src: `/api/item-master/${item.id}/download-image`, title: item.partName || 'Item Image', partNo: item.partNo })}
+                                onMouseEnter={e => {
+                                  const r = e.currentTarget.getBoundingClientRect()
+                                  setHoverImage({ src: `/api/item-master/${item.id}/download-image`, x: r.left + r.width / 2, y: r.top })
+                                }}
+                                onMouseLeave={() => setHoverImage(null)}
+                                className="w-8 h-8 rounded bg-[#0097A7] hover:bg-[#007a87] flex items-center justify-center shadow-sm text-white transition-all hover:scale-105 active:scale-95"
+                                title="Click for full-screen preview"
+                              >
+                                <ImageIcon className="w-4 h-4 text-white" />
+                              </button>
+                              : <span className="text-slate-300 text-[10px]">—</span>
+                            }
+                          </div>
+                        </td>
 
-                      {/* Drawing */}
-                      <td className={tdCls}>
-                        <div className="flex items-center justify-center">
-                          {item.hasPdf
-                            ? <button
-                              type="button"
-                              onClick={() => setPreviewModal({ open: true, type: 'pdf', src: `/api/item-master/${item.id}/download-pdf`, title: `${item.partName || 'Drawing PDF'}`, partNo: item.partNo })}
-                              className="w-8 h-8 rounded bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-sm text-white transition-all hover:scale-105 active:scale-95"
-                              title="Click for full-screen PDF preview"
-                            >
-                              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </button>
-                            : <span className="text-slate-300 text-[10px]">—</span>
-                          }
-                        </div>
-                      </td>
+                        {/* Drawing */}
+                        <td className={tdCls}>
+                          <div className="flex items-center justify-center">
+                            {item.hasPdf
+                              ? <button
+                                type="button"
+                                onClick={() => setPreviewModal({ open: true, type: 'pdf', src: `/api/item-master/${item.id}/download-pdf`, title: `${item.partName || 'Drawing PDF'}`, partNo: item.partNo })}
+                                className="w-8 h-8 rounded bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-sm text-white transition-all hover:scale-105 active:scale-95"
+                                title="Click for full-screen PDF preview"
+                              >
+                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              </button>
+                              : <span className="text-slate-300 text-[10px]">—</span>
+                            }
+                          </div>
+                        </td>
 
-                      {/* Edit */}
-                      <td className={tdCls}>
-                        <button
-                          onClick={() => onEdit(item)}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#3498db] hover:bg-[#2980b9] text-white transition-colors shadow-sm"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
+                        {/* Edit */}
+                        <td className={tdCls}>
+                          <button
+                            onClick={() => onEdit(item)}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#3498db] hover:bg-[#2980b9] text-white transition-colors shadow-sm"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
 
-                      {/* Delete */}
-                      <td className={tdCls}>
-                        <button
-                          onClick={() => setDeleteTarget(item)}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#e74c3c] hover:bg-[#c0392b] text-white transition-colors shadow-sm"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
+                        {/* Delete */}
+                        <td className={tdCls}>
+                          <button
+                            onClick={() => setDeleteTarget(item)}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#e74c3c] hover:bg-[#c0392b] text-white transition-colors shadow-sm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
 
-                      {/* Details */}
-                      <td className={tdCls}>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onView(item) }}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#0097A7] hover:bg-[#007a87] text-white transition-colors shadow-sm"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
+                        {/* Details */}
+                        <td className={tdCls}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onView(item) }}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#0097A7] hover:bg-[#007a87] text-white transition-colors shadow-sm"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
                     );
-                  }) 
+                  })
                 )}
               </tbody>
             </table>
@@ -1222,416 +1219,416 @@ function CreateView({ onBack, editItem, dropdowns, dropdownsLoading, refetchDrop
         <div className="w-full px-5 pb-4 flex-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
 
-          {/* ── COLUMN 1: Item Information ── */}
-          <SectionCard
-            title="Item Information"
-            icon={<Package className="w-4 h-4" />}
-          >
-            {/* Row 1: Item Group — full width */}
-            <div>
-              <Label required>Item Group</Label>
-              <AutocompleteSelect options={opts.itemGroups} placeholder="---Select Group---" value={form.groupId} onChange={setVal('groupId')} loading={dropdownsLoading} />
-            </div>
-            {/* Row 2: Part Number + OutSource Part No */}
-            <Row>
+            {/* ── COLUMN 1: Item Information ── */}
+            <SectionCard
+              title="Item Information"
+              icon={<Package className="w-4 h-4" />}
+            >
+              {/* Row 1: Item Group — full width */}
               <div>
-                <Label required>Part Number</Label>
-                {partNoGenerating ? (
-                  <div className="flex items-center gap-2 px-3 py-[7px] border border-[#0097A7]/40 rounded-lg bg-slate-50 text-sm text-[#0097A7]">
-                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                    Generating part number…
-                  </div>
-                ) : (
-                  <Input
-                    placeholder="Enter Part Number"
-                    value={form.partNo}
-                    onChange={partNoAutoGen && !editItem ? undefined : u('partNo')}
-                    readOnly={partNoAutoGen && !editItem}
-                  />
-                )}
-                {partNoAutoGen && !editItem && !partNoGenerating && (
-                  <p className="text-[9px] text-[#0097A7] mt-0">Auto-generated from item group prefix</p>
-                )}
+                <Label required>Item Group</Label>
+                <AutocompleteSelect options={opts.itemGroups} placeholder="---Select Group---" value={form.groupId} onChange={setVal('groupId')} loading={dropdownsLoading} />
               </div>
-              <div>
-                <Label>OutSource Part No</Label>
-                <div className="flex gap-2">
-                  <Input placeholder="OutSource Part No" value={form.outsourcePartNo} onChange={u('outsourcePartNo')} />
-                  <button className="flex-shrink-0 w-8 h-[32px] bg-[#0097A7] hover:bg-[#007a87] text-white rounded-lg flex items-center justify-center transition-colors shadow-sm font-bold text-lg leading-none">+</button>
-                </div>
-              </div>
-            </Row>
-            {/* Row 3: Part Name — full width */}
-            <div>
-              <Label required>Part Name</Label>
-              <AutocompleteSelect
-                options={partNames.map(name => ({ value: name, label: name }))}
-                placeholder="---Select Part Name---"
-                value={form.partName}
-                onChange={setVal('partName')}
-                allowCustom
-              />
-              {isPartNameDuplicate ? (
-                <p className="text-[11px] text-amber-600 mt-1 font-medium">
-                  The part name is already registered.
-                </p>
-              ) : null}
-            </div>
-            <Row>
-              <div>
-                <Label>Model</Label>
-                <AutocompleteSelect options={opts.models} placeholder="---Select Model---" value={form.modelId} onChange={setVal('modelId')} loading={dropdownsLoading} />
-              </div>
-              <div>
-                <Label>Brand</Label>
-                <Input placeholder="Brand" value={form.brand} onChange={u('brand')} />
-              </div>
-            </Row>
-            <Row>
-              <div>
-                <Label>Description</Label>
-                <Input placeholder="Description" value={form.description} onChange={u('description')} />
-              </div>
-              <div>
-                <Label>Size</Label>
-                <Input placeholder="Size" value={form.size} onChange={u('size')} />
-              </div>
-            </Row>
-            <Row>
-              <div>
-                <Label>Weight</Label>
-                <Input placeholder="Weight" value={form.weight} onChange={u('weight')} type="number" hasError={hasNegError(form.weight)} />
-                {hasNegError(form.weight) && (
-                  <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
-                )}
-              </div>
-              <div>
-                <Label required>UOM</Label>
-                <AutocompleteSelect options={opts.uoms} placeholder="---Select UOM---" value={form.unitId} onChange={setVal('unitId')} loading={dropdownsLoading} />
-              </div>
-            </Row>
-            <Row>
-              <div>
-                <Label>HSN Code</Label>
-                <Input placeholder="HSN Code" value={form.hsnCode} onChange={u('hsnCode')} />
-              </div>
-              <div>
-                <Label>GST %</Label>
-                <Select options={opts.taxes} placeholder="---Select GST %---" value={form.taxId} onChange={u('taxId')} loading={dropdownsLoading} />
-              </div>
-            </Row>
-            <Row>
-              <div>
-                <Label>Purchase Rate</Label>
-                <Input placeholder="Purchase Rate" value={form.purchaseRate} onChange={handlePurchaseRateChange} type="number" hasError={hasNegError(form.purchaseRate)} />
-                {hasNegError(form.purchaseRate) && (
-                  <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
-                )}
-              </div>
-              <div>
-                <Label>Margin (%)</Label>
-                <Input placeholder="Margin (%)" value={form.marginPercent} onChange={handleMarginPercentChange} type="number" hasError={hasNegError(form.marginPercent)} />
-                {hasNegError(form.marginPercent) && (
-                  <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
-                )}
-              </div>
-            </Row>
-            <Row>
-              <div>
-                <Label>Rate</Label>
-                <Input placeholder="Rate" value={form.rate} onChange={handleRateChange} type="number" hasError={hasNegError(form.rate)} />
-                {hasNegError(form.rate) && (
-                  <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
-                )}
-              </div>
-              <div>
-                <Label>Currency</Label>
-                <AutocompleteSelect options={opts.currencies} placeholder="---Select---" value={form.currencyId} onChange={setVal('currencyId')} loading={dropdownsLoading} dropdownAlign="top" />
-              </div>
-            </Row>
-            <Row>
-              <div>
-                <Label>Labour Charge</Label>
-                <Input placeholder="Labour Charge" value={form.labourCharge} onChange={u('labourCharge')} type="number" hasError={hasNegError(form.labourCharge)} />
-                {hasNegError(form.labourCharge) && (
-                  <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
-                )}
-              </div>
-              <div>
-                {/* empty block to align with grid column layout */}
-              </div>
-            </Row>
-          </SectionCard>
-
-          {/* ── COLUMN 2: Store & Raw Material ── */}
-          <div className="space-y-6">
-            <SectionCard title="Store & Classification" icon={<Store className="w-4 h-4" />}>
+              {/* Row 2: Part Number + OutSource Part No */}
               <Row>
                 <div>
-                  <Label>Sub Group</Label>
-                  <AutocompleteSelect options={opts.subGroups} placeholder="---Select Sub Group---" value={form.subGroupId} onChange={setVal('subGroupId')} loading={dropdownsLoading} />
-                </div>
-                <div>
-                  <Label>Store Name</Label>
-                  <AutocompleteSelect options={opts.stores} placeholder="---Select Store---" value={form.storeId} onChange={setVal('storeId')} loading={dropdownsLoading} />
-                </div>
-              </Row>
-              <Row>
-                <div>
-                  <Label>Reorder Level</Label>
-                  <Input placeholder="Reorder Level" value={form.reorderLevel} onChange={u('reorderLevel')} type="number" hasError={hasNegError(form.reorderLevel)} />
-                  {hasNegError(form.reorderLevel) && (
-                    <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                  <Label required>Part Number</Label>
+                  {partNoGenerating ? (
+                    <div className="flex items-center gap-2 px-3 py-[7px] border border-[#0097A7]/40 rounded-lg bg-slate-50 text-sm text-[#0097A7]">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      Generating part number…
+                    </div>
+                  ) : (
+                    <Input
+                      placeholder="Enter Part Number"
+                      value={form.partNo}
+                      onChange={partNoAutoGen && !editItem ? undefined : u('partNo')}
+                      readOnly={partNoAutoGen && !editItem}
+                    />
+                  )}
+                  {partNoAutoGen && !editItem && !partNoGenerating && (
+                    <p className="text-[9px] text-[#0097A7] mt-0">Auto-generated from item group prefix</p>
                   )}
                 </div>
                 <div>
-                  <Label>Min Stock</Label>
-                  <Input placeholder="Min Stock" value={form.minStock} onChange={u('minStock')} type="number" hasError={hasNegError(form.minStock)} />
-                  {hasNegError(form.minStock) && (
-                    <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
-                  )}
-                </div>
-              </Row>
-              <Row>
-                <div>
-                  <Label>Location</Label>
-                  <Input placeholder="Location" value={form.location} onChange={u('location')} />
-                </div>
-                <div>
-                  <Label>Rack Number</Label>
-                  <Input placeholder="Rack Number" value={form.rackNo} onChange={u('rackNo')} />
-                </div>
-              </Row>
-              <Row>
-                <div>
-                  <Label required>Item Type</Label>
-                  <AutocompleteSelect options={opts.itemTypes} placeholder="---Select Item Type---" value={form.itemTypeId} onChange={setVal('itemTypeId')} loading={dropdownsLoading} dropdownAlign="top" />
-                </div>
-                <div>
-                  <Label required>QC Type</Label>
-                  <AutocompleteSelect options={opts.qcTypes} placeholder="---Select QC Type---" value={form.qcTypeId} onChange={setVal('qcTypeId')} loading={dropdownsLoading} dropdownAlign="top" />
-                </div>
-              </Row>
-              <Row>
-                <div>
-                  <Label required>Do you need a barcode?</Label>
-                  <div className="flex items-center gap-5 h-[32px]">
-                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-700 cursor-pointer">
-                      <input type="radio" name="hasBarcodeYesNo" value="Yes" checked={form.hasBarcodeYesNo === 'Yes'} onChange={u('hasBarcodeYesNo')} className="accent-[#0097A7] w-3.5 h-3.5" />
-                      Yes
-                    </label>
-                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-700 cursor-pointer">
-                      <input type="radio" name="hasBarcodeYesNo" value="No" checked={form.hasBarcodeYesNo === 'No'} onChange={u('hasBarcodeYesNo')} className="accent-[#0097A7] w-3.5 h-3.5" />
-                      No
-                    </label>
+                  <Label>OutSource Part No</Label>
+                  <div className="flex gap-2">
+                    <Input placeholder="OutSource Part No" value={form.outsourcePartNo} onChange={u('outsourcePartNo')} />
+                    <button className="flex-shrink-0 w-8 h-[32px] bg-[#0097A7] hover:bg-[#007a87] text-white rounded-lg flex items-center justify-center transition-colors shadow-sm font-bold text-lg leading-none">+</button>
                   </div>
                 </div>
-                <div>
-                  <Label>Barcode Type</Label>
-                  <Select
-                    options={[
-                      { value: 'Single', label: 'Single' },
-                      { value: 'Multiple', label: 'Multiple' },
-                    ]}
-                    placeholder="---Select Barcode Type---"
-                    value={form.barcodeType}
-                    onChange={u('barcodeType')}
-                    disabled={form.hasBarcodeYesNo !== 'Yes'}
-                  />
-                </div>
               </Row>
-              <div className="col-span-2">
-                <Label>Remark</Label>
-                <Input placeholder="Remark" value={form.remark} onChange={u('remark')} />
+              {/* Row 3: Part Name — full width */}
+              <div>
+                <Label required>Part Name</Label>
+                <AutocompleteSelect
+                  options={partNames.map(name => ({ value: name, label: name }))}
+                  placeholder="---Select Part Name---"
+                  value={form.partName}
+                  onChange={setVal('partName')}
+                  allowCustom
+                />
+                {isPartNameDuplicate ? (
+                  <p className="text-[11px] text-amber-600 mt-1 font-medium">
+                    The part name is already registered.
+                  </p>
+                ) : null}
               </div>
-            </SectionCard>
-
-            <SectionCard title="Raw Material Selection" icon={<Settings className="w-4 h-4" />}>
-              {/* Row 1: Raw Material | RM. Weight */}
               <Row>
                 <div>
-                  <Label>Raw Material</Label>
-                  <AutocompleteSelect
-                    options={rawMaterialOpts}
-                    placeholder="---Select Raw Material---"
-                    value={form.rawMaterial}
-                    onChange={setVal('rawMaterial')}
-                    allowCustom
-                  />
+                  <Label>Model</Label>
+                  <AutocompleteSelect options={opts.models} placeholder="---Select Model---" value={form.modelId} onChange={setVal('modelId')} loading={dropdownsLoading} />
                 </div>
                 <div>
-                  <Label>RM. Weight</Label>
-                  <Input placeholder="RM. Weight" value={form.rawMaterialWt} onChange={u('rawMaterialWt')} type="number" hasError={hasNegError(form.rawMaterialWt)} />
-                  {hasNegError(form.rawMaterialWt) && (
+                  <Label>Brand</Label>
+                  <Input placeholder="Brand" value={form.brand} onChange={u('brand')} />
+                </div>
+              </Row>
+              <Row>
+                <div>
+                  <Label>Description</Label>
+                  <Input placeholder="Description" value={form.description} onChange={u('description')} />
+                </div>
+                <div>
+                  <Label>Size</Label>
+                  <Input placeholder="Size" value={form.size} onChange={u('size')} />
+                </div>
+              </Row>
+              <Row>
+                <div>
+                  <Label>Weight</Label>
+                  <Input placeholder="Weight" value={form.weight} onChange={u('weight')} type="number" hasError={hasNegError(form.weight)} />
+                  {hasNegError(form.weight) && (
+                    <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                  )}
+                </div>
+                <div>
+                  <Label required>UOM</Label>
+                  <AutocompleteSelect options={opts.uoms} placeholder="---Select UOM---" value={form.unitId} onChange={setVal('unitId')} loading={dropdownsLoading} />
+                </div>
+              </Row>
+              <Row>
+                <div>
+                  <Label>HSN Code</Label>
+                  <Input placeholder="HSN Code" value={form.hsnCode} onChange={u('hsnCode')} />
+                </div>
+                <div>
+                  <Label>GST %</Label>
+                  <Select options={opts.taxes} placeholder="---Select GST %---" value={form.taxId} onChange={u('taxId')} loading={dropdownsLoading} />
+                </div>
+              </Row>
+              <Row>
+                <div>
+                  <Label>Purchase Rate</Label>
+                  <Input placeholder="Purchase Rate" value={form.purchaseRate} onChange={handlePurchaseRateChange} type="number" hasError={hasNegError(form.purchaseRate)} />
+                  {hasNegError(form.purchaseRate) && (
+                    <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                  )}
+                </div>
+                <div>
+                  <Label>Margin (%)</Label>
+                  <Input placeholder="Margin (%)" value={form.marginPercent} onChange={handleMarginPercentChange} type="number" hasError={hasNegError(form.marginPercent)} />
+                  {hasNegError(form.marginPercent) && (
                     <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
                   )}
                 </div>
               </Row>
-              {/* Row 2: Material Grade | Material Type */}
               <Row>
                 <div>
-                  <Label>Material Grade</Label>
-                  <AutocompleteSelect options={opts.materialGrades} placeholder="---Select---" value={form.materialGradeId} onChange={setVal('materialGradeId')} loading={dropdownsLoading} />
-                </div>
-                <div>
-                  <Label>Material Type</Label>
-                  <AutocompleteSelect options={opts.materialTypes} placeholder="---Select---" value={form.materialTypeId} onChange={setVal('materialTypeId')} loading={dropdownsLoading} />
-                </div>
-              </Row>
-              {/* Row 3: Length | FG. Weight */}
-              <Row>
-                <div>
-                  <Label>Length</Label>
-                  <Input placeholder="Length (e.g. 6m)" value={form.rmLength} onChange={u('rmLength')} />
-                </div>
-                <div>
-                  <Label>FG. Weight</Label>
-                  <Input placeholder="FG. Weight" value={form.fgMaterialWt} onChange={u('fgMaterialWt')} type="number" hasError={hasNegError(form.fgMaterialWt)} />
-                  {hasNegError(form.fgMaterialWt) && (
+                  <Label>Rate</Label>
+                  <Input placeholder="Rate" value={form.rate} onChange={handleRateChange} type="number" hasError={hasNegError(form.rate)} />
+                  {hasNegError(form.rate) && (
                     <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
                   )}
+                </div>
+                <div>
+                  <Label>Currency</Label>
+                  <AutocompleteSelect options={opts.currencies} placeholder="---Select---" value={form.currencyId} onChange={setVal('currencyId')} loading={dropdownsLoading} dropdownAlign="top" />
+                </div>
+              </Row>
+              <Row>
+                <div>
+                  <Label>Labour Charge</Label>
+                  <Input placeholder="Labour Charge" value={form.labourCharge} onChange={u('labourCharge')} type="number" hasError={hasNegError(form.labourCharge)} />
+                  {hasNegError(form.labourCharge) && (
+                    <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                  )}
+                </div>
+                <div>
+                  {/* empty block to align with grid column layout */}
                 </div>
               </Row>
             </SectionCard>
-          </div>
 
-          {/* ── COLUMN 3: Uploads & Actions ── */}
-          <div className="space-y-6 lg:col-span-2 2xl:col-span-1">
-            <SectionCard title="Attachments & Actions" icon={<Paperclip className="w-4 h-4" />}>
-              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-1 gap-4 mb-4">
-                {/* ── Image upload + preview ── */}
-                <div>
-                <Label>Upload Image</Label>
-                {imagePreview ? (
-                  <div className="border border-[#0097A7] rounded-lg overflow-hidden">
-                    <div className="relative">
-                      <img
-                        src={imagePreview}
-                        alt="preview"
-                        className="w-full h-24 object-contain bg-slate-50"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleClearImage}
-                        className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-[11px] font-bold shadow transition-colors"
-                        title="Remove image"
-                      >✕</button>
-                    </div>
-                    <div className="px-3 py-1.5 bg-[#D4F1F4]/60 flex items-center gap-2">
-                      <svg className="w-3.5 h-3.5 text-[#0097A7] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span className="text-[11px] text-[#0097A7] font-semibold truncate">{imageFile?.name || 'Item Image'}</span>
+            {/* ── COLUMN 2: Store & Raw Material ── */}
+            <div className="space-y-6">
+              <SectionCard title="Store & Classification" icon={<Store className="w-4 h-4" />}>
+                <Row>
+                  <div>
+                    <Label>Sub Group</Label>
+                    <AutocompleteSelect options={opts.subGroups} placeholder="---Select Sub Group---" value={form.subGroupId} onChange={setVal('subGroupId')} loading={dropdownsLoading} />
+                  </div>
+                  <div>
+                    <Label>Store Name</Label>
+                    <AutocompleteSelect options={opts.stores} placeholder="---Select Store---" value={form.storeId} onChange={setVal('storeId')} loading={dropdownsLoading} />
+                  </div>
+                </Row>
+                <Row>
+                  <div>
+                    <Label>Reorder Level</Label>
+                    <Input placeholder="Reorder Level" value={form.reorderLevel} onChange={u('reorderLevel')} type="number" hasError={hasNegError(form.reorderLevel)} />
+                    {hasNegError(form.reorderLevel) && (
+                      <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Min Stock</Label>
+                    <Input placeholder="Min Stock" value={form.minStock} onChange={u('minStock')} type="number" hasError={hasNegError(form.minStock)} />
+                    {hasNegError(form.minStock) && (
+                      <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                    )}
+                  </div>
+                </Row>
+                <Row>
+                  <div>
+                    <Label>Location</Label>
+                    <Input placeholder="Location" value={form.location} onChange={u('location')} />
+                  </div>
+                  <div>
+                    <Label>Rack Number</Label>
+                    <Input placeholder="Rack Number" value={form.rackNo} onChange={u('rackNo')} />
+                  </div>
+                </Row>
+                <Row>
+                  <div>
+                    <Label required>Item Type</Label>
+                    <AutocompleteSelect options={opts.itemTypes} placeholder="---Select Item Type---" value={form.itemTypeId} onChange={setVal('itemTypeId')} loading={dropdownsLoading} dropdownAlign="top" />
+                  </div>
+                  <div>
+                    <Label required>QC Type</Label>
+                    <AutocompleteSelect options={opts.qcTypes} placeholder="---Select QC Type---" value={form.qcTypeId} onChange={setVal('qcTypeId')} loading={dropdownsLoading} dropdownAlign="top" />
+                  </div>
+                </Row>
+                <Row>
+                  <div>
+                    <Label required>Do you need a barcode?</Label>
+                    <div className="flex items-center gap-5 h-[32px]">
+                      <label className="flex items-center gap-2 text-[12px] font-medium text-slate-700 cursor-pointer">
+                        <input type="radio" name="hasBarcodeYesNo" value="Yes" checked={form.hasBarcodeYesNo === 'Yes'} onChange={u('hasBarcodeYesNo')} className="accent-[#0097A7] w-3.5 h-3.5" />
+                        Yes
+                      </label>
+                      <label className="flex items-center gap-2 text-[12px] font-medium text-slate-700 cursor-pointer">
+                        <input type="radio" name="hasBarcodeYesNo" value="No" checked={form.hasBarcodeYesNo === 'No'} onChange={u('hasBarcodeYesNo')} className="accent-[#0097A7] w-3.5 h-3.5" />
+                        No
+                      </label>
                     </div>
                   </div>
-                ) : (
-                  <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-[#0097A7] hover:bg-[#D4F1F4]/30 transition-all group">
-                    <div className="w-9 h-9 bg-[#D4F1F4] rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-[#0097A7]/20 transition-colors">
-                      <svg className="w-5 h-5 text-[#0097A7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-600">Upload Image</p>
-                      <p className="text-[11px] text-slate-400">PNG, JPG up to 5MB</p>
-                    </div>
-                    <input type="file" className="hidden" accept="image/*" onChange={handleImageSelect} />
-                  </label>
-                )}
-              </div>
+                  <div>
+                    <Label>Barcode Type</Label>
+                    <Select
+                      options={[
+                        { value: 'Single', label: 'Single' },
+                        { value: 'Multiple', label: 'Multiple' },
+                      ]}
+                      placeholder="---Select Barcode Type---"
+                      value={form.barcodeType}
+                      onChange={u('barcodeType')}
+                      disabled={form.hasBarcodeYesNo !== 'Yes'}
+                    />
+                  </div>
+                </Row>
+                <div className="col-span-2">
+                  <Label>Remark</Label>
+                  <Input placeholder="Remark" value={form.remark} onChange={u('remark')} />
+                </div>
+              </SectionCard>
 
-              {/* ── PDF upload + preview ── */}
-              <div>
-                <Label>Upload Drawing PDF</Label>
-                {pdfFile || existingPdf ? (
-                  <div className="flex items-center gap-3 px-4 py-3 border border-red-300 rounded-lg bg-red-50">
-                    <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-semibold text-red-700 truncate">{pdfFile ? pdfFile.name : (editItem?.routeCardNo || 'Saved PDF Document')}</p>
-                      <p className="text-[11px] text-red-400">{pdfFile ? `${(pdfFile.size / 1024).toFixed(1)} KB` : 'Already saved'}</p>
-                    </div>
+              <SectionCard title="Raw Material Selection" icon={<Settings className="w-4 h-4" />}>
+                {/* Row 1: Raw Material | RM. Weight */}
+                <Row>
+                  <div>
+                    <Label>Raw Material</Label>
+                    <AutocompleteSelect
+                      options={rawMaterialOpts}
+                      placeholder="---Select Raw Material---"
+                      value={form.rawMaterial}
+                      onChange={setVal('rawMaterial')}
+                      allowCustom
+                    />
+                  </div>
+                  <div>
+                    <Label>RM. Weight</Label>
+                    <Input placeholder="RM. Weight" value={form.rawMaterialWt} onChange={u('rawMaterialWt')} type="number" hasError={hasNegError(form.rawMaterialWt)} />
+                    {hasNegError(form.rawMaterialWt) && (
+                      <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                    )}
+                  </div>
+                </Row>
+                {/* Row 2: Material Grade | Material Type */}
+                <Row>
+                  <div>
+                    <Label>Material Grade</Label>
+                    <AutocompleteSelect options={opts.materialGrades} placeholder="---Select---" value={form.materialGradeId} onChange={setVal('materialGradeId')} loading={dropdownsLoading} />
+                  </div>
+                  <div>
+                    <Label>Material Type</Label>
+                    <AutocompleteSelect options={opts.materialTypes} placeholder="---Select---" value={form.materialTypeId} onChange={setVal('materialTypeId')} loading={dropdownsLoading} />
+                  </div>
+                </Row>
+                {/* Row 3: Length | FG. Weight */}
+                <Row>
+                  <div>
+                    <Label>Length</Label>
+                    <Input placeholder="Length (e.g. 6m)" value={form.rmLength} onChange={u('rmLength')} />
+                  </div>
+                  <div>
+                    <Label>FG. Weight</Label>
+                    <Input placeholder="FG. Weight" value={form.fgMaterialWt} onChange={u('fgMaterialWt')} type="number" hasError={hasNegError(form.fgMaterialWt)} />
+                    {hasNegError(form.fgMaterialWt) && (
+                      <p className="text-[10px] text-red-500 mt-0.5 font-medium">Value cannot be negative</p>
+                    )}
+                  </div>
+                </Row>
+              </SectionCard>
+            </div>
+
+            {/* ── COLUMN 3: Uploads & Actions ── */}
+            <div className="space-y-6 lg:col-span-2 2xl:col-span-1">
+              <SectionCard title="Attachments & Actions" icon={<Paperclip className="w-4 h-4" />}>
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-1 gap-4 mb-4">
+                  {/* ── Image upload + preview ── */}
+                  <div>
+                    <Label>Upload Image</Label>
+                    {imagePreview ? (
+                      <div className="border border-[#0097A7] rounded-lg overflow-hidden">
+                        <div className="relative">
+                          <img
+                            src={imagePreview}
+                            alt="preview"
+                            className="w-full h-24 object-contain bg-slate-50"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleClearImage}
+                            className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-[11px] font-bold shadow transition-colors"
+                            title="Remove image"
+                          >✕</button>
+                        </div>
+                        <div className="px-3 py-1.5 bg-[#D4F1F4]/60 flex items-center gap-2">
+                          <svg className="w-3.5 h-3.5 text-[#0097A7] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-[11px] text-[#0097A7] font-semibold truncate">{imageFile?.name || 'Item Image'}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-[#0097A7] hover:bg-[#D4F1F4]/30 transition-all group">
+                        <div className="w-9 h-9 bg-[#D4F1F4] rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-[#0097A7]/20 transition-colors">
+                          <svg className="w-5 h-5 text-[#0097A7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-600">Upload Image</p>
+                          <p className="text-[11px] text-slate-400">PNG, JPG up to 5MB</p>
+                        </div>
+                        <input type="file" className="hidden" accept="image/*" onChange={handleImageSelect} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* ── PDF upload + preview ── */}
+                  <div>
+                    <Label>Upload Drawing PDF</Label>
+                    {pdfFile || existingPdf ? (
+                      <div className="flex items-center gap-3 px-4 py-3 border border-red-300 rounded-lg bg-red-50">
+                        <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-semibold text-red-700 truncate">{pdfFile ? pdfFile.name : (editItem?.routeCardNo || 'Saved PDF Document')}</p>
+                          <p className="text-[11px] text-red-400">{pdfFile ? `${(pdfFile.size / 1024).toFixed(1)} KB` : 'Already saved'}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleClearPdf}
+                          className="w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-[11px] font-bold shadow transition-colors flex-shrink-0"
+                          title="Remove PDF"
+                        >✕</button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-[#0097A7] hover:bg-[#D4F1F4]/30 transition-all group">
+                        <div className="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
+                          <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-600">Upload Drawing PDF</p>
+                          <p className="text-[11px] text-slate-400">PDF up to 10MB</p>
+                        </div>
+                        <input type="file" className="hidden" accept=".pdf" onChange={handlePdfSelect} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 pt-4 mt-2">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Actions</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 2xl:grid-cols-2 gap-2.5">
                     <button
-                      type="button"
-                      onClick={handleClearPdf}
-                      className="w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-[11px] font-bold shadow transition-colors flex-shrink-0"
-                      title="Remove PDF"
-                    >✕</button>
+                      onClick={handleSubmit}
+                      disabled={saving}
+                      className="px-3 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 active:scale-95 text-white text-[13px] font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      {saving
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                      }
+                      {editItem ? 'Update' : 'Create'}
+                    </button>
+                    <button
+                      onClick={() => setForm(editItem ? (() => {
+                        const f = {}
+                        Object.keys(emptyForm).forEach(k => { const v = editItem[k]; f[k] = (v !== null && v !== undefined) ? String(v) : '' })
+                        return f
+                      })() : { ...emptyForm })}
+                      className="px-3 py-2 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white text-[13px] font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Clear
+                    </button>
+                    <button
+                      onClick={onBack}
+                      className="px-3 py-2 bg-[#0097A7] hover:bg-[#007a87] active:scale-95 text-white text-[13px] font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      </svg>
+                      Display All
+                    </button>
+                    <button
+                      className="px-3 py-2 bg-slate-700 hover:bg-slate-800 active:scale-95 text-white text-[13px] font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      Search
+                    </button>
                   </div>
-                ) : (
-                  <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-[#0097A7] hover:bg-[#D4F1F4]/30 transition-all group">
-                    <div className="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
-                      <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-600">Upload Drawing PDF</p>
-                      <p className="text-[11px] text-slate-400">PDF up to 10MB</p>
-                    </div>
-                    <input type="file" className="hidden" accept=".pdf" onChange={handlePdfSelect} />
-                  </label>
-                )}
-              </div>
-            </div>
-
-              <div className="border-t border-slate-100 pt-4 mt-2">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Actions</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 2xl:grid-cols-2 gap-2.5">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={saving}
-                    className="px-3 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 active:scale-95 text-white text-[13px] font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    {saving
-                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                      </svg>
-                    }
-                    {editItem ? 'Update' : 'Create'}
-                  </button>
-                  <button
-                    onClick={() => setForm(editItem ? (() => {
-                      const f = {}
-                      Object.keys(emptyForm).forEach(k => { const v = editItem[k]; f[k] = (v !== null && v !== undefined) ? String(v) : '' })
-                      return f
-                    })() : { ...emptyForm })}
-                    className="px-3 py-2 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white text-[13px] font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Clear
-                  </button>
-                  <button
-                    onClick={onBack}
-                    className="px-3 py-2 bg-[#0097A7] hover:bg-[#007a87] active:scale-95 text-white text-[13px] font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                    </svg>
-                    Display All
-                  </button>
-                  <button
-                    className="px-3 py-2 bg-slate-700 hover:bg-slate-800 active:scale-95 text-white text-[13px] font-semibold rounded-lg transition-all duration-150 shadow-sm hover:shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    Search
-                  </button>
                 </div>
-              </div>
-            </SectionCard>
+              </SectionCard>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
   )
 }
 

@@ -229,12 +229,14 @@ export default function BOMCreationReport() {
     }
   }
 
-  const fetchCustomers = async () => {
+  const [itemMasterList, setItemMasterList] = useState([])
+
+  const fetchItemMaster = async () => {
     try {
-      const res = await api.get('/api/customer-master')
-      setCustomers(res.data?.data || [])
+      const res = await api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
+      setItemMasterList(res.data?.data || [])
     } catch (err) {
-      console.error('Error fetching customers', err)
+      console.error('Error fetching item master in BOM report', err)
     }
   }
 
@@ -243,7 +245,43 @@ export default function BOMCreationReport() {
     fetchVehicles()
     fetchBookings()
     fetchCustomers()
+    fetchItemMaster()
   }, [])
+
+  const resolveChildImage = (childRow) => {
+    if (!childRow) return null
+    const canonical = getCanonicalRowData(childRow)
+    const val = canonical.Image || childRow.Image || childRow.image || childRow.Pic || childRow.pic
+    const valStr = String(val || '').trim()
+
+    if (valStr) {
+      if (valStr.startsWith('data:image/') || valStr.startsWith('http://') || valStr.startsWith('https://') || valStr.startsWith('/api/') || valStr.startsWith('/uploads/')) {
+        return valStr
+      }
+      if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(valStr)) {
+        return `/uploads/${valStr}`
+      }
+    }
+
+    const partNo = canonical.PartNo || childRow.PartNo || childRow['Part No'] || childRow.partNo || childRow.itemCode
+    if (partNo && itemMasterList.length > 0) {
+      const matchedItem = itemMasterList.find(im => String(im.partNo || '').trim().toLowerCase() === String(partNo).trim().toLowerCase())
+      if (matchedItem) {
+        if (matchedItem.hasImage || matchedItem.imageMimeType) {
+          return `/api/item-master/${matchedItem.id}/download-image`
+        }
+        if (matchedItem.imagePath) {
+          return matchedItem.imagePath.startsWith('http') || matchedItem.imagePath.startsWith('/')
+            ? matchedItem.imagePath
+            : `/uploads/${matchedItem.imagePath}`
+        }
+        if (matchedItem.image) {
+          return matchedItem.image
+        }
+      }
+    }
+    return null
+  }
 
   // Helper to extract chosen vehicle count from open booking entries
   const getChosenVehicleCount = (row) => {
@@ -271,7 +309,7 @@ export default function BOMCreationReport() {
       matchingBooking = openBookings.find(b =>
         (String(b.vehicleSerialNo || b.serialNo || '').trim().toLowerCase() === serNo) &&
         ((custName && String(b.customerName || '').trim().toLowerCase() === custName) ||
-         (custCode && String(b.customerCode || '').trim().toLowerCase() === custCode))
+          (custCode && String(b.customerCode || '').trim().toLowerCase() === custCode))
       )
     }
 
@@ -362,7 +400,7 @@ export default function BOMCreationReport() {
     setFilteredData(result)
   }, [data, fromDate, toDate, customer, serialNo, assemblyPartNo])
 
-// Preview image is managed directly via updatePreviewImage
+  // Preview image is managed directly via updatePreviewImage
 
   const handleSearch = () => {
     setSearching(true)
@@ -1131,33 +1169,35 @@ export default function BOMCreationReport() {
                                               }`}
                                           >
                                             <td className="px-4 py-1.5 border-r border-slate-50 text-center text-slate-400 font-bold group-hover:text-white/50">{childIdx + 1}</td>
-                                            {CANONICAL_HEADERS.map((header, colIdx) => {
-                                              const val = canonical[header];
-                                              const valStr = String(val || '').trim();
-                                              const isImg = header === 'Image' || valStr.startsWith('http://') ||
-                                                valStr.startsWith('https://') ||
-                                                valStr.startsWith('/api/') ||
-                                                valStr.startsWith('/uploads/') ||
-                                                valStr.startsWith('data:image/');
-                                              return (
-                                                <td key={colIdx} className="px-4 py-1.5 border-r border-slate-50 text-slate-600 group-hover:text-white">
-                                                  {isImg && valStr ? (
-                                                    <img
-                                                      src={valStr}
-                                                      alt="Preview"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setLightboxImage(valStr);
-                                                      }}
-                                                      className="max-h-12 max-w-[80px] object-contain rounded border border-slate-200 cursor-zoom-in hover:scale-105 hover:shadow-sm transition-all duration-200"
-                                                      onError={(e) => { e.target.style.display = 'none'; }}
-                                                    />
-                                                  ) : (
-                                                    valStr
-                                                  )}
-                                                </td>
-                                              );
-                                            })}
+                                             {CANONICAL_HEADERS.map((header, colIdx) => {
+                                               const val = canonical[header];
+                                               const valStr = String(val || "").trim();
+                                               const resolvedImg = resolveChildImage(childRow);
+                                               const imgSrc = resolvedImg || valStr;
+                                               const isImg = header === "Image" || !!resolvedImg || valStr.startsWith("http://") ||
+                                                 valStr.startsWith("https://") ||
+                                                 valStr.startsWith("/api/") ||
+                                                 valStr.startsWith("/uploads/") ||
+                                                 valStr.startsWith("data:image/");
+                                               return (
+                                                 <td key={colIdx} className="px-4 py-1.5 border-r border-slate-50 text-slate-600 group-hover:text-white">
+                                                   {isImg && imgSrc ? (
+                                                     <img
+                                                       src={imgSrc}
+                                                       alt="Preview"
+                                                       onClick={(e) => {
+                                                         e.stopPropagation();
+                                                         setLightboxImage(imgSrc);
+                                                       }}
+                                                       className="max-h-12 max-w-[80px] object-contain rounded border border-slate-200 cursor-zoom-in hover:scale-105 hover:shadow-sm transition-all duration-200"
+                                                       onError={(e) => { e.target.style.display = "none"; }}
+                                                     />
+                                                   ) : (
+                                                     valStr
+                                                   )}
+                                                 </td>
+                                               );
+                                             })}
                                           </tr>
                                         );
                                       })}

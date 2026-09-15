@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast'
 import { SpinnerLoader } from '../components/LocalLoader'
 
 // Currencies fetched from reference master
-const CURRENCY_TYPES = ['EXPORT','DOMESTIC']
+const CURRENCY_TYPES = ['EXPORT', 'DOMESTIC']
 // Tax Types are fetched dynamically from reference master (see useEffect below)
 // Default tax % per Tax Type description (case-insensitive match)
 const TAX_RATE_MAP = { 'LOCAL': 18, 'INTER': 28 }
@@ -13,8 +13,8 @@ const TAX_RATE_MAP = { 'LOCAL': 18, 'INTER': 28 }
 
 const today = new Date().toISOString().split('T')[0]
 
-const emptyItem = () => ({ itemCode:'', itemName:'', qcType:'', supplierPartNo:'', description:'', hsnCode:'', unit:'', stockQty:'', orderQty:'', qty:'', unitPrice:'', total:'', discPer:'', discAmt:'', finalPrice:'', taxPer:'', netAmt:'' })
-const emptyFreightRow = () => ({ freightName:'', amount:'', taxPer:'', gstAmt:'0', igstAmt:'0', netTotal:'0' })
+const emptyItem = () => ({ itemCode: '', itemName: '', qcType: '', supplierPartNo: '', description: '', hsnCode: '', unit: '', stockQty: '', orderQty: '', qty: '', unitPrice: '', total: '', discPer: '', discAmt: '', finalPrice: '', taxPer: '', netAmt: '' })
+const emptyFreightRow = () => ({ freightName: '', amount: '', taxPer: '', gstAmt: '0', igstAmt: '0', netTotal: '0' })
 
 const DEFAULT_FREIGHT_NAMES = [
   'Freight Inward',
@@ -28,7 +28,7 @@ const DEFAULT_FREIGHT_NAMES = [
 ]
 const defaultFreightRows = () => DEFAULT_FREIGHT_NAMES.map(name => ({ ...emptyFreightRow(), freightName: name }))
 
-const inp = (err='') => `w-full border rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 transition-colors bg-white ${err?'border-red-400 focus:ring-red-300':'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'}`
+const inp = (err = '') => `w-full border rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 transition-colors bg-white ${err ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'}`
 const lbl = 'text-[12px] font-semibold text-slate-600 whitespace-nowrap'
 
 export default function GRNEntry() {
@@ -49,11 +49,11 @@ export default function GRNEntry() {
   const isClosed = entryStatus === 'Closed' || entryStatus === 'Completed'
 
   const [form, setForm] = useState({
-    grnType:'', gateEntryNo:'', supplierName:'', purchaseLedger:'',
-    purchaseType:'', currency:'', currencyType:'EXPORT',
-    contactPerson:'', contactNo:'', poNo:'', poDate:today, taxType:'', exchangeRate:'',
-    grnNo:'', financialYear:'', grnDate:today, invoiceNo:'0', invoiceDate:today, qcType:'',
-    discountType:'Dis_Per',
+    grnType: '', gateEntryNo: '', supplierName: '', purchaseLedger: '',
+    purchaseType: '', currency: '', currencyType: 'EXPORT',
+    contactPerson: '', contactNo: '', poNo: '', poDate: today, taxType: '', exchangeRate: '',
+    grnNo: '', financialYear: '', grnDate: today, invoiceNo: '0', invoiceDate: today, qcType: '',
+    discountType: 'Dis_Per',
   })
   const [items, setItems] = useState([emptyItem()])
   const [remarks, setRemarks] = useState('')
@@ -132,52 +132,52 @@ export default function GRNEntry() {
           const types = (res.data.data || []).map(r => r.description || r.code).filter(Boolean)
           setGrnTypes(types)
           if (types.length) setForm(f => ({ ...f, grnType: f.grnType || types[0] }))
-        }).catch(() => {}),
+        }).catch(() => { }),
 
       api.get(`/api/reference-master/${encodeURIComponent('Tax Type')}`, { skipGlobalLoader: true })
         .then(res => {
           const types = (res.data.data || []).map(r => r.description || r.code).filter(Boolean)
           setTaxTypes(types)
           if (types.length) setForm(f => ({ ...f, taxType: f.taxType || types[0] }))
-        }).catch(() => {}),
+        }).catch(() => { }),
 
       api.get(`/api/reference-master/${encodeURIComponent('Purchase_Ledger')}`, { skipGlobalLoader: true })
         .then(res => {
           const types = (res.data.data || []).map(r => r.description || r.code).filter(Boolean)
           setPurchaseLedgers(types)
           if (types.length) setForm(f => ({ ...f, purchaseLedger: f.purchaseLedger || types[0] }))
-        }).catch(() => {}),
+        }).catch(() => { }),
 
       api.get('/api/supplier-master', { skipGlobalLoader: true })
         .then(res => {
           setSuppliersData(res.data.data || [])
-        }).catch(() => {}),
+        }).catch(() => { }),
 
       api.get(`/api/reference-master/${encodeURIComponent('PAYMODE')}`, { skipGlobalLoader: true })
         .then(res => {
           const types = (res.data.data || []).map(r => r.description || r.code).filter(Boolean)
           setPurchaseTypes(types)
           if (types.length) setForm(f => ({ ...f, purchaseType: f.purchaseType || types[0] }))
-        }).catch(() => {}),
+        }).catch(() => { }),
 
       api.get(`/api/reference-master/${encodeURIComponent('QC_Type')}`, { skipGlobalLoader: true })
         .then(res => {
           const types = (res.data.data || []).map(r => r.description || r.code).filter(Boolean)
           setQcTypes(types)
           if (types.length) setForm(f => ({ ...f, qcType: f.qcType || types[0] }))
-        }).catch(() => {}),
+        }).catch(() => { }),
 
       api.get(`/api/reference-master/${encodeURIComponent('Currency')}`, { skipGlobalLoader: true })
         .then(res => {
           const types = (res.data.data || []).map(r => r.description || r.code).filter(Boolean)
           setCurrencies(types)
           if (types.length) setForm(f => ({ ...f, currency: f.currency || types[0] }))
-        }).catch(() => {}),
+        }).catch(() => { }),
 
       api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
         .then(res => {
           setItemsData(res.data.data || [])
-        }).catch(() => {}),
+        }).catch(() => { }),
     ]
 
     const nav = window.__velsonNav || {}
@@ -192,7 +192,7 @@ export default function GRNEntry() {
             setForm(f => ({ ...f, grnNo: res.data.grnNo, financialYear: res.data.financialYear || '' }))
           }
         })
-        .catch(() => {})
+        .catch(() => { })
       Promise.allSettled(fetches).finally(() => setRefLoading(false))
     }
   }, [])
@@ -205,26 +205,26 @@ export default function GRNEntry() {
       setEditId(grn.id)
       setEntryStatus(grn.status || 'Open')
       setForm({
-        grnType:       grn.grnType       || '',
-        gateEntryNo:   grn.gateEntryNo   || '',
-        supplierName:  grn.supplierName  || '',
-        purchaseLedger:grn.purchaseLedger|| '',
-        purchaseType:  grn.purchaseType  || '',
-        currency:      grn.currency      || '',
-        currencyType:  grn.currencyType  || 'EXPORT',
+        grnType: grn.grnType || '',
+        gateEntryNo: grn.gateEntryNo || '',
+        supplierName: grn.supplierName || '',
+        purchaseLedger: grn.purchaseLedger || '',
+        purchaseType: grn.purchaseType || '',
+        currency: grn.currency || '',
+        currencyType: grn.currencyType || 'EXPORT',
         contactPerson: grn.contactPerson || '',
-        contactNo:     grn.contactNo     || '',
-        poNo:          grn.poNo          || '',
-        poDate:        grn.poDate ? grn.poDate.split('T')[0] : today,
-        taxType:       grn.taxType       || '',
-        exchangeRate:  grn.exchangeRate != null ? String(grn.exchangeRate) : '',
-        grnNo:         grn.grnNo,
+        contactNo: grn.contactNo || '',
+        poNo: grn.poNo || '',
+        poDate: grn.poDate ? grn.poDate.split('T')[0] : today,
+        taxType: grn.taxType || '',
+        exchangeRate: grn.exchangeRate != null ? String(grn.exchangeRate) : '',
+        grnNo: grn.grnNo,
         financialYear: grn.financialYear || '',
-        grnDate:       grn.grnDate ? grn.grnDate.split('T')[0] : today,
-        invoiceNo:     grn.invoiceNo     || '0',
-        invoiceDate:   grn.invoiceDate ? grn.invoiceDate.split('T')[0] : today,
-        qcType:        grn.qcType        || '',
-        discountType:  grn.discountType  || 'Dis_Per',
+        grnDate: grn.grnDate ? grn.grnDate.split('T')[0] : today,
+        invoiceNo: grn.invoiceNo || '0',
+        invoiceDate: grn.invoiceDate ? grn.invoiceDate.split('T')[0] : today,
+        qcType: grn.qcType || '',
+        discountType: grn.discountType || 'Dis_Per',
       })
       setRemarks(grn.remarks || '')
       setCurrencyTotal(grn.currencyTotal != null ? String(grn.currencyTotal) : '')
@@ -235,23 +235,23 @@ export default function GRNEntry() {
       setOgstAmtVal(grn.ogstAmt != null ? String(grn.ogstAmt) : '')
       setTcsAmtVal(grn.tcsAmt != null ? String(grn.tcsAmt) : '')
       setItems(grn.details?.length > 0 ? grn.details.map(d => ({
-        itemCode:       d.itemCode       || '',
-        itemName:       d.itemName       || '',
-        qcType:         d.qcType         || '',
+        itemCode: d.itemCode || '',
+        itemName: d.itemName || '',
+        qcType: d.qcType || '',
         supplierPartNo: d.supplierPartNo || '',
-        description:    d.description   || '',
-        hsnCode:        d.hsnCode        || '',
-        unit:           d.unit           || '',
-        stockQty:       d.stockQty != null ? String(d.stockQty) : '',
-        orderQty:       d.orderQty != null ? String(d.orderQty) : '',
-        qty:            d.qty      != null ? String(d.qty)      : '',
-        unitPrice:      d.unitPrice!= null ? String(d.unitPrice): '',
-        total:          d.total    != null ? String(d.total)    : '',
-        discPer:        d.discPer  != null ? String(d.discPer)  : '',
-        discAmt:        d.discAmt  != null ? String(d.discAmt)  : '',
-        finalPrice:     d.finalPrice!=null ? String(d.finalPrice): '',
-        taxPer:         d.taxPer   != null ? String(d.taxPer)   : '',
-        netAmt:         d.netAmt   != null ? String(d.netAmt)   : '',
+        description: d.description || '',
+        hsnCode: d.hsnCode || '',
+        unit: d.unit || '',
+        stockQty: d.stockQty != null ? String(d.stockQty) : '',
+        orderQty: d.orderQty != null ? String(d.orderQty) : '',
+        qty: d.qty != null ? String(d.qty) : '',
+        unitPrice: d.unitPrice != null ? String(d.unitPrice) : '',
+        total: d.total != null ? String(d.total) : '',
+        discPer: d.discPer != null ? String(d.discPer) : '',
+        discAmt: d.discAmt != null ? String(d.discAmt) : '',
+        finalPrice: d.finalPrice != null ? String(d.finalPrice) : '',
+        taxPer: d.taxPer != null ? String(d.taxPer) : '',
+        netAmt: d.netAmt != null ? String(d.netAmt) : '',
       })) : [emptyItem()])
     } catch {
       toast.error('Failed to load GRN entry for editing')
@@ -260,7 +260,7 @@ export default function GRNEntry() {
     }
   }
 
-  
+
   const handleCloseForm = () => {
     window.dispatchEvent(new CustomEvent('velson:navigate', { detail: { page: 'GRNEntryReport' } }))
   }
@@ -286,9 +286,9 @@ export default function GRNEntry() {
 
       const activeGates = allGates.filter(e => {
         const st = (e.status || '').toLowerCase()
-        const isClosedOrSubmitted = st === 'closed' || st === 'completed' || st === 'submitted'
+        const isClosed = st === 'closed' || st === 'completed'
         const isAlreadyUsed = usedGateNos.has((e.gateEntryNo || '').trim())
-        return !isClosedOrSubmitted && !isAlreadyUsed
+        return !isClosed && !isAlreadyUsed
       })
 
       setGateEntries(activeGates)
@@ -421,13 +421,13 @@ export default function GRNEntry() {
 
   const filteredGateEntries = gateEntries.filter(e => {
     const q = gateSearch.toLowerCase()
-    return !q || (e.gateEntryNo||'').toLowerCase().includes(q)
-      || (e.supplierName||'').toLowerCase().includes(q)
-      || (e.poNo||'').toLowerCase().includes(q)
-      || (e.invoiceNo||'').toLowerCase().includes(q)
+    return !q || (e.gateEntryNo || '').toLowerCase().includes(q)
+      || (e.supplierName || '').toLowerCase().includes(q)
+      || (e.poNo || '').toLowerCase().includes(q)
+      || (e.invoiceNo || '').toLowerCase().includes(q)
   })
 
-  
+
   const openPoSearch = () => {
     setShowPoModal(true)
     setPoSearch('')
@@ -475,17 +475,17 @@ export default function GRNEntry() {
 
   const filteredPoList = poList.filter(p => {
     const q = poSearch.toLowerCase()
-    return !q || (p.poNo||'').toLowerCase().includes(q)
-      || (p.supplier?.supplierName||'').toLowerCase().includes(q)
-      || (p.contactPerson||'').toLowerCase().includes(q)
+    return !q || (p.poNo || '').toLowerCase().includes(q)
+      || (p.supplier?.supplierName || '').toLowerCase().includes(q)
+      || (p.contactPerson || '').toLowerCase().includes(q)
   })
 
-  
 
-  const setItemField = (idx,k,v) => {
-    setItems(rows=>rows.map((r,i)=>{
-      if(i!==idx) return r
-      let u={...r,[k]:v}
+
+  const setItemField = (idx, k, v) => {
+    setItems(rows => rows.map((r, i) => {
+      if (i !== idx) return r
+      let u = { ...r, [k]: v }
       if (k === 'itemCode') {
         const item = itemsData.find(it => it.partNo === v)
         if (item) {
@@ -506,25 +506,25 @@ export default function GRNEntry() {
           u.qcType = ''
         }
       }
-      const q=parseFloat(k==='qty'?v:u.qty)||0
-      const p=parseFloat(k==='unitPrice'?v:u.unitPrice)||0
-      const tot=q*p; u.total=tot.toFixed(2)
-      const dp=parseFloat(k==='discPer'?v:u.discPer)||0
-      const da=tot*dp/100; u.discAmt=da.toFixed(2)
-      u.finalPrice=(tot-da).toFixed(2)
-      const tp=parseFloat(k==='taxPer'?v:u.taxPer)||0
-      u.netAmt=((tot-da)*(1+tp/100)).toFixed(2)
+      const q = parseFloat(k === 'qty' ? v : u.qty) || 0
+      const p = parseFloat(k === 'unitPrice' ? v : u.unitPrice) || 0
+      const tot = q * p; u.total = tot.toFixed(2)
+      const dp = parseFloat(k === 'discPer' ? v : u.discPer) || 0
+      const da = tot * dp / 100; u.discAmt = da.toFixed(2)
+      u.finalPrice = (tot - da).toFixed(2)
+      const tp = parseFloat(k === 'taxPer' ? v : u.taxPer) || 0
+      u.netAmt = ((tot - da) * (1 + tp / 100)).toFixed(2)
       return u
     }))
   }
 
-  const addRow = () => setItems(r=>[...r,emptyItem()])
-  const removeRow = idx => setItems(r=>r.filter((_,i)=>i!==idx))
+  const addRow = () => setItems(r => [...r, emptyItem()])
+  const removeRow = idx => setItems(r => r.filter((_, i) => i !== idx))
 
-  const subTotal = items.reduce((s,r)=>s+(parseFloat(r.finalPrice)||0),0)
+  const subTotal = items.reduce((s, r) => s + (parseFloat(r.finalPrice) || 0), 0)
 
   const isInterTax = (form.taxType || '').toUpperCase().includes('INTER')
-  const totalItemTaxAmt = items.reduce((s,r) => s + ((parseFloat(r.netAmt)||0) - (parseFloat(r.finalPrice)||0)), 0)
+  const totalItemTaxAmt = items.reduce((s, r) => s + ((parseFloat(r.netAmt) || 0) - (parseFloat(r.finalPrice) || 0)), 0)
   const computedGstAmt = isInterTax ? 0 : totalItemTaxAmt
   const computedIgstAmt = isInterTax ? totalItemTaxAmt : 0
   const grandTotal = subTotal + computedGstAmt + computedIgstAmt
@@ -647,7 +647,7 @@ export default function GRNEntry() {
         {/* <span className="hover:text-[#0097A7] cursor-pointer">Dashboard</span> */}
         {/* <ChevronRight className="w-3 h-3"/> */}
         <span className="hover:text-[#0097A7] cursor-pointer">Stores</span>
-        <ChevronRight className="w-3 h-3"/>
+        <ChevronRight className="w-3 h-3" />
         <span className="text-[#0097A7] font-semibold">GRN Entry</span>
       </div>
 
@@ -669,22 +669,21 @@ export default function GRNEntry() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>GRN Type :</label>
-                <select value={form.grnType} onChange={e=>handleGrnTypeChange(e.target.value)} className={inp()}>{grnTypes.map(t=><option key={t}>{t}</option>)}</select>
+                <select value={form.grnType} onChange={e => handleGrnTypeChange(e.target.value)} className={inp()}>{grnTypes.map(t => <option key={t}>{t}</option>)}</select>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Gate Entry No :</label>
-                <input value={form.gateEntryNo} readOnly className={`${inp()} flex-1 bg-slate-50 cursor-not-allowed`}/>
+                <input value={form.gateEntryNo} readOnly className={`${inp()} flex-1 bg-slate-50 cursor-not-allowed`} />
                 <button
                   onClick={openGateSearch}
                   disabled={isDirectPo || gateLoading || isClosed}
-                  className={`px-3 py-1 text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 ${
-                    isDirectPo || isClosed
-                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
-                      : 'bg-slate-700 hover:bg-slate-600 text-white'
-                  }`}
+                  className={`px-3 py-1 text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 ${isDirectPo || isClosed
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
+                    : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
                   title={isDirectPo ? "Gate Entry search is disabled for Direct PO" : ""}
                 >
-                  {gateLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : null}Search
+                  {gateLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}Search
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -777,14 +776,14 @@ export default function GRNEntry() {
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[130px] shrink-0`}>PO No :</label>
-                <input value={form.poNo} readOnly className={`${inp()} flex-1 bg-slate-50 cursor-not-allowed`}/>
-                {isDirectPo && (
+                <input value={form.poNo} readOnly disabled={isDirectPo} className={`${inp()} flex-1 bg-slate-50 cursor-not-allowed`} />
+                {!isDirectPo && (
                   <button
                     onClick={openPoSearch}
                     disabled={poLoading || isClosed}
                     className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[12px] rounded transition-colors shrink-0 flex items-center gap-1 disabled:opacity-60"
                   >
-                    {poLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : null}Search
+                    {poLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}Search
                   </button>
                 )}
               </div>
@@ -824,11 +823,11 @@ export default function GRNEntry() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>GRN No :</label>
-                <input value={form.grnNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`}/>
+                <input value={form.grnNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>GRN Date :</label>
-                <input type="date" value={form.grnDate} readOnly onChange={e => setField('grnDate', e.target.value)} className={`${inp()} bg-slate-50 cursor-not-allowed`}/>
+                <input type="date" value={form.grnDate} readOnly onChange={e => setField('grnDate', e.target.value)} className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[110px] shrink-0`}>Invoice No :</label>
@@ -851,16 +850,20 @@ export default function GRNEntry() {
               </div>
             </div>
           </div>
-              <div className="flex gap-2 justify-end">
-                {/* <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><Plus className="w-3.5 h-3.5"/> Add Row</button> */}
-                {/* <button onClick={()=>{if(items.length>1)setItems(r=>r.slice(0,-1))}} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap"><Trash2 className="w-3.5 h-3.5"/> Delete Selected Item</button> */}
-              </div>
+          <div className="flex gap-2 justify-end mb-2">
+            {isDirectPo && !isClosed && (
+              <>
+                <button type="button" onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><Plus className="w-3.5 h-3.5" /> Add Row</button>
+                <button type="button" onClick={() => { if (items.length > 1) setItems(r => r.slice(0, -1)) }} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap"><Trash2 className="w-3.5 h-3.5" /> Delete Item</button>
+              </>
+            )}
+          </div>
 
-              {isClosed && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg text-xs font-semibold flex items-center justify-between">
-                  <span>This GRN Entry is {entryStatus} and cannot be edited.</span>
-                </div>
-              )}
+          {isClosed && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg text-xs font-semibold flex items-center justify-between mb-2">
+              <span>This GRN Entry is {entryStatus} and cannot be edited.</span>
+            </div>
+          )}
 
           {/* Items */}
           <div className="mt-2">
@@ -877,7 +880,7 @@ export default function GRNEntry() {
               {itemsLoading && (
                 <div className="absolute inset-0 z-10 bg-white/70 flex items-center justify-center">
                   <div className="flex items-center gap-2 bg-white border border-slate-200 rounded shadow px-4 py-2 text-[12.5px] text-slate-600">
-                    <Loader2 className="w-4 h-4 animate-spin text-[#0097A7]"/>
+                    <Loader2 className="w-4 h-4 animate-spin text-[#0097A7]" />
                     Fetching item details from Purchase Order...
                   </div>
                 </div>
@@ -885,9 +888,8 @@ export default function GRNEntry() {
               <table className="min-w-full text-[11px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {/* <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8"><input type="checkbox" className="accent-[#0097A7]"/></th> */}
                     <th className="px-1.5 py-1 text-center font-bold text-slate-600 text-[10px] uppercase w-8">S.NO</th>
-                    {['Item Code','Item Name','QC Type','Supplier Part No','HSN Code','Unit','Stock Qty','Order Qty','Qty','Unit Price','Total','Disc %','Disc Amt','Final Price','Tax %','Net Amt'].map(h=>(
+                    {['Item Code', 'Item Name', 'QC Type', 'Supplier Part No', 'HSN Code', 'Unit', 'Stock Qty', 'Order Qty', 'Qty', 'Unit Price', 'Total', 'Disc %', 'Disc Amt', 'Final Price', 'Tax %', 'Net Amt'].map(h => (
                       <th key={h} className="px-1.5 py-1 text-center font-bold text-slate-600 text-[10px] uppercase leading-tight max-w-[80px] break-words">{h}</th>
                     ))}
                   </tr>
@@ -896,7 +898,24 @@ export default function GRNEntry() {
                   {items.map((row, idx) => (
                     <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
                       <td className="px-1.5 py-1 text-center text-slate-500 font-medium">{idx + 1}</td>
-                      <td className="px-0.5 py-1"><input value={row.itemCode} readOnly tabIndex={-1} className={`${inp()} w-20 bg-slate-100 text-slate-600 font-medium text-[#0097A7] cursor-not-allowed`} /></td>
+                      <td className="px-0.5 py-1">
+                        {isDirectPo && !isClosed ? (
+                          <select
+                            value={row.itemCode}
+                            onChange={e => setItemField(idx, 'itemCode', e.target.value)}
+                            className={`${inp()} w-32 bg-white font-medium text-[#0097A7]`}
+                          >
+                            <option value="">Select Item</option>
+                            {itemsData.map(it => (
+                              <option key={it.id || it.partNo} value={it.partNo}>
+                                {it.partNo} - {it.partName}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input value={row.itemCode} readOnly tabIndex={-1} className={`${inp()} w-20 bg-slate-100 text-slate-600 font-medium text-[#0097A7] cursor-not-allowed`} />
+                        )}
+                      </td>
                       <td className="px-0.5 py-1"><input value={row.itemName} title={row.itemName || ''} readOnly tabIndex={-1} className={`${inp()} w-24 bg-slate-100 text-slate-600 cursor-not-allowed`} /></td>
                       <td className="px-0.5 py-1"><input value={row.qcType} readOnly tabIndex={-1} className={`${inp()} w-20 bg-slate-100 text-slate-600 cursor-not-allowed`} /></td>
                       <td className="px-0.5 py-1"><input value={row.supplierPartNo} disabled={isClosed || isGrnAgainstPo} onChange={e => setItemField(idx, 'supplierPartNo', e.target.value)} placeholder="Part No" className={`${inp()} w-20 font-medium ${isClosed || isGrnAgainstPo ? 'bg-slate-100 cursor-not-allowed text-slate-600' : 'bg-white'}`} /></td>
@@ -904,7 +923,19 @@ export default function GRNEntry() {
                       <td className="px-0.5 py-1"><input value={row.unit} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-600 cursor-not-allowed text-center`} /></td>
                       <td className="px-0.5 py-1"><input value={row.stockQty} readOnly tabIndex={-1} className={`${inp()} w-12 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
                       <td className="px-0.5 py-1"><input value={row.orderQty} readOnly tabIndex={-1} className={`${inp()} w-12 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
-                      <td className="px-0.5 py-1"><input value={row.qty} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-700 cursor-not-allowed text-right font-semibold`} /></td>
+                      <td className="px-0.5 py-1">
+                        <input
+                          value={row.qty}
+                          readOnly={!isDirectPo && isClosed}
+                          disabled={!isDirectPo && isClosed}
+                          onChange={e => setItemField(idx, 'qty', e.target.value)}
+                          placeholder="0"
+                          className={`${inp()} w-12 text-right font-semibold ${!isDirectPo && (isClosed || isGrnAgainstPo)
+                              ? 'bg-slate-100 cursor-not-allowed text-slate-700'
+                              : 'bg-white text-slate-800'
+                            }`}
+                        />
+                      </td>
                       <td className="px-0.5 py-1"><input value={row.unitPrice} disabled={isClosed || isGrnAgainstPo} onChange={e => setItemField(idx, 'unitPrice', e.target.value)} placeholder="0.00" className={`${inp()} w-16 min-w-[70px] text-right font-bold text-slate-800 ${isClosed || isGrnAgainstPo ? 'bg-slate-100 cursor-not-allowed text-slate-600' : 'bg-white'}`} /></td>
                       <td className="px-0.5 py-1"><input value={row.total} readOnly tabIndex={-1} className={`${inp()} bg-slate-100 text-slate-600 w-20 min-w-[85px] text-right font-medium cursor-not-allowed`} /></td>
                       <td className="px-0.5 py-1"><input value={row.discPer} readOnly tabIndex={-1} className={`${inp()} w-10 bg-slate-100 text-slate-600 cursor-not-allowed text-right`} /></td>
@@ -920,7 +951,7 @@ export default function GRNEntry() {
                     <td colSpan={16} className="px-3 py-1.5 text-right text-[12px] font-bold text-slate-700 uppercase tracking-wide">Net Total :</td>
                     <td className="px-0.5 py-1">
                       <input
-                        value={items.reduce((s,r)=>s+(parseFloat(r.netAmt)||0),0).toFixed(2)}
+                        value={items.reduce((s, r) => s + (parseFloat(r.netAmt) || 0), 0).toFixed(2)}
                         readOnly
                         className={`${inp()} bg-slate-200 w-24 min-w-[100px] font-bold text-slate-800`}
                       />
@@ -936,25 +967,25 @@ export default function GRNEntry() {
             <div className="space-y-2">
               <div className="flex items-start gap-2">
                 <label className={`${lbl} w-[90px] shrink-0 pt-1`}>Remark's :</label>
-                <textarea rows={3} disabled={isClosed} value={remarks} onChange={e=>setRemarks(e.target.value)} className={`flex-1 border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] resize-none ${isClosed?'bg-slate-50 cursor-not-allowed':'bg-white'}`}/>
+                <textarea rows={3} disabled={isClosed} value={remarks} onChange={e => setRemarks(e.target.value)} className={`flex-1 border border-slate-300 rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#0097A7] resize-none ${isClosed ? 'bg-slate-50 cursor-not-allowed' : 'bg-white'}`} />
               </div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Currency Total :</label>
-                <input value={currencyTotal} disabled={isClosed} onChange={e=>setCurrencyTotal(e.target.value)} className={`${inp()} ${isClosed?'bg-slate-50 cursor-not-allowed':''}`}/>
+                <input value={currencyTotal} disabled={isClosed} onChange={e => setCurrencyTotal(e.target.value)} className={`${inp()} ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Round off :</label>
-                <input value={roundOff} disabled={isClosed} onChange={e=>setRoundOff(e.target.value)} className={`${inp()} ${isClosed?'bg-slate-50 cursor-not-allowed':''}`}/>
+                <input value={roundOff} disabled={isClosed} onChange={e => setRoundOff(e.target.value)} className={`${inp()} ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>Freight Ledger :</label>
-                <select value={freightLedger} disabled={isClosed} onChange={e=>setFreightLedger(e.target.value)} className={`${inp()} ${isClosed?'bg-slate-50 cursor-not-allowed':''}`}><option>FREIGHT A/C</option></select>
+                <select value={freightLedger} disabled={isClosed} onChange={e => setFreightLedger(e.target.value)} className={`${inp()} ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`}><option>FREIGHT A/C</option></select>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[120px] shrink-0`}>TCS Ledger :</label>
-                <select value={tcsLedger} disabled={isClosed} onChange={e=>setTcsLedger(e.target.value)} className={`${inp()} ${isClosed?'bg-slate-50 cursor-not-allowed':''}`}><option>TCS A/C</option></select>
+                <select value={tcsLedger} disabled={isClosed} onChange={e => setTcsLedger(e.target.value)} className={`${inp()} ${isClosed ? 'bg-slate-50 cursor-not-allowed' : ''}`}><option>TCS A/C</option></select>
               </div>
               <div className="flex gap-2 pt-5">
                 <button
@@ -962,16 +993,16 @@ export default function GRNEntry() {
                   disabled={submitting || isClosed}
                   className="flex items-center gap-1 px-5 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-semibold rounded transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Send className="w-3.5 h-3.5"/>}
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   {submitting ? 'Submitting...' : 'Submit'}
                 </button>
-                <button onClick={handleCloseForm} className="flex items-center gap-1 px-5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><X className="w-3.5 h-3.5"/> Cancel</button>
+                <button onClick={handleCloseForm} className="flex items-center gap-1 px-5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm"><X className="w-3.5 h-3.5" /> Cancel</button>
               </div>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>Sub Total :</label><input value={subTotal.toFixed(2)} readOnly className={`${inp()} bg-slate-50`}/></div>
-              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>GST Amt :</label><input value={computedGstAmt.toFixed(2)} readOnly className={`${inp()} bg-slate-50`}/></div>
-              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>IGST Amt :</label><input value={computedIgstAmt.toFixed(2)} readOnly className={`${inp()} bg-slate-50`}/></div>
+              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>Sub Total :</label><input value={subTotal.toFixed(2)} readOnly className={`${inp()} bg-slate-50`} /></div>
+              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>GST Amt :</label><input value={computedGstAmt.toFixed(2)} readOnly className={`${inp()} bg-slate-50`} /></div>
+              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>IGST Amt :</label><input value={computedIgstAmt.toFixed(2)} readOnly className={`${inp()} bg-slate-50`} /></div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[90px] shrink-0`}>Others :</label>
                 <input
@@ -982,9 +1013,9 @@ export default function GRNEntry() {
                   className={`${inp()} bg-slate-50 cursor-pointer`}
                 />
               </div>
-              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>OGSTAmt :</label><input value={ogstAmtVal} onChange={e=>setOgstAmtVal(e.target.value)} className={inp()}/></div>
-              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>TCS % :</label><input value={tcsAmtVal} onChange={e=>setTcsAmtVal(e.target.value)} className={inp()}/></div>
-              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0 font-bold text-slate-800`}>Grand Total :</label><input value={grandTotal.toFixed(2)} readOnly className={`${inp()} bg-slate-200 font-bold text-slate-800`}/></div>
+              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>OGSTAmt :</label><input value={ogstAmtVal} onChange={e => setOgstAmtVal(e.target.value)} className={inp()} /></div>
+              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0`}>TCS % :</label><input value={tcsAmtVal} onChange={e => setTcsAmtVal(e.target.value)} className={inp()} /></div>
+              <div className="flex items-center gap-2"><label className={`${lbl} w-[90px] shrink-0 font-bold text-slate-800`}>Grand Total :</label><input value={grandTotal.toFixed(2)} readOnly className={`${inp()} bg-slate-200 font-bold text-slate-800`} /></div>
             </div>
           </div>
         </div>
@@ -995,7 +1026,7 @@ export default function GRNEntry() {
           <div className="bg-white rounded shadow-xl w-[720px] max-h-[80vh] flex flex-col">
             <div className="bg-[--color-main] px-4 py-2.5 flex items-center justify-between rounded-t">
               <h3 className="text-white font-semibold text-[14px]">Select Purchase Order</h3>
-              <button onClick={() => setShowPoModal(false)} className="text-white hover:text-white/70"><X className="w-4 h-4"/></button>
+              <button onClick={() => setShowPoModal(false)} className="text-white hover:text-white/70"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-3 border-b border-slate-200">
               <input
@@ -1015,7 +1046,7 @@ export default function GRNEntry() {
                 <table className="min-w-full text-[12.5px]">
                   <thead className="sticky top-0">
                     <tr className="bg-[#4472C4] text-white">
-                      {['PO No','PO Date','Supplier Name','Contact Person','Contact No'].map(h => (
+                      {['PO No', 'PO Date', 'Supplier Name', 'Contact Person', 'Contact No'].map(h => (
                         <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -1025,7 +1056,7 @@ export default function GRNEntry() {
                       <tr
                         key={p.id}
                         onClick={() => selectPo(p)}
-                        className={`cursor-pointer border-b border-slate-100 hover:bg-[#0097A7]/10 ${i%2===1?'bg-slate-50/50':''}`}
+                        className={`cursor-pointer border-b border-slate-100 hover:bg-[#0097A7]/10 ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}
                       >
                         <td className="px-3 py-1.5 font-medium text-[#0097A7]">{p.poNo}</td>
                         <td className="px-3 py-1.5">{p.poDate ? p.poDate.split('T')[0] : '-'}</td>
@@ -1051,30 +1082,30 @@ export default function GRNEntry() {
           <div className="bg-white rounded shadow-xl w-[820px] max-h-[80vh] flex flex-col">
             <div className="bg-[--color-main] px-4 py-2.5 flex items-center justify-between rounded-t">
               <h3 className="text-white font-semibold text-[14px]">Freight Charges</h3>
-              <button onClick={() => setShowFreightPopup(false)} className="text-white hover:text-white/70"><X className="w-4 h-4"/></button>
+              <button onClick={() => setShowFreightPopup(false)} className="text-white hover:text-white/70"><X className="w-4 h-4" /></button>
             </div>
             <div className="overflow-auto flex-1">
               <table className="min-w-full text-[12.5px]">
                 <thead className="sticky top-0">
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">#</th>
-                    {['Freight Name','Amount','Tax %','GST Amount','IGST Amount','Net Total','Action'].map(h=>(
+                    {['Freight Name', 'Amount', 'Tax %', 'GST Amount', 'IGST Amount', 'Net Total', 'Action'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {freightRows.map((row, idx) => (
-                    <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''}`}>
-                      <td className="px-2 py-1 text-center text-slate-500">{idx+1}</td>
-                      <td className="px-1 py-1"><input value={row.freightName} onChange={e=>setFreightRowField(idx,'freightName',e.target.value)} className={`${inp()} min-w-[130px]`}/></td>
-                      <td className="px-1 py-1"><input value={row.amount} onChange={e=>setFreightRowField(idx,'amount',e.target.value)} className={`${inp()} w-22`}/></td>
-                      <td className="px-1 py-1"><input value={row.taxPer} onChange={e=>setFreightRowField(idx,'taxPer',e.target.value)} className={`${inp()} w-16`}/></td>
-                      <td className="px-1 py-1"><input value={row.gstAmt} readOnly className={`${inp()} bg-slate-50 w-22`}/></td>
-                      <td className="px-1 py-1"><input value={row.igstAmt} readOnly className={`${inp()} bg-slate-50 w-22`}/></td>
-                      <td className="px-1 py-1"><input value={row.netTotal} readOnly className={`${inp()} bg-slate-50 w-22 font-semibold`}/></td>
+                    <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                      <td className="px-2 py-1 text-center text-slate-500">{idx + 1}</td>
+                      <td className="px-1 py-1"><input value={row.freightName} onChange={e => setFreightRowField(idx, 'freightName', e.target.value)} className={`${inp()} min-w-[130px]`} /></td>
+                      <td className="px-1 py-1"><input value={row.amount} onChange={e => setFreightRowField(idx, 'amount', e.target.value)} className={`${inp()} w-22`} /></td>
+                      <td className="px-1 py-1"><input value={row.taxPer} onChange={e => setFreightRowField(idx, 'taxPer', e.target.value)} className={`${inp()} w-16`} /></td>
+                      <td className="px-1 py-1"><input value={row.gstAmt} readOnly className={`${inp()} bg-slate-50 w-22`} /></td>
+                      <td className="px-1 py-1"><input value={row.igstAmt} readOnly className={`${inp()} bg-slate-50 w-22`} /></td>
+                      <td className="px-1 py-1"><input value={row.netTotal} readOnly className={`${inp()} bg-slate-50 w-22 font-semibold`} /></td>
                       <td className="px-2 py-1 text-center">
-                        <button onClick={()=>setFreightRows(r=>r.filter((_,i)=>i!==idx))} className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] rounded transition-colors">Remove</button>
+                        <button onClick={() => setFreightRows(r => r.filter((_, i) => i !== idx))} className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-[11px] rounded transition-colors">Remove</button>
                       </td>
                     </tr>
                   ))}
@@ -1082,19 +1113,19 @@ export default function GRNEntry() {
                 <tfoot>
                   <tr className="border-t-2 border-slate-300 bg-slate-100">
                     <td colSpan={6} className="px-3 py-1.5 text-right text-[12px] font-bold text-slate-700 uppercase tracking-wide">Total :</td>
-                    <td className="px-1 py-1"><input value={freightPopupTotal.toFixed(2)} readOnly className={`${inp()} bg-slate-200 w-22 font-bold text-slate-800`}/></td>
+                    <td className="px-1 py-1"><input value={freightPopupTotal.toFixed(2)} readOnly className={`${inp()} bg-slate-200 w-22 font-bold text-slate-800`} /></td>
                     <td></td>
                   </tr>
                 </tfoot>
               </table>
             </div>
             <div className="px-4 py-2.5 border-t border-slate-200 flex items-center justify-between">
-              <button onClick={()=>setFreightRows(r=>[...r,emptyFreightRow()])} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm">
-                <Plus className="w-3.5 h-3.5"/> Add Row
+              <button onClick={() => setFreightRows(r => [...r, emptyFreightRow()])} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm">
+                <Plus className="w-3.5 h-3.5" /> Add Row
               </button>
               <div className="flex gap-2">
                 <button onClick={applyFreightCharges} className="px-4 py-1.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-semibold rounded transition-colors shadow-sm">Apply</button>
-                <button onClick={()=>setShowFreightPopup(false)} className="px-4 py-1.5 bg-slate-500 hover:bg-slate-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm">Cancel</button>
+                <button onClick={() => setShowFreightPopup(false)} className="px-4 py-1.5 bg-slate-500 hover:bg-slate-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm">Cancel</button>
               </div>
             </div>
           </div>
@@ -1107,7 +1138,7 @@ export default function GRNEntry() {
           <div className="bg-white rounded shadow-xl w-[780px] max-h-[80vh] flex flex-col">
             <div className="bg-[--color-main] px-4 py-2.5 flex items-center justify-between rounded-t">
               <h3 className="text-white font-semibold text-[14px]">Select Gate Entry</h3>
-              <button onClick={() => setShowGateModal(false)} className="text-white hover:text-white/70"><X className="w-4 h-4"/></button>
+              <button onClick={() => setShowGateModal(false)} className="text-white hover:text-white/70"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-3 border-b border-slate-200">
               <input
@@ -1127,7 +1158,7 @@ export default function GRNEntry() {
                 <table className="min-w-full text-[12.5px]">
                   <thead className="sticky top-0">
                     <tr className="bg-[#4472C4] text-white">
-                      {['Gate Entry No','Date','Supplier Name','PO No','Invoice No','Status'].map(h => (
+                      {['Gate Entry No', 'Date', 'Supplier Name', 'PO No', 'Invoice No', 'Status'].map(h => (
                         <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -1137,7 +1168,7 @@ export default function GRNEntry() {
                       <tr
                         key={e.id}
                         onClick={() => selectGateEntry(e)}
-                        className={`cursor-pointer border-b border-slate-100 hover:bg-[#0097A7]/10 ${i%2===1?'bg-slate-50/50':''}`}
+                        className={`cursor-pointer border-b border-slate-100 hover:bg-[#0097A7]/10 ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}
                       >
                         <td className="px-3 py-1.5 font-medium text-[#0097A7]">{e.gateEntryNo}</td>
                         <td className="px-3 py-1.5">{e.gateEntryDate ? e.gateEntryDate.split('T')[0] : ''}</td>
@@ -1145,7 +1176,7 @@ export default function GRNEntry() {
                         <td className="px-3 py-1.5">{e.poNo || '-'}</td>
                         <td className="px-3 py-1.5">{e.invoiceNo || '-'}</td>
                         <td className="px-3 py-1.5">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${e.status==='Open'?'bg-green-100 text-green-700':'bg-slate-100 text-slate-600'}`}>{e.status}</span>
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${e.status === 'Open' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{e.status}</span>
                         </td>
                       </tr>
                     ))}

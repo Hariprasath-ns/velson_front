@@ -1,13 +1,13 @@
 /* eslint-disable */
 import api from '../services/api';
 
-const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const fmtDate = (d) => {
   if (!d) return '—';
   const dt = new Date(d);
   if (isNaN(dt.getTime())) return d;
-  return `${String(dt.getDate()).padStart(2,'0')}-${months[dt.getMonth()]}-${dt.getFullYear()}`;
+  return `${String(dt.getDate()).padStart(2, '0')}-${months[dt.getMonth()]}-${dt.getFullYear()}`;
 };
 
 export function numberToWords(num) {
@@ -106,7 +106,7 @@ export async function generatePurchaseOrderPdf(po, companyInfo = null) {
         <td style="text-align:center;font-weight:600;color:#555;">${i + 1}</td>
         <td style="text-align:left;font-weight:700;font-family:monospace;color:#007a87;white-space:nowrap;">${partNo}</td>
         <td style="text-align:left;font-weight:600;">${partName}</td>
-        <td style="text-align:left;word-break:break-word;overflow-wrap:break-word;white-space:normal;line-height:1.35;max-width:170px;">${desc}</td>
+        <td style="text-align:left;word-break:break-word;overflow-wrap:break-word;white-space:normal;line-height:1.35;max-width:130px;">${desc}</td>
         <td style="text-align:center;">${d.hsnCode || '—'}</td>
         <td style="text-align:right;font-weight:700;">${qty.toFixed(2)}</td>
         <td style="text-align:center;">${d.uom || d.unit || 'NOS'}</td>
@@ -366,10 +366,10 @@ export async function generatePurchaseOrderPdf(po, companyInfo = null) {
       <thead>
         <tr>
           <th style="width:30px;text-align:center;">S.No</th>
-          <th style="width:95px;text-align:left;">Part No</th>
-          <th style="width:125px;text-align:left;">Part Name</th>
-          <th style="text-align:left;">Description</th>
-          <th style="width:65px;text-align:center;">HSN Code</th>
+          <th style="width:115px;text-align:left;">Part No</th>
+          <th style="width:210px;text-align:left;">Part Name</th>
+          <th style="width:130px;text-align:left;">Description</th>
+          <th style="width:60px;text-align:center;">HSN Code</th>
           <th style="width:50px;text-align:right;">QTY</th>
           <th style="width:45px;text-align:center;">UOM</th>
           <th style="width:75px;text-align:right;">Rate (INR)</th>

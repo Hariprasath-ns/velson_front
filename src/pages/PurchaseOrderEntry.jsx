@@ -13,12 +13,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import ItemSearchInput from '../components/ItemSearchInput'
 
 const FIELD_REF_TYPES = {
-  freight:       'PO Freight',
-  destination:   'PO Destination',
-  paymentTerms:  'PO Payment Terms',
-  testReport:    'PO Test Report',
-  project:       'PO Project',
-  modeOfDespatch:'PO Mode Of Despatch',
+  freight: 'PO Freight',
+  destination: 'PO Destination',
+  paymentTerms: 'PO Payment Terms',
+  testReport: 'PO Test Report',
+  project: 'PO Project',
+  modeOfDespatch: 'PO Mode Of Despatch',
 }
 
 const buildSupplierAddress = (s) =>
@@ -35,12 +35,12 @@ const formatDatetimeLocal = (isoDate) => {
 const nowDatetime = formatDatetimeLocal(new Date())
 
 const emptyItem = () => ({
-  itemId: null, itemCode:'', purchaseReqNo:'', supplierPartNo:'', itemName:'', description:'',
-  hsnCode:'', uom:'', qty:'', unitPrice:'',
-  amount:'', gstPer:'18', gstAmt:'', netAmt:'',
+  itemId: null, itemCode: '', purchaseReqNo: '', supplierPartNo: '', itemName: '', description: '',
+  hsnCode: '', uom: '', qty: '', unitPrice: '',
+  amount: '', gstPer: '18', gstAmt: '', netAmt: '',
 })
 
-const inp = (err='') =>
+const inp = (err = '') =>
   `w-full border rounded px-2 py-1 text-[12.5px] focus:outline-none focus:ring-1 transition-colors bg-white ${err ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-[#0097A7] focus:border-[#0097A7]'}`
 const lbl = 'text-[12px] font-semibold text-slate-600 whitespace-nowrap'
 
@@ -186,18 +186,18 @@ export default function PurchaseOrderEntry() {
             const po = poRes.data.data
             setForm(f => ({
               ...f,
-              supplierId:       po.supplierId      || null,
-              supplierName:     po.supplier?.supplierName || '',
-              supplierAddress:  po.supplierAddress || '',
-              contactPerson:    po.contactPerson   || '',
-              contactNumber:    po.contactNumber   || '',
-              createdBy:        po.createdBy       || '',
-              gstNo:            po.gstNo           || '',
-              supplierRefNumber: po.supplierRefNo  || '',
-              poNumber:         po.poNo            || '',
-              poDate:           po.poDate ? formatDatetimeLocal(po.poDate) : nowDatetime,
-              etaDate:          po.etaDate ? formatDatetimeLocal(po.etaDate) : nowDatetime,
-              poType:           po.poType          || 'Purchase Order',
+              supplierId: po.supplierId || null,
+              supplierName: po.supplier?.supplierName || '',
+              supplierAddress: po.supplierAddress || '',
+              contactPerson: po.contactPerson || '',
+              contactNumber: po.contactNumber || '',
+              createdBy: po.createdBy || '',
+              gstNo: po.gstNo || '',
+              supplierRefNumber: po.supplierRefNo || '',
+              poNumber: po.poNo || '',
+              poDate: po.poDate ? formatDatetimeLocal(po.poDate) : nowDatetime,
+              etaDate: po.etaDate ? formatDatetimeLocal(po.etaDate) : nowDatetime,
+              poType: po.poType || 'Purchase Order',
             }))
             if (po.details?.length > 0) {
               setItems(po.details.map(it => {
@@ -256,27 +256,27 @@ export default function PurchaseOrderEntry() {
               )
               const prefillItems = pr.details.map((d, i) => {
                 const master = masters[i]
-                const qtyVal   = parseFloat(d.qty) || 0
+                const qtyVal = parseFloat(d.qty) || 0
                 const priceVal = master?.purchaseRate || 0
-                const amtVal   = qtyVal * priceVal
-                const gstRate  = master?.taxPercent != null ? master.taxPercent : (master?.gstPer != null ? master.gstPer : (master?.tax?.taxPercent != null ? master.tax.taxPercent : 0))
-                const gstVal   = amtVal * gstRate / 100
+                const amtVal = qtyVal * priceVal
+                const gstRate = master?.taxPercent != null ? master.taxPercent : (master?.gstPer != null ? master.gstPer : (master?.tax?.taxPercent != null ? master.tax.taxPercent : 0))
+                const gstVal = amtVal * gstRate / 100
                 return {
                   ...emptyItem(),
-                  purchaseReqNo:  pr.prNo || '',
-                  itemId:         master?.id              || null,
-                  itemCode:       d.itemCode              || '',
-                  itemName:       d.itemName              || master?.partName    || '',
-                  description:    d.specification         || master?.description || '',
-                  hsnCode:        master?.hsnCode         || '',
-                  uom:            d.uom                   || master?.uom        || '',
+                  purchaseReqNo: pr.prNo || '',
+                  itemId: master?.id || null,
+                  itemCode: d.itemCode || '',
+                  itemName: d.itemName || master?.partName || '',
+                  description: d.specification || master?.description || '',
+                  hsnCode: master?.hsnCode || '',
+                  uom: d.uom || master?.uom || '',
                   supplierPartNo: master?.outsourcePartNo || '',
-                  qty:            String(d.qty ?? ''),
-                  unitPrice:      master?.purchaseRate != null ? String(master.purchaseRate) : '',
-                  amount:         amtVal > 0 ? amtVal.toFixed(2) : '',
-                  gstPer:         String(gstRate),
-                  gstAmt:         gstVal > 0 ? gstVal.toFixed(2) : '',
-                  netAmt:         (amtVal + gstVal) > 0 ? (amtVal + gstVal).toFixed(2) : '',
+                  qty: String(d.qty ?? ''),
+                  unitPrice: master?.purchaseRate != null ? String(master.purchaseRate) : '',
+                  amount: amtVal > 0 ? amtVal.toFixed(2) : '',
+                  gstPer: String(gstRate),
+                  gstAmt: gstVal > 0 ? gstVal.toFixed(2) : '',
+                  netAmt: (amtVal + gstVal) > 0 ? (amtVal + gstVal).toFixed(2) : '',
                 }
               })
               setItems(prefillItems.length > 0 ? prefillItems : [emptyItem()])
@@ -331,11 +331,11 @@ export default function PurchaseOrderEntry() {
       if (!resolvedItem) {
         return { ...r, itemCode: val }
       }
-      const fetchedGstPer = resolvedItem.taxPercent != null 
-        ? String(resolvedItem.taxPercent) 
-        : (resolvedItem.gstPer != null 
-            ? String(resolvedItem.gstPer) 
-            : (resolvedItem.tax?.taxPercent != null ? String(resolvedItem.tax.taxPercent) : '0'))
+      const fetchedGstPer = resolvedItem.taxPercent != null
+        ? String(resolvedItem.taxPercent)
+        : (resolvedItem.gstPer != null
+          ? String(resolvedItem.gstPer)
+          : (resolvedItem.tax?.taxPercent != null ? String(resolvedItem.tax.taxPercent) : '0'))
       let updated = {
         ...r,
         itemId: resolvedItem.id,
@@ -379,6 +379,17 @@ export default function PurchaseOrderEntry() {
   const addRow = () => setItems(r => [...r, emptyItem()])
   const removeRow = idx => setItems(r => r.filter((_, i) => i !== idx))
 
+  const handleQtyKeyDown = (e, idx) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      setItems(r => {
+        const copy = [...r]
+        copy.splice(idx + 1, 0, emptyItem())
+        return copy
+      })
+    }
+  }
+
   // Calculations
   const itemSubTotal = items.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
   const totalItemGstAmt = items.reduce((s, r) => s + (parseFloat(r.gstAmt) || 0), 0)
@@ -404,11 +415,11 @@ export default function PurchaseOrderEntry() {
 
   const saveNewRefValues = async () => {
     const fields = [
-      { key: 'freight',        value: freight },
-      { key: 'destination',    value: destination },
-      { key: 'paymentTerms',   value: paymentTerms },
-      { key: 'testReport',     value: testReport },
-      { key: 'project',        value: project },
+      { key: 'freight', value: freight },
+      { key: 'destination', value: destination },
+      { key: 'paymentTerms', value: paymentTerms },
+      { key: 'testReport', value: testReport },
+      { key: 'project', value: project },
       { key: 'modeOfDespatch', value: modeOfDespatch },
     ]
     for (const { key, value } of fields) {
@@ -417,7 +428,7 @@ export default function PurchaseOrderEntry() {
       if (fieldSuggestions[key]?.includes(trimmed)) continue
       const type = FIELD_REF_TYPES[key]
       try {
-        const typeRes  = await api.get(`/api/reference-master/${encodeURIComponent(type)}`, { skipGlobalLoader: true })
+        const typeRes = await api.get(`/api/reference-master/${encodeURIComponent(type)}`, { skipGlobalLoader: true })
         const typeJson = typeRes.data
         await api.post('/api/reference-master', { referenceType: type, code: typeJson.nextCode || '001', description: trimmed, updatedBy: form.createdBy || 'Admin' })
         queryClient.invalidateQueries({ queryKey: ['reference-master', type] })
@@ -429,7 +440,7 @@ export default function PurchaseOrderEntry() {
 
   const handleSubmit = async () => {
     if (!form.supplierName) { toast.warning('Please select a supplier'); return }
-    
+
 
 
     setSubmitting(true)
@@ -469,11 +480,11 @@ export default function PurchaseOrderEntry() {
           discAmt: 0,
         })),
       }
-      
-      const res = editPoId 
-        ? await api.put(`/api/purchase-master/${editPoId}`, payload) 
+
+      const res = editPoId
+        ? await api.put(`/api/purchase-master/${editPoId}`, payload)
         : await api.post('/api/purchase-master', payload)
-      
+
       if (res.data?.success) {
         toast.success(editPoId ? 'Purchase Order updated!' : 'Purchase Order submitted successfully!')
         await saveNewRefValues()
@@ -494,13 +505,13 @@ export default function PurchaseOrderEntry() {
   const handleCancel = () => {
     setEditPoId(null)
     setForm({
-      supplierId:null, supplierName:'', supplierAddress:'', contactPerson:'', contactNumber:'',
-      createdBy:'', gstNo:'', supplierRefNumber:'', showTotalsGrid:false,
-      poNumber:'', poDate:nowDatetime, etaDate:nowDatetime, poType:'Purchase Order',
+      supplierId: null, supplierName: '', supplierAddress: '', contactPerson: '', contactNumber: '',
+      createdBy: '', gstNo: '', supplierRefNumber: '', showTotalsGrid: false,
+      poNumber: '', poDate: nowDatetime, etaDate: nowDatetime, poType: 'Purchase Order',
     })
     setItems([emptyItem()])
     setOthersAmt('0')
-    setOthersCharges({ freight:'0', packaging:'0', handling:'0', insurance:'0', misc:'0' })
+    setOthersCharges({ freight: '0', packaging: '0', handling: '0', insurance: '0', misc: '0' })
     fetchNextPoNo()
   }
 
@@ -580,7 +591,7 @@ export default function PurchaseOrderEntry() {
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[100px] shrink-0`}>PO Date & Time:</label>
-                <input type="datetime-local" value={form.poDate} onChange={e => setField('poDate', e.target.value)} className={inp()} />
+                <input type="datetime-local" value={form.poDate} readOnly disabled className={`${inp()} bg-slate-50 cursor-not-allowed`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`${lbl} w-[100px] shrink-0`}>ETA Date & Time:</label>
@@ -603,10 +614,10 @@ export default function PurchaseOrderEntry() {
                   Pick From Request
                 </button>
                 <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 bg-[#27ae60] hover:bg-[#229954] text-white text-[12px] font-semibold rounded transition-colors shadow-sm">
-                  <Plus className="w-3.5 h-3.5"/> Add Row
+                  <Plus className="w-3.5 h-3.5" /> Add Row
                 </button>
-                <button onClick={() => { if(items.length>1) setItems(r => r.slice(0,-1)) }} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap">
-                  <Trash2 className="w-3.5 h-3.5"/> Delete Last Item
+                <button onClick={() => { if (items.length > 1) setItems(r => r.slice(0, -1)) }} className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-semibold rounded transition-colors shadow-sm whitespace-nowrap">
+                  <Trash2 className="w-3.5 h-3.5" /> Delete Last Item
                 </button>
               </div>
             </div>
@@ -622,15 +633,15 @@ export default function PurchaseOrderEntry() {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">S.NO</th>
-                    {['Item Code','Pur. Req No','Item Name','Description','HSN Code','UOM','Qty','Unit Price','Amount','GST %','GST Amt','Net Amt','Action'].map(h => (
+                    {['Item Code', 'Pur. Req No', 'Item Name', 'Description', 'HSN Code', 'UOM', 'Qty', 'Unit Price', 'Amount', 'GST %', 'GST Amt', 'Net Amt', 'Action'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row, idx) => (
-                    <tr key={idx} className={`border-b border-slate-100 ${idx%2===1?'bg-slate-50/50':''} relative`} style={{ zIndex: items.length - idx + 10 }}>
-                      <td className="px-2 py-1 text-center text-slate-500">{idx+1}</td>
+                    <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''} relative`} style={{ zIndex: items.length - idx + 10 }}>
+                      <td className="px-2 py-1 text-center text-slate-500">{idx + 1}</td>
                       <td className="px-1 py-1 w-36 min-w-[150px]">
                         <ItemSearchInput
                           value={row.itemCode}
@@ -665,12 +676,12 @@ export default function PurchaseOrderEntry() {
                           className={`${inp()} min-w-[140px] ${row.itemId ? 'bg-slate-50' : ''}`}
                         />
                       </td>
-                      <td className="px-1 py-1"><input value={row.hsnCode} onChange={e=>setItemField(idx,'hsnCode',e.target.value)} className={`${inp()} ${row.itemId?'bg-slate-50':''}`} /></td>
-                      <td className="px-1 py-1"><input value={row.uom} onChange={e=>setItemField(idx,'uom',e.target.value)} className={`${inp()} w-14 ${row.itemId?'bg-slate-50':''}`} /></td>
-                      <td className="px-1 py-1"><input value={row.qty} onChange={e=>setItemField(idx,'qty',e.target.value)} className={`${inp()} w-14 text-right font-medium`} /></td>
-                      <td className="px-1 py-1"><input value={row.unitPrice} onChange={e=>setItemField(idx,'unitPrice',e.target.value)} className={`${inp()} w-20 text-right font-medium`} /></td>
+                      <td className="px-1 py-1"><input value={row.hsnCode} onChange={e => setItemField(idx, 'hsnCode', e.target.value)} className={`${inp()} ${row.itemId ? 'bg-slate-50' : ''}`} /></td>
+                      <td className="px-1 py-1"><input value={row.uom} onChange={e => setItemField(idx, 'uom', e.target.value)} className={`${inp()} w-14 ${row.itemId ? 'bg-slate-50' : ''}`} /></td>
+                      <td className="px-1 py-1"><input value={row.qty} onChange={e => setItemField(idx, 'qty', e.target.value)} onKeyDown={e => handleQtyKeyDown(e, idx)} className={`${inp()} w-14 text-right font-medium`} /></td>
+                      <td className="px-1 py-1"><input value={row.unitPrice} onChange={e => setItemField(idx, 'unitPrice', e.target.value)} className={`${inp()} w-20 text-right font-medium`} /></td>
                       <td className="px-1 py-1"><input value={row.amount} readOnly className={`${inp()} bg-slate-50 w-24 text-right font-semibold`} /></td>
-                      <td className="px-1 py-1"><input value={row.gstPer} onChange={e=>setItemField(idx,'gstPer',e.target.value)} className={`${inp()} w-14 text-right`} /></td>
+                      <td className="px-1 py-1"><input value={row.gstPer} onChange={e => setItemField(idx, 'gstPer', e.target.value)} className={`${inp()} w-14 text-right`} /></td>
                       <td className="px-1 py-1"><input value={row.gstAmt} readOnly className={`${inp()} bg-slate-50 w-20 text-right`} /></td>
                       <td className="px-1 py-1"><input value={row.netAmt} readOnly className={`${inp()} bg-slate-50 w-24 text-right font-bold text-slate-700`} /></td>
                       <td className="px-2 py-1 text-center">
@@ -794,14 +805,14 @@ export default function PurchaseOrderEntry() {
             className={`flex items-center gap-1.5 px-6 py-2 text-white text-[13px] font-bold rounded shadow transition-all active:scale-95 disabled:opacity-70
               ${!(editPoId ? canEdit : canSave) ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0097A7] hover:bg-[#007a87]'}`}
           >
-            <Send className="w-3.5 h-3.5"/> {editPoId ? 'Update' : 'Submit'}
+            <Send className="w-3.5 h-3.5" /> {editPoId ? 'Update' : 'Submit'}
           </button>
           <button
             onClick={handleCancel}
             disabled={submitting}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-bold rounded text-[12px] transition-colors shadow-sm disabled:opacity-40"
           >
-            <X className="w-3.5 h-3.5"/> Cancel
+            <X className="w-3.5 h-3.5" /> Cancel
           </button>
         </div>
 

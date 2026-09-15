@@ -231,7 +231,7 @@ export default function UploadBOM() {
 
   // 4. Handle Model No Selection -> Auto-load child components & fetch previously uploaded BOM count
   const handleModelNoSelect = (modelNoVal) => {
-    const matchedIndex = indexRecords.find(i => 
+    const matchedIndex = indexRecords.find(i =>
       String(i.modelNo).trim().toLowerCase() === String(modelNoVal).trim().toLowerCase() ||
       String(i.model).trim().toLowerCase() === String(modelNoVal).trim().toLowerCase()
     )
@@ -275,7 +275,7 @@ export default function UploadBOM() {
     }
 
     // Fallback: Check matching BOM records for this model if index has no excel rows
-    const matchingBoms = bomRecords.filter(b => 
+    const matchingBoms = bomRecords.filter(b =>
       (b.model && String(b.model).trim().toLowerCase() === String(targetModelNo).trim().toLowerCase()) ||
       (b.modelNo && String(b.modelNo).trim().toLowerCase() === String(targetModelNo).trim().toLowerCase())
     )
@@ -322,7 +322,7 @@ export default function UploadBOM() {
 
     // If assemblyList is empty, allow loading from index/bom records
     if (assemblyList.length === 0) {
-      const matchingIndex = indexRecords.find(i => 
+      const matchingIndex = indexRecords.find(i =>
         (i.assemblyPartNo && String(i.assemblyPartNo).trim().toLowerCase() === pValLower) ||
         (i.modelNo && String(i.modelNo).trim().toLowerCase() === pValLower)
       ) || indexRecords.find(i =>
@@ -570,34 +570,61 @@ export default function UploadBOM() {
         return l.includes('qty') || l.includes('quantity') || l === 'count'
       })
 
-      const uomHeader = headers.find(h => {
-        if (!h) return false
-        const l = h.toLowerCase()
-        return l.includes('uom') || l === 'unit' || l.includes('measure')
+      // Ensure we have current item master list
+      let currentItemMaster = itemMaster
+      if (!currentItemMaster || currentItemMaster.length === 0) {
+        try {
+          const imRes = await api.get('/api/item-master?limit=10000', { skipGlobalLoader: true })
+          currentItemMaster = imRes.data?.data || []
+          setItemMaster(currentItemMaster)
+        } catch (err) {
+          console.error('Failed to pre-fetch item master:', err)
+        }
+      }
+
+      const itemMasterMap = new Map()
+      currentItemMaster.forEach(im => {
+        if (im.partNo) {
+          itemMasterMap.set(String(im.partNo).trim().toLowerCase(), im)
+        }
       })
 
-      const itemsList = parsedRows.map((rObj, idx) => {
+      const itemsList = []
+      let skippedCount = 0
+
+      parsedRows.forEach((rObj, idx) => {
         const row = rObj.data
-        const partNo = partNoHeader ? String(row[partNoHeader] || '').trim() : (row.PartNo || row['Part No'] || `P-${idx + 1}`)
+        const partNo = partNoHeader ? String(row[partNoHeader] || '').trim() : (row.PartNo || row['Part No'] || '')
         const desc = partNameHeader ? String(row[partNameHeader] || '').trim() : (row.PartName || row['Part Name'] || row.Description || '—')
         const qty = qtyHeader ? Number(row[qtyHeader]) || 1 : (Number(row.Qty) || 1)
         const unit = uomHeader ? String(row[uomHeader] || 'PCS').trim() : (row.Unit || 'PCS')
         const imgVal = Object.values(row).find(v => typeof v === 'string' && (v.startsWith('data:image/') || v.startsWith('/uploads/') || v.startsWith('/api/'))) || null
 
-        return {
-          id: idx + 1,
-          part: partNo,
-          desc: desc,
-          qty: qty,
-          unit: unit,
-          image: imgVal
+        if (!partNo) return
+
+        const matchedItem = itemMasterMap.get(partNo.toLowerCase())
+        if (matchedItem) {
+          itemsList.push({
+            id: itemsList.length + 1,
+            part: matchedItem.partNo || partNo,
+            desc: matchedItem.partName || desc,
+            qty: qty,
+            unit: unit,
+            image: imgVal
+          })
+        } else {
+          skippedCount++
         }
-      }).filter(item => item.part && item.part !== '—')
+      })
 
       setAssemblyList(itemsList)
       setSelectedPartId(null)
       setUploadedPartIds([])
-      toast.success(`Excel file processed! Loaded ${itemsList.length} parts into Processed Assembly List.`)
+      if (skippedCount > 0) {
+        toast.warning(`Skipped ${skippedCount} row(s) because they were not found in Item Master. Loaded ${itemsList.length} valid parts.`)
+      } else {
+        toast.success(`Excel file processed! Loaded ${itemsList.length} parts into Processed Assembly List.`)
+      }
     } catch (err) {
       console.error('Error processing Excel file in UploadBOM:', err)
       toast.error('Error reading Excel file.')
@@ -745,7 +772,7 @@ export default function UploadBOM() {
                   <div className="col-span-4"><Label required>File Name</Label></div>
                   <div className="col-span-5"><Input placeholder="Selected file..." value={form.fileName} onChange={u('fileName')} readOnly={!!form.fileName} /></div>
                   <div className="col-span-3">
-                    <button 
+                    <button
                       onClick={handleBrowseClick}
                       className="w-full flex items-center justify-center gap-2 px-3 py-[7px] bg-[#0097A7]/10 hover:bg-[#0097A7]/20 text-[#0097A7] text-[11px] font-bold rounded-lg border border-[#0097A7]/20 transition-all shadow-sm active:scale-95"
                     >
@@ -755,7 +782,7 @@ export default function UploadBOM() {
                 </div>
 
                 <div className="pt-2">
-                  <button 
+                  <button
                     onClick={handleProcess}
                     disabled={isProcessing || assemblyList.length === 0 || selectedPartId === null}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0097A7] hover:bg-[#007a87] text-white text-[12px] font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
@@ -768,136 +795,136 @@ export default function UploadBOM() {
 
               {/* Status Counters */}
               <div className="grid grid-cols-2 gap-4">
-                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                   <p className="text-[10px] font-black text-slate-400 uppercase mb-1">BOM Upload Count</p>
-                   <p className={`text-[24px] font-black ${uploadedCount > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                     {uploadedCount}
-                   </p>
-                 </div>
-                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                   <p className="text-[10px] font-black text-slate-400 uppercase mb-1">BOM Un Upload Count</p>
-                   <p className={`text-[24px] font-black ${unUploadCount > 0 ? 'text-red-600' : 'text-slate-400'}`}>
-                     {unUploadCount}
-                   </p>
-                 </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">BOM Upload Count</p>
+                  <p className={`text-[24px] font-black ${uploadedCount > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {uploadedCount}
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">BOM Un Upload Count</p>
+                  <p className={`text-[24px] font-black ${unUploadCount > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                    {unUploadCount}
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Right Section: Interactive Assembly List */}
             <div className="col-span-7 flex flex-col gap-4">
-               <div className="flex items-center justify-between gap-2 flex-wrap">
-                 <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                    <div className="w-2 h-4 bg-[#0097A7] rounded-full" />
-                    Processed Assembly List
-                 </h3>
-                 <div className="flex items-center gap-3">
-                   {assemblyList.length > 0 && (
-                     <div className="relative">
-                       <input
-                         type="text"
-                         value={listSearch}
-                         onChange={(e) => setListSearch(e.target.value)}
-                         placeholder="Search part no..."
-                         className="pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-36"
-                       />
-                       <Search size={12} className="absolute left-2 top-2 text-slate-400" />
-                     </div>
-                   )}
-                   {assemblyList.length > 0 && (
-                     <span className="text-[11px] font-bold text-slate-500">
-                       Total: {assemblyList.length} | Uploaded: <span className="text-emerald-600 font-bold">{uploadedCount}</span> | Un-uploaded: <span className="text-red-600 font-bold">{unUploadCount}</span>
-                     </span>
-                   )}
-                   {assemblyList.length > 0 && (
-                     <button onClick={() => { setAssemblyList([]); setSelectedPartId(null); setUploadedPartIds([]); setListSearch('') }} className="text-rose-500 hover:text-rose-600 text-[11px] font-bold uppercase flex items-center gap-1 transition-colors">
-                       <Trash2 size={14} /> Clear List
-                     </button>
-                   )}
-                 </div>
-               </div>
-
-               <div className="flex-1 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden relative group transition-all min-h-[480px]">
-                  {assemblyList.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-4 p-8">
-                      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
-                        <FileSpreadsheet size={40} className="opacity-20" />
-                      </div>
-                      <div className="text-center">
-                        <p className="font-black uppercase tracking-widest text-[12px] text-slate-500">No Data Loaded</p>
-                        <p className="text-[11px] italic mt-1 text-slate-400">Select a Model No, choose an Assembly Part No, or click Browse to load an Excel file</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="absolute inset-0 overflow-y-auto p-4 bg-white">
-                      <table className="w-full text-left border-collapse border border-slate-200">
-                        <thead className="bg-slate-100 text-[10px] uppercase text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
-                          <tr>
-                            <th className="px-4 py-3 w-12 text-center border-r border-slate-200">Select</th>
-                            <th className="px-4 py-3 w-12 text-center border-r border-slate-200">#</th>
-                            <th className="px-4 py-3 border-r border-slate-200">Part Number</th>
-                            <th className="px-4 py-3 border-r border-slate-200">Description</th>
-                            <th className="px-4 py-3 text-center border-r border-slate-200 w-16">Image</th>
-                            <th className="px-4 py-3 text-right border-r border-slate-200 w-16">Qty</th>
-                            <th className="px-4 py-3 text-center w-16">Unit</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-[12px]">
-                          {displayedAssemblyList.map((item, idx) => {
-                            const isUploaded = uploadedPartIds.includes(item.id)
-                            const isSelected = selectedPartId === item.id
-                            const textColor = isUploaded ? 'text-emerald-600' : 'text-red-600'
-                            const unitBadge = isUploaded 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                              : 'bg-red-50 text-red-700 border border-red-200'
-                            const rowBg = isSelected 
-                              ? 'bg-[#0097A7]/10 ring-1 ring-[#0097A7]/40' 
-                              : (isUploaded ? 'bg-emerald-50/30 hover:bg-emerald-50/60' : 'hover:bg-red-50/30')
-
-                            return (
-                              <tr 
-                                key={item.id} 
-                                onClick={() => {
-                                  setSelectedPartId(item.id)
-                                  setForm(f => ({ ...f, assemblyPartNo: item.part }))
-                                }}
-                                className={`${rowBg} transition-colors group h-12 border-b border-slate-100 cursor-pointer`}
-                              >
-                                <td className="px-4 py-2 text-center border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
-                                  <input 
-                                    type="radio"
-                                    name="selectedAssemblyPart"
-                                    checked={isSelected}
-                                    onChange={() => {
-                                      setSelectedPartId(item.id)
-                                      setForm(f => ({ ...f, assemblyPartNo: item.part }))
-                                    }}
-                                    className="w-4 h-4 text-[#0097A7] focus:ring-[#0097A7] cursor-pointer"
-                                  />
-                                </td>
-                                <td className={`px-4 py-2 text-center font-bold border-r border-slate-100 ${textColor}`}>{idx + 1}</td>
-                                <td className={`px-4 py-2 font-black border-r border-slate-100 ${textColor}`}>{item.part}</td>
-                                <td className={`px-4 py-2 font-semibold uppercase text-[11px] border-r border-slate-100 ${textColor}`}>{item.desc}</td>
-                                <td className="px-4 py-2 text-center border-r border-slate-100">
-                                  {item.image ? (
-                                    <div className="w-8 h-8 rounded border border-slate-200 overflow-hidden inline-flex items-center justify-center bg-slate-50">
-                                      <img src={item.image} alt="preview" className="w-full h-full object-contain" />
-                                    </div>
-                                  ) : (
-                                    <span className={textColor}>—</span>
-                                  )}
-                                </td>
-                                <td className={`px-4 py-2 text-right font-black border-r border-slate-100 ${textColor}`}>{item.qty}</td>
-                                <td className="px-4 py-2 text-center">
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${unitBadge}`}>{item.unit}</span>
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                  <div className="w-2 h-4 bg-[#0097A7] rounded-full" />
+                  Processed Assembly List
+                </h3>
+                <div className="flex items-center gap-3">
+                  {assemblyList.length > 0 && (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={listSearch}
+                        onChange={(e) => setListSearch(e.target.value)}
+                        placeholder="Search part no..."
+                        className="pl-7 pr-2 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0097A7] w-36"
+                      />
+                      <Search size={12} className="absolute left-2 top-2 text-slate-400" />
                     </div>
                   )}
-               </div>
+                  {assemblyList.length > 0 && (
+                    <span className="text-[11px] font-bold text-slate-500">
+                      Total: {assemblyList.length} | Uploaded: <span className="text-emerald-600 font-bold">{uploadedCount}</span> | Un-uploaded: <span className="text-red-600 font-bold">{unUploadCount}</span>
+                    </span>
+                  )}
+                  {assemblyList.length > 0 && (
+                    <button onClick={() => { setAssemblyList([]); setSelectedPartId(null); setUploadedPartIds([]); setListSearch('') }} className="text-rose-500 hover:text-rose-600 text-[11px] font-bold uppercase flex items-center gap-1 transition-colors">
+                      <Trash2 size={14} /> Clear List
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden relative group transition-all min-h-[480px]">
+                {assemblyList.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-4 p-8">
+                    <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
+                      <FileSpreadsheet size={40} className="opacity-20" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-black uppercase tracking-widest text-[12px] text-slate-500">No Data Loaded</p>
+                      <p className="text-[11px] italic mt-1 text-slate-400">Select a Model No, choose an Assembly Part No, or click Browse to load an Excel file</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 overflow-y-auto p-4 bg-white">
+                    <table className="w-full text-left border-collapse border border-slate-200">
+                      <thead className="bg-slate-100 text-[10px] uppercase text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
+                        <tr>
+                          <th className="px-4 py-3 w-12 text-center border-r border-slate-200">Select</th>
+                          <th className="px-4 py-3 w-12 text-center border-r border-slate-200">#</th>
+                          <th className="px-4 py-3 border-r border-slate-200">Part Number</th>
+                          <th className="px-4 py-3 border-r border-slate-200">Description</th>
+                          <th className="px-4 py-3 text-center border-r border-slate-200 w-16">Image</th>
+                          <th className="px-4 py-3 text-right border-r border-slate-200 w-16">Qty</th>
+                          <th className="px-4 py-3 text-center w-16">Unit</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-[12px]">
+                        {displayedAssemblyList.map((item, idx) => {
+                          const isUploaded = uploadedPartIds.includes(item.id)
+                          const isSelected = selectedPartId === item.id
+                          const textColor = isUploaded ? 'text-emerald-600' : 'text-red-600'
+                          const unitBadge = isUploaded
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-red-50 text-red-700 border border-red-200'
+                          const rowBg = isSelected
+                            ? 'bg-[#0097A7]/10 ring-1 ring-[#0097A7]/40'
+                            : (isUploaded ? 'bg-emerald-50/30 hover:bg-emerald-50/60' : 'hover:bg-red-50/30')
+
+                          return (
+                            <tr
+                              key={item.id}
+                              onClick={() => {
+                                setSelectedPartId(item.id)
+                                setForm(f => ({ ...f, assemblyPartNo: item.part }))
+                              }}
+                              className={`${rowBg} transition-colors group h-12 border-b border-slate-100 cursor-pointer`}
+                            >
+                              <td className="px-4 py-2 text-center border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="radio"
+                                  name="selectedAssemblyPart"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setSelectedPartId(item.id)
+                                    setForm(f => ({ ...f, assemblyPartNo: item.part }))
+                                  }}
+                                  className="w-4 h-4 text-[#0097A7] focus:ring-[#0097A7] cursor-pointer"
+                                />
+                              </td>
+                              <td className={`px-4 py-2 text-center font-bold border-r border-slate-100 ${textColor}`}>{idx + 1}</td>
+                              <td className={`px-4 py-2 font-black border-r border-slate-100 ${textColor}`}>{item.part}</td>
+                              <td className={`px-4 py-2 font-semibold uppercase text-[11px] border-r border-slate-100 ${textColor}`}>{item.desc}</td>
+                              <td className="px-4 py-2 text-center border-r border-slate-100">
+                                {item.image ? (
+                                  <div className="w-8 h-8 rounded border border-slate-200 overflow-hidden inline-flex items-center justify-center bg-slate-50">
+                                    <img src={item.image} alt="preview" className="w-full h-full object-contain" />
+                                  </div>
+                                ) : (
+                                  <span className={textColor}>—</span>
+                                )}
+                              </td>
+                              <td className={`px-4 py-2 text-right font-black border-r border-slate-100 ${textColor}`}>{item.qty}</td>
+                              <td className="px-4 py-2 text-center">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black ${unitBadge}`}>{item.unit}</span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

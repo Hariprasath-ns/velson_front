@@ -293,6 +293,27 @@ export default function GateEntry() {
   }
 
   const validate = () => {
+    if (items.length === 1) {
+      const row = items[0]
+      const ordQ = parseFloat(row.qty) || 0
+      const prevRec = getAlreadyReceivedQty(row.poNo, row.itemCode)
+      const recQ = parseFloat(row.recQty) || 0
+      if (ordQ > 0 && prevRec >= ordQ) {
+        toast.warning(`Cannot submit Gate Entry: Item "${row.itemName || row.itemCode}" has already been fully received.`)
+        return false
+      }
+      if (recQ <= 0) {
+        toast.warning('Cannot submit Gate Entry: Received Qty must be greater than 0.')
+        return false
+      }
+    }
+
+    const totalRecQty = items.reduce((s, r) => s + (parseFloat(r.recQty) || 0), 0)
+    if (totalRecQty <= 0) {
+      toast.warning('Cannot submit Gate Entry: Received Qty must be greater than 0.')
+      return false
+    }
+
     const errors = {}
     items.forEach((row, idx) => {
       const recQ = parseFloat(row.recQty) || 0
@@ -337,7 +358,7 @@ export default function GateEntry() {
       const res = editId
         ? await api.put(`/api/gate-master/${editId}`, payload)
         : await api.post('/api/gate-master', payload)
-      
+
       if (res.data?.success) {
         toast.success(editId ? 'Gate Entry updated!' : 'Gate Entry submitted!')
         try {
@@ -485,7 +506,6 @@ export default function GateEntry() {
               <table className="min-w-full text-[12.5px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8"><input type="checkbox" className="accent-[#0097A7]" /></th>
                     <th className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase w-8">S.NO</th>
                     {['PO No', 'Item Code', 'Item Name', 'Description', 'HSN Code', 'Unit', 'Ordered Qty', 'Rec. Qty', 'Action'].map(h => (
                       <th key={h} className="px-2 py-1.5 text-center font-bold text-slate-600 text-[11px] uppercase whitespace-nowrap">{h}</th>
@@ -501,14 +521,10 @@ export default function GateEntry() {
                     const isRowDisabled = isAlreadyReceived || isSingleLocked
 
                     return (
-                      <tr key={idx} className={`border-b border-slate-100 transition-colors ${
-                        isAlreadyReceived
-                          ? 'bg-slate-100/70 text-slate-400'
-                          : idx % 2 === 1 ? 'bg-slate-50/50' : ''
-                      }`}>
-                        <td className="px-2 py-1 text-center align-top pt-2.5">
-                          <input type="checkbox" disabled={isRowDisabled} className="accent-[#0097A7] disabled:opacity-40" />
-                        </td>
+                      <tr key={idx} className={`border-b border-slate-100 transition-colors ${isAlreadyReceived
+                        ? 'bg-slate-100/70 text-slate-400'
+                        : idx % 2 === 1 ? 'bg-slate-50/50' : ''
+                        }`}>
                         <td className="px-2 py-1 text-center text-slate-500 align-top pt-2.5 font-medium">{idx + 1}</td>
                         <td className="px-1 py-1 align-top"><input value={row.poNo} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed ${isAlreadyReceived ? 'text-slate-400' : ''}`} /></td>
                         <td className="px-1 py-1 align-top"><input value={row.itemCode} readOnly className={`${inp()} bg-slate-50 cursor-not-allowed font-medium ${isAlreadyReceived ? 'text-slate-400' : 'text-[#0097A7]'}`} /></td>
@@ -524,13 +540,12 @@ export default function GateEntry() {
                             disabled={isRowDisabled}
                             onChange={e => setItemField(idx, 'recQty', e.target.value)}
                             placeholder="0"
-                            className={`${inp(recQtyErrors[idx])} w-20 text-center font-bold ${
-                              isAlreadyReceived
-                                ? 'bg-slate-200/70 cursor-not-allowed text-slate-400'
-                                : isSingleLocked
-                                  ? 'bg-slate-100 cursor-not-allowed text-slate-500'
-                                  : 'text-emerald-700 bg-white'
-                            }`}
+                            className={`${inp(recQtyErrors[idx])} w-20 text-center font-bold ${isAlreadyReceived
+                              ? 'bg-slate-200/70 cursor-not-allowed text-slate-400'
+                              : isSingleLocked
+                                ? 'bg-slate-100 cursor-not-allowed text-slate-500'
+                                : 'text-emerald-700 bg-white'
+                              }`}
                           />
                           {isAlreadyReceived && (
                             <span className="block text-[9.5px] font-bold text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 mt-0.5 leading-tight whitespace-nowrap">
@@ -628,13 +643,12 @@ export default function GateEntry() {
                         <td className="px-3 py-1.5">{po.poDate ? po.poDate.split('T')[0] : '-'}</td>
                         <td className="px-3 py-1.5 text-slate-500">{po.supplier?.supplierName || '-'}</td>
                         <td className="px-3 py-1.5">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase ${
-                            (po.status || '').toLowerCase() === 'pending'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                              : (po.status || '').toLowerCase() === 'approved'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-blue-100 text-blue-800'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase ${(po.status || '').toLowerCase() === 'pending'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : (po.status || '').toLowerCase() === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-blue-100 text-blue-800'
+                            }`}>
                             {po.status || 'Open'}
                           </span>
                         </td>
