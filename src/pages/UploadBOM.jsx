@@ -735,6 +735,34 @@ export default function UploadBOM() {
     }
   }
 
+  const handleDeleteRow = async (itemId, e) => {
+    if (e) e.stopPropagation()
+    const itemToDelete = assemblyList.find(item => item.id === itemId)
+    if (!itemToDelete) return
+
+    if (uploadedPartIds.includes(itemId)) {
+      const partNoClean = String(itemToDelete.part || '').trim().toLowerCase()
+      const matchingBoms = bomRecords.filter(b =>
+        String(b.assemblyPartNo || '').trim().toLowerCase() === partNoClean ||
+        (Array.isArray(b.excelRows) && b.excelRows.some(r => String(r.PartNo || r.partNo || r.part || '').trim().toLowerCase() === partNoClean))
+      )
+
+      for (const b of matchingBoms) {
+        if (b.id) {
+          await api.delete(`/api/bom-creation/${b.id}`).catch(() => { })
+        }
+      }
+      setBomRecords(prev => prev.filter(b => !matchingBoms.some(m => m.id === b.id)))
+      setUploadedPartIds(prev => prev.filter(id => id !== itemId))
+    }
+
+    setAssemblyList(prev => prev.filter(item => item.id !== itemId))
+    if (selectedPartId === itemId) {
+      setSelectedPartId(null)
+    }
+    toast.success(`Removed row for Part "${itemToDelete.part}".`)
+  }
+
   const handleReset = () => {
     setForm({
       date: new Date().toISOString().split('T')[0],
@@ -938,7 +966,8 @@ export default function UploadBOM() {
                           <th className="px-4 py-3 border-r border-slate-200">Description</th>
                           <th className="px-4 py-3 text-center border-r border-slate-200 w-16">Image</th>
                           <th className="px-4 py-3 text-right border-r border-slate-200 w-16">Qty</th>
-                          <th className="px-4 py-3 text-center w-16">Unit</th>
+                          <th className="px-4 py-3 text-center border-r border-slate-200 w-16">Unit</th>
+                          <th className="px-4 py-3 text-center w-16">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-[12px]">
@@ -987,8 +1016,17 @@ export default function UploadBOM() {
                                 )}
                               </td>
                               <td className={`px-4 py-2 text-right font-black border-r border-slate-100 ${textColor}`}>{item.qty}</td>
-                              <td className="px-4 py-2 text-center">
+                              <td className="px-4 py-2 text-center border-r border-slate-100">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-black ${unitBadge}`}>{item.unit}</span>
+                              </td>
+                              <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={(e) => handleDeleteRow(item.id, e)}
+                                  title="Delete Row"
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
                               </td>
                             </tr>
                           )
