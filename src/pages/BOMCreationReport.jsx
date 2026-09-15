@@ -229,6 +229,15 @@ export default function BOMCreationReport() {
     }
   }
 
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.get('/api/customer-master')
+      setCustomers(res.data?.data || [])
+    } catch (err) {
+      console.error('Error fetching customers', err)
+    }
+  }
+
   const [itemMasterList, setItemMasterList] = useState([])
 
   const fetchItemMaster = async () => {
@@ -1169,35 +1178,35 @@ export default function BOMCreationReport() {
                                               }`}
                                           >
                                             <td className="px-4 py-1.5 border-r border-slate-50 text-center text-slate-400 font-bold group-hover:text-white/50">{childIdx + 1}</td>
-                                             {CANONICAL_HEADERS.map((header, colIdx) => {
-                                               const val = canonical[header];
-                                               const valStr = String(val || "").trim();
-                                               const resolvedImg = resolveChildImage(childRow);
-                                               const imgSrc = resolvedImg || valStr;
-                                               const isImg = header === "Image" || !!resolvedImg || valStr.startsWith("http://") ||
-                                                 valStr.startsWith("https://") ||
-                                                 valStr.startsWith("/api/") ||
-                                                 valStr.startsWith("/uploads/") ||
-                                                 valStr.startsWith("data:image/");
-                                               return (
-                                                 <td key={colIdx} className="px-4 py-1.5 border-r border-slate-50 text-slate-600 group-hover:text-white">
-                                                   {isImg && imgSrc ? (
-                                                     <img
-                                                       src={imgSrc}
-                                                       alt="Preview"
-                                                       onClick={(e) => {
-                                                         e.stopPropagation();
-                                                         setLightboxImage(imgSrc);
-                                                       }}
-                                                       className="max-h-12 max-w-[80px] object-contain rounded border border-slate-200 cursor-zoom-in hover:scale-105 hover:shadow-sm transition-all duration-200"
-                                                       onError={(e) => { e.target.style.display = "none"; }}
-                                                     />
-                                                   ) : (
-                                                     valStr
-                                                   )}
-                                                 </td>
-                                               );
-                                             })}
+                                            {CANONICAL_HEADERS.map((header, colIdx) => {
+                                              const val = canonical[header];
+                                              const valStr = String(val || "").trim();
+                                              const resolvedImg = resolveChildImage(childRow);
+                                              const imgSrc = resolvedImg || valStr;
+                                              const isImg = header === "Image" || !!resolvedImg || valStr.startsWith("http://") ||
+                                                valStr.startsWith("https://") ||
+                                                valStr.startsWith("/api/") ||
+                                                valStr.startsWith("/uploads/") ||
+                                                valStr.startsWith("data:image/");
+                                              return (
+                                                <td key={colIdx} className="px-4 py-1.5 border-r border-slate-50 text-slate-600 group-hover:text-white">
+                                                  {isImg && imgSrc ? (
+                                                    <img
+                                                      src={imgSrc}
+                                                      alt="Preview"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setLightboxImage(imgSrc);
+                                                      }}
+                                                      className="max-h-12 max-w-[80px] object-contain rounded border border-slate-200 cursor-zoom-in hover:scale-105 hover:shadow-sm transition-all duration-200"
+                                                      onError={(e) => { e.target.style.display = "none"; }}
+                                                    />
+                                                  ) : (
+                                                    valStr
+                                                  )}
+                                                </td>
+                                              );
+                                            })}
                                           </tr>
                                         );
                                       })}
