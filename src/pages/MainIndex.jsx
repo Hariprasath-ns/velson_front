@@ -410,12 +410,17 @@ export default function MainIndex() {
                 <div className="grid grid-cols-12 items-center gap-4">
                   <div className="col-span-3"><Label required>Service Job No</Label></div>
                   <div className="col-span-9 flex items-center gap-2">
-                    <Select options={serviceJobNoOptions} placeholder="Select Active Job" value={form.serviceJobNo} onChange={e => handleServiceJobNoSelect(e.target.value)} className="flex-1 font-bold text-[#0097A7]" />
+                    <Input
+                      value={form.serviceJobNo}
+                      readOnly
+                      placeholder="Auto-fetched from Chosen Vehicle Count"
+                      className="flex-1 !font-extrabold !text-[#0097A7] !bg-slate-50 cursor-not-allowed"
+                    />
                     <button
                       type="button"
                       onClick={() => {
                         if (!form.serviceJobNo) {
-                          toast.warning('Please select a Service Job No first.')
+                          toast.warning('No Service Job No fetched yet.')
                           return
                         }
                         navigator.clipboard.writeText(form.serviceJobNo)
