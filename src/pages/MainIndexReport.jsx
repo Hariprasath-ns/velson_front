@@ -48,6 +48,7 @@ export default function MainIndexReport() {
   const [vehicleCount, setVehicleCount] = useState('')
   const [serviceJobNo, setServiceJobNo] = useState('')
   const [modelNo, setModelNo] = useState('')
+  const [globalSearch, setGlobalSearch] = useState('')
   const [data, setData] = useState([])
 
   const handleCustomerNameChange = (selectedName) => {
@@ -94,6 +95,30 @@ export default function MainIndexReport() {
     }, 600)
   }
 
+  // Filter dataset by globalSearch across all columns
+  const displayedDataset = useMemo(() => {
+    if (!globalSearch.trim()) return filteredData
+    const q = globalSearch.trim().toLowerCase()
+    return filteredData.filter(row => {
+      const fields = [
+        row.date,
+        row.customerName,
+        row.customerCode,
+        row.serviceJobNo || row.serialJobNo,
+        row.vehicleCount,
+        row.bomModelNo || row.modelNo,
+        row.vehicleModelNo || row.modelName,
+        row.vehicleSerialNo || row.serialNo,
+        row.vehicleArrivalDate,
+        row.compressorArrivalDate,
+        row.workCommsingDate,
+        row.workCompleteDate,
+        row.workDeliveryDate
+      ]
+      return fields.some(val => val && String(val).toLowerCase().includes(q))
+    })
+  }, [filteredData, globalSearch])
+
   const customerNameOptions = useMemo(() => {
     return Array.from(new Set(data.map(r => r.customerName).filter(Boolean))).sort()
   }, [data])
@@ -117,7 +142,6 @@ export default function MainIndexReport() {
     <div className="bg-[#f4f6f8] min-h-full pb-10">
       <div className="px-6 py-6">
         <div className="flex items-center gap-2 text-[12px] text-slate-400 mb-5 uppercase font-black tracking-tight">
-          {/* <span>Dashboard</span> <ChevronRight size={12} />  */}
           <span>BOM</span> <ChevronRight size={12} /> <span className="text-[#0097A7]">Production Report</span>
         </div>
 
@@ -178,11 +202,11 @@ export default function MainIndexReport() {
                     <div className="col-span-3 text-right"><Label>Customer Code :</Label></div>
                     <div className="col-span-4"><Input placeholder="Search Code..." value={bookingCode} onChange={e => setBookingCode(e.target.value)} /></div>
                     <div className="col-span-2 text-right"><Label>Vehicle Count :</Label></div>
-                    <div className="col-span-3"><Select options={['1', '2', '3', '4', '5']} placeholder="--" value={vehicleCount} onChange={e => setVehicleCount(e.target.value)} /></div>
+                    <div className="col-span-3"><Select options={['1', '2', '3', '4', '5']} placeholder="--" value={vehicleCount} onChange={e => setVehicleCount(e.target.value)} className="w-28" /></div>
                   </div>
                   <div className="grid grid-cols-12 items-center gap-4">
                     <div className="col-span-3 text-right"><Label required>Service Job No :</Label></div>
-                    <div className="col-span-9"><Select options={serviceJobNoOptions} placeholder="Select Job" value={serviceJobNo} onChange={e => setServiceJobNo(e.target.value)} /></div>
+                    <div className="col-span-6"><Select options={serviceJobNoOptions} placeholder="Select Job" value={serviceJobNo} onChange={e => setServiceJobNo(e.target.value)} className="w-64" /></div>
                   </div>
                   <div className="grid grid-cols-12 items-center gap-4">
                     <div className="col-span-3 text-right"><Label>Model No :</Label></div>
@@ -198,34 +222,59 @@ export default function MainIndexReport() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between mb-4 px-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 px-2">
                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
                   <div className="w-2 h-4 bg-[#0097A7] rounded-full" />
                   Dataset Overview
                </h3>
-               <div className="flex items-center gap-2">
-                  {[
-                    { icon: <Download size={14} />, l: 'CSV' },
-                    { icon: <FileSpreadsheet size={14} />, l: 'Excel' },
-                    { icon: <FileJson size={14} />, l: 'PDF' },
-                  ].map(tool => (
-                    <button key={tool.l} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-400 hover:text-[#0097A7] text-[10px] font-black uppercase transition-all">
-                      {tool.icon} {tool.l}
-                    </button>
-                  ))}
+               
+               <div className="flex items-center gap-4 flex-1 max-w-xl justify-end">
+                 {/* New Column Search Input */}
+                 <div className="relative flex-1">
+                   <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+                   <input
+                     type="text"
+                     placeholder="Search across all columns in Dataset Overview..."
+                     value={globalSearch}
+                     onChange={e => setGlobalSearch(e.target.value)}
+                     className="w-full pl-9 pr-4 py-1.5 text-xs border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all shadow-sm"
+                   />
+                   {globalSearch && (
+                     <button
+                       onClick={() => setGlobalSearch('')}
+                       className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                     >
+                       <X size={14} />
+                     </button>
+                   )}
+                 </div>
+
+                 <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+                    {[
+                      { icon: <Download size={14} />, l: 'CSV' },
+                      { icon: <FileSpreadsheet size={14} />, l: 'Excel' },
+                      { icon: <FileJson size={14} />, l: 'PDF' },
+                    ].map(tool => (
+                      <button key={tool.l} className="flex items-center gap-1.5 px-2.5 py-1.5 text-slate-400 hover:text-[#0097A7] text-[10px] font-black uppercase transition-all">
+                        {tool.icon} {tool.l}
+                      </button>
+                    ))}
+                 </div>
                </div>
             </div>
 
             <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse min-w-[1500px]">
+              <table className="w-full text-left border-collapse min-w-[1600px]">
                 <thead className="bg-[#fcfdfe] text-[9px] uppercase text-slate-400 font-black border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-4 border-r border-slate-100">Date</th>
                     <th className="px-4 py-4 border-r border-slate-100">Customer_Name</th>
                     <th className="px-4 py-4 border-r border-slate-100">Booking_Code</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Serial_No</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Model_Name</th>
+                    <th className="px-4 py-4 border-r border-slate-100">Service_Job_No</th>
+                    <th className="px-4 py-4 border-r border-slate-100 text-center">Vehicle_Count</th>
                     <th className="px-4 py-4 border-r border-slate-100">Model_No</th>
+                    <th className="px-4 py-4 border-r border-slate-100">Model_Name</th>
+                    <th className="px-4 py-4 border-r border-slate-100">Serial_No</th>
                     <th className="px-4 py-4 border-r border-slate-100">Vehicle_Arrival_Date</th>
                     <th className="px-4 py-4 border-r border-slate-100">Compressor_Arrival_Date</th>
                     <th className="px-4 py-4 border-r border-slate-100">Work_Commsing_Date</th>
@@ -234,21 +283,23 @@ export default function MainIndexReport() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-[12px]">
-                  {filteredData.length === 0 ? (
+                  {displayedDataset.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-24 text-center text-slate-300 italic">
-                        No production records found for the selected parameters.
+                      <td colSpan={13} className="py-24 text-center text-slate-300 italic">
+                        {globalSearch ? `No records matching "${globalSearch}".` : 'No production records found for the selected parameters.'}
                       </td>
                     </tr>
                   ) : (
-                    filteredData.map((row, idx) => (
+                    displayedDataset.map((row) => (
                       <tr key={row.id} className="hover:bg-[#0097A7] hover:text-white group transition-colors h-14 border-b border-slate-50 last:border-0">
                         <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.date}</td>
                         <td className="px-4 py-2 border-r border-slate-50 font-bold text-[#0097A7] group-hover:text-white uppercase">{row.customerName}</td>
                         <td className="px-4 py-2 border-r border-slate-50 font-medium text-slate-600 group-hover:text-white/90 uppercase">{row.customerCode || '25-26/0000'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-bold text-slate-800 group-hover:text-white">{row.vehicleSerialNo || '-'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-semibold text-slate-700 group-hover:text-white">{row.vehicleModelNo}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-medium text-[11px] text-slate-400 italic group-hover:text-white/60">{row.bomModelNo || 'GH700-...'}</td>
+                        <td className="px-4 py-2 border-r border-slate-50 font-extrabold text-[#0097A7] group-hover:text-white">{row.serviceJobNo || row.serialJobNo || '-'}</td>
+                        <td className="px-4 py-2 border-r border-slate-50 text-center font-bold text-slate-800 group-hover:text-white">{row.vehicleCount || '-'}</td>
+                        <td className="px-4 py-2 border-r border-slate-50 font-medium text-[11px] text-slate-400 italic group-hover:text-white/60">{row.bomModelNo || row.modelNo || 'GH700-...'}</td>
+                        <td className="px-4 py-2 border-r border-slate-50 font-semibold text-slate-700 group-hover:text-white">{row.vehicleModelNo || row.modelName || '-'}</td>
+                        <td className="px-4 py-2 border-r border-slate-50 font-bold text-slate-800 group-hover:text-white">{row.vehicleSerialNo || row.serialNo || '-'}</td>
                         <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.vehicleArrivalDate || '-'}</td>
                         <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.compressorArrivalDate || '-'}</td>
                         <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.workCommsingDate || '-'}</td>
@@ -259,24 +310,6 @@ export default function MainIndexReport() {
                   )}
                 </tbody>
               </table>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between bg-slate-900 rounded-2xl p-5 shadow-2xl">
-               <div className="flex items-center gap-10">
-                 <div className="flex flex-col">
-                   <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Total Dataset</span>
-                   <span className="text-[20px] font-black text-white leading-none">{filteredData.length}</span>
-                 </div>
-                 <div className="flex flex-col">
-                   <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Total Vehicle Qty</span>
-                   <span className="text-[20px] font-black text-[#0097A7] leading-none">
-                     {filteredData.reduce((acc, r) => acc + (parseInt(r.vehicleQty) || 0), 0)}
-                   </span>
-                 </div>
-               </div>
-               <div className="text-right">
-                  <p className="text-white/20 text-[10px] font-black uppercase tracking-widest italic">Confidential Production Data</p>
-               </div>
             </div>
           </div>
         </div>

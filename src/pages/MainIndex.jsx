@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import api from '../services/api'
-import { ChevronRight, Save, X, Database, RotateCcw, Trash2, Copy } from 'lucide-react'
+import { ChevronRight, Save, X, Database, RotateCcw, Trash2, Copy, FileSpreadsheet, ChevronDown, ChevronUp, Package } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useCustomers, useVehicles, useServiceBookings } from '../hooks/useMasterData'
 
@@ -84,12 +84,17 @@ export default function MainIndex() {
   }
 
   const [indexRecords, setIndexRecords] = useState([])
+  const [bomRecords, setBomRecords] = useState([])
+  const [expandedRow, setExpandedRow] = useState(null)
 
   useEffect(() => {
     setForm(f => ({ ...f, no: getNextIndexID() }))
     api.get('/api/index-creation', { skipGlobalLoader: true })
       .then(res => setIndexRecords(res.data?.data || []))
       .catch(() => setIndexRecords([]))
+    api.get('/api/bom-creation', { skipGlobalLoader: true })
+      .then(res => setBomRecords(res.data?.data || []))
+      .catch(() => setBomRecords([]))
   }, [])
 
   const bomModelOptions = useMemo(() => {
@@ -525,25 +530,127 @@ export default function MainIndex() {
                           <th className="px-6 py-4 border-r border-slate-100">Part Number</th>
                           <th className="px-6 py-4 border-r border-slate-100">Component Description</th>
                           <th className="px-6 py-4 border-r border-slate-100 text-right w-32">Req. Qty</th>
-                          <th className="px-6 py-4">Remarks</th>
-                          <th className="px-6 py-4 w-12 text-center">Del</th>
+                          <th className="px-6 py-4 text-center">Upload BOM Excel Data</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {childParts.map((part, idx) => (
-                          <tr key={idx} className="hover:bg-[#0097A7] hover:text-white transition-colors h-14 group">
-                            <td className="px-6 py-2 border-r border-slate-50 text-center text-slate-300 font-bold group-hover:text-white/50">{idx + 1}</td>
-                            <td className="px-6 py-2 border-r border-slate-50 font-black text-[#0097A7] group-hover:text-white">{part.partNo}</td>
-                            <td className="px-6 py-2 border-r border-slate-50 font-bold text-slate-700 uppercase text-[11px] group-hover:text-white">{part.desc}</td>
-                            <td className="px-6 py-2 border-r border-slate-50 text-right font-black text-slate-900 group-hover:text-white">{part.qty}</td>
-                            <td className="px-6 py-2 text-slate-500 italic text-[11px] group-hover:text-white/80">{part.remarks}</td>
-                            <td className="px-6 py-2 text-center">
-                              <button onClick={() => setChildParts(prev => prev.filter((_, i) => i !== idx))} className="p-2 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                                <Trash2 size={16} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {childParts.map((part, idx) => {
+                          const pLower = String(part.partNo || '').trim().toLowerCase()
+                          const mLower = String(form.bomModelNo || '').trim().toLowerCase()
+                          
+                          // Find matching excel data in bomRecords or indexRecords
+                          let matchedRows = []
+                          let sourceName = ''
+                          for (const b of bomRecords) {
+                            const bAss = String(b.assemblyPartNo || '').trim().toLowerCase()
+                            const bMod = String(b.model || b.modelNo || '').trim().toLowerCase()
+                            if (bAss === pLower || (mLower && bMod === mLower)) {
+                              if (Array.isArray(b.excelRows) && b.excelRows.length > 0) {
+                                matchedRows = b.excelRows
+                                sourceName = b.fileName || b.assemblyPartNo || 'BOM Creation Upload'
+                                break
+                              }
+                            }
+                          }
+                          if (matchedRows.length === 0) {
+                            for (const idxRec of indexRecords) {
+                              const iMod = String(idxRec.modelNo || idxRec.model || '').trim().toLowerCase()
+                              const iAss = String(idxRec.assemblyPartNo || '').trim().toLowerCase()
+                              if (iAss === pLower || (mLower && iMod === mLower)) {
+                                const raw = idxRec.excelData
+                                const items = Array.isArray(raw) ? raw : (raw?.excelData || [])
+                                if (items.length > 0) {
+                                  matchedRows = items
+                                  sourceName = idxRec.fileName || idxRec.modelNo || 'Index Creation Upload'
+                                  break
+                                }
+                              }
+                            }
+                          }
+
+                          const isExpanded = expandedRow === idx
+
+                          return (
+                            <tr key={idx} className="contents">
+                              <td colSpan={5} className="p-0 border-none">
+                                <div className={`border-b border-slate-100 transition-colors ${isExpanded ? 'bg-teal-50/40' : ''}`}>
+                                  <div className={`grid grid-cols-12 items-center h-14 px-6 hover:bg-[#0097A7] hover:text-white transition-colors group ${isExpanded ? 'bg-teal-50/50' : ''}`}>
+                                    <div className={`col-span-1 text-center font-bold ${isExpanded ? 'text-[#0097A7]' : 'text-slate-300 group-hover:text-white/50'}`}>{idx + 1}</div>
+                                    <div className={`col-span-3 font-black ${isExpanded ? 'text-[#0097A7]' : 'text-[#0097A7] group-hover:text-white'}`}>{part.partNo}</div>
+                                    <div className={`col-span-4 font-bold uppercase text-[11px] ${isExpanded ? 'text-slate-800' : 'text-slate-700 group-hover:text-white'}`}>{part.desc}</div>
+                                    <div className={`col-span-2 text-right font-black pr-4 ${isExpanded ? 'text-slate-900' : 'text-slate-900 group-hover:text-white'}`}>{part.qty}</div>
+                                    <div className="col-span-2 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedRow(isExpanded ? null : idx)}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm active:scale-95 ${
+                                          isExpanded
+                                            ? 'bg-[#0097A7] text-white ring-2 ring-[#0097A7]/30'
+                                            : 'bg-white border border-slate-200 text-[#0097A7] hover:border-[#0097A7] hover:bg-slate-50 group-hover:bg-white group-hover:text-[#0097A7]'
+                                        }`}
+                                      >
+                                        <FileSpreadsheet size={14} /> View Uploaded Excel {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {isExpanded && (
+                                    <div className="p-4 bg-slate-50/90 border-t border-b-2 border-[#0097A7]/30">
+                                      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3">
+                                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                          <div className="flex items-center gap-2 text-xs font-bold text-[#0097A7]">
+                                            <FileSpreadsheet size={16} />
+                                            <span>Excel Data Source: <strong className="text-slate-800">{sourceName || 'Upload BOM Record'}</strong></span>
+                                          </div>
+                                          <span className="text-[10px] font-black uppercase bg-teal-50 text-[#0097A7] px-2.5 py-0.5 rounded-full">
+                                            {matchedRows.length} Excel Rows Found
+                                          </span>
+                                        </div>
+
+                                        {matchedRows.length === 0 ? (
+                                          <div className="py-6 text-center text-slate-400 text-xs italic">
+                                            No uploaded Excel BOM data record found specifically for Part "{part.partNo}" or Model "{form.bomModelNo || 'N/A'}".
+                                          </div>
+                                        ) : (
+                                          <div className="max-h-60 overflow-y-auto border border-slate-100 rounded-lg">
+                                            <table className="w-full text-left border-collapse text-xs">
+                                              <thead className="bg-slate-100 text-[10px] font-black uppercase text-slate-500 sticky top-0">
+                                                <tr>
+                                                  <th className="px-3 py-2 border-r border-slate-200">#</th>
+                                                  <th className="px-3 py-2 border-r border-slate-200">Part No</th>
+                                                  <th className="px-3 py-2 border-r border-slate-200">Description</th>
+                                                  <th className="px-3 py-2 border-r border-slate-200 text-right">Qty</th>
+                                                  <th className="px-3 py-2">Unit</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-slate-100">
+                                                {matchedRows.map((r, rIdx) => {
+                                                  const rPart = r.PartNo || r['Part No'] || r.partNo || r.part || r.itemCode || `R-${rIdx + 1}`
+                                                  const rDesc = r.PartName || r['Part Name'] || r.partName || r.description || r.desc || r.Name || '—'
+                                                  const rQty = r.Qty || r.qty || 1
+                                                  const rUnit = r.Unit || r.unit || 'PCS'
+                                                  return (
+                                                    <tr key={rIdx} className="hover:bg-teal-50/30">
+                                                      <td className="px-3 py-1.5 border-r border-slate-100 font-bold text-slate-400">{rIdx + 1}</td>
+                                                      <td className="px-3 py-1.5 border-r border-slate-100 font-bold text-[#0097A7]">{rPart}</td>
+                                                      <td className="px-3 py-1.5 border-r border-slate-100 text-slate-700 font-medium">{rDesc}</td>
+                                                      <td className="px-3 py-1.5 border-r border-slate-100 text-right font-bold text-slate-900">{rQty}</td>
+                                                      <td className="px-3 py-1.5 text-slate-500">{rUnit}</td>
+                                                    </tr>
+                                                  )
+                                                })}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
