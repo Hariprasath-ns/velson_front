@@ -139,19 +139,19 @@ export default function MainIndexReport() {
   }
 
   return (
-    <div className="bg-[#f4f6f8] min-h-full pb-10">
-      <div className="px-6 py-6">
-        <div className="flex items-center gap-2 text-[12px] text-slate-400 mb-5 uppercase font-black tracking-tight">
+    <div className="bg-[#f4f6f8] min-h-screen p-3 sm:p-5 pb-10">
+      <div className="max-w-[1920px] mx-auto space-y-3">
+        <div className="flex items-center gap-2 text-[12px] text-slate-400 uppercase font-black tracking-tight">
           <span>BOM</span> <ChevronRight size={12} /> <span className="text-[#0097A7]">Production Report</span>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[750px] flex flex-col">
-          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[calc(100vh-5rem)] flex flex-col">
+          <div className="flex flex-wrap items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 gap-2">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-700 rounded-sm" />
               <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-tight">Main Index Analytics</h2>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold rounded shadow-sm hover:bg-slate-50">
                 <Eye size={14} /> Job View
               </button>
@@ -162,18 +162,16 @@ export default function MainIndexReport() {
                 <input type="radio" checked readOnly className="accent-[#0097A7] w-3 h-3" />
                 <span className="text-[10px] font-bold text-slate-500 uppercase">New PDF</span>
               </label>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 text-[11px] font-bold rounded shadow-sm hover:bg-rose-100">
-                <Trash2 size={14} /> Delete
-              </button>
               <button onClick={() => window.history.back()} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black rounded transition-all shadow-sm">
-                <X size={18} strokeWidth={2.5} /> Close
+                <X size={16} strokeWidth={2.5} /> Close
               </button>
             </div>
           </div>
 
-          <div className="p-6">
-            <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 mb-8 space-y-4">
-              <div className="flex items-center gap-6">
+          <div className="p-3 sm:p-5 flex-1 flex flex-col space-y-3">
+            {/* Top Filter Section - Compact layout moving dataset overview upward */}
+            <div className="bg-slate-50/70 p-3 sm:p-4 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Label>From Date :</Label>
                   <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-36 shadow-sm" />
@@ -182,80 +180,81 @@ export default function MainIndexReport() {
                   <Label>To Date :</Label>
                   <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-36 shadow-sm" />
                 </div>
-                <div className="flex gap-2 ml-4">
-                  <button onClick={handleSearch} className="flex items-center gap-1.5 px-6 py-1.5 bg-[#0097A7] text-white text-[12px] font-bold rounded border border-[#0097A7] shadow-sm hover:bg-[#007a87] transition-all">
+                <div className="flex gap-2">
+                  <button onClick={handleSearch} className="flex items-center gap-1.5 px-5 py-1.5 bg-[#0097A7] text-white text-[11px] font-bold rounded border border-[#0097A7] shadow-sm hover:bg-[#007a87] transition-all">
                     <Search size={14} /> Search
                   </button>
-                  <button onClick={handleSearch} className="flex items-center gap-1.5 px-6 py-1.5 bg-white text-slate-700 text-[12px] font-bold rounded border border-slate-200 shadow-sm hover:bg-slate-50 transition-all">
+                  <button onClick={handleSearch} className="flex items-center gap-1.5 px-5 py-1.5 bg-white text-slate-700 text-[11px] font-bold rounded border border-slate-200 shadow-sm hover:bg-slate-50 transition-all">
                     <Search size={14} /> Search Details
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-12 gap-6 items-center">
-                <div className="col-span-8 space-y-4">
-                  <div className="grid grid-cols-12 items-center gap-4">
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-12 lg:col-span-9 space-y-2.5">
+                  <div className="grid grid-cols-12 items-center gap-2">
                     <div className="col-span-3 text-right"><Label>Customer Name :</Label></div>
                     <div className="col-span-9"><Select options={customerNameOptions} placeholder="--- All Customers ---" value={customerName} onChange={e => handleCustomerNameChange(e.target.value)} /></div>
                   </div>
-                  <div className="grid grid-cols-12 items-center gap-4">
+                  <div className="grid grid-cols-12 items-center gap-2">
                     <div className="col-span-3 text-right"><Label>Customer Code :</Label></div>
                     <div className="col-span-4"><Input placeholder="Search Code..." value={bookingCode} onChange={e => setBookingCode(e.target.value)} /></div>
                     <div className="col-span-2 text-right"><Label>Vehicle Count :</Label></div>
-                    <div className="col-span-3"><Select options={['1', '2', '3', '4', '5']} placeholder="--" value={vehicleCount} onChange={e => setVehicleCount(e.target.value)} className="w-28" /></div>
+                    <div className="col-span-3"><Select options={['1', '2', '3', '4', '5']} placeholder="--" value={vehicleCount} onChange={e => setVehicleCount(e.target.value)} className="w-24" /></div>
                   </div>
-                  <div className="grid grid-cols-12 items-center gap-4">
+                  <div className="grid grid-cols-12 items-center gap-2">
                     <div className="col-span-3 text-right"><Label required>Service Job No :</Label></div>
-                    <div className="col-span-6"><Select options={serviceJobNoOptions} placeholder="Select Job" value={serviceJobNo} onChange={e => setServiceJobNo(e.target.value)} className="w-64" /></div>
+                    <div className="col-span-9"><Select options={serviceJobNoOptions} placeholder="Select Job" value={serviceJobNo} onChange={e => setServiceJobNo(e.target.value)} className="w-60" /></div>
                   </div>
-                  <div className="grid grid-cols-12 items-center gap-4">
+                  <div className="grid grid-cols-12 items-center gap-2">
                     <div className="col-span-3 text-right"><Label>Model No :</Label></div>
                     <div className="col-span-9"><Select options={modelNoOptions} placeholder="Select Model" value={modelNo} onChange={e => setModelNo(e.target.value)} /></div>
                   </div>
                 </div>
-                <div className="col-span-4 flex flex-col items-center justify-center border-l border-slate-100 pl-8 h-full">
-                  <div className="w-24 h-24 bg-white border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-200 hover:border-[#0097A7] hover:text-[#0097A7] transition-all cursor-pointer group">
-                    <ImageIcon size={40} className="group-hover:scale-110 transition-transform" />
+                <div className="col-span-12 lg:col-span-3 flex flex-col items-center justify-center lg:border-l border-slate-200 lg:pl-4">
+                  <div className="w-20 h-20 bg-white border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-300 hover:border-[#0097A7] hover:text-[#0097A7] transition-all cursor-pointer group">
+                    <ImageIcon size={32} className="group-hover:scale-110 transition-transform" />
                   </div>
-                  <p className="text-[10px] font-black text-slate-400 mt-2 uppercase tracking-widest leading-none">Model Image</p>
+                  <p className="text-[9px] font-black text-slate-400 mt-1 uppercase tracking-widest leading-none">Model Image</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 px-2">
-               <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+            {/* Header & Global Filter Bar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-1">
+               <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
                   <div className="w-2 h-4 bg-[#0097A7] rounded-full" />
                   Dataset Overview
                </h3>
                
-               <div className="flex items-center gap-4 flex-1 max-w-xl justify-end">
-                 {/* New Column Search Input */}
+               <div className="flex items-center gap-3 flex-1 max-w-xl justify-end">
+                 {/* Column Search Input */}
                  <div className="relative flex-1">
-                   <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+                   <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
                    <input
                      type="text"
                      placeholder="Search across all columns in Dataset Overview..."
                      value={globalSearch}
                      onChange={e => setGlobalSearch(e.target.value)}
-                     className="w-full pl-9 pr-4 py-1.5 text-xs border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all shadow-sm"
+                     className="w-full pl-8 pr-4 py-1.5 text-xs border border-slate-200 rounded-xl bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0097A7]/25 focus:border-[#0097A7] transition-all shadow-sm"
                    />
                    {globalSearch && (
                      <button
                        onClick={() => setGlobalSearch('')}
-                       className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                       className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
                      >
                        <X size={14} />
                      </button>
                    )}
                  </div>
 
-                 <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+                 <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
                     {[
-                      { icon: <Download size={14} />, l: 'CSV' },
-                      { icon: <FileSpreadsheet size={14} />, l: 'Excel' },
-                      { icon: <FileJson size={14} />, l: 'PDF' },
+                      { icon: <Download size={13} />, l: 'CSV' },
+                      { icon: <FileSpreadsheet size={13} />, l: 'Excel' },
+                      { icon: <FileJson size={13} />, l: 'PDF' },
                     ].map(tool => (
-                      <button key={tool.l} className="flex items-center gap-1.5 px-2.5 py-1.5 text-slate-400 hover:text-[#0097A7] text-[10px] font-black uppercase transition-all">
+                      <button key={tool.l} className="flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-[#0097A7] text-[10px] font-black uppercase transition-all">
                         {tool.icon} {tool.l}
                       </button>
                     ))}
@@ -263,48 +262,65 @@ export default function MainIndexReport() {
                </div>
             </div>
 
-            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse min-w-[1600px]">
-                <thead className="bg-[#fcfdfe] text-[9px] uppercase text-slate-400 font-black border-b border-slate-200">
+            {/* Scrollable Dataset Overview Table Container */}
+            <div className="border border-slate-200 rounded-xl overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] shadow-sm bg-white flex-1">
+              <table className="w-full text-left border-collapse min-w-[1700px]">
+                <thead className="bg-[#fcfdfe] text-[9px] uppercase text-slate-400 font-black border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <th className="px-4 py-4 border-r border-slate-100">Date</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Customer_Name</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Booking_Code</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Service_Job_No</th>
-                    <th className="px-4 py-4 border-r border-slate-100 text-center">Vehicle_Count</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Model_No</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Model_Name</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Serial_No</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Vehicle_Arrival_Date</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Compressor_Arrival_Date</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Work_Commsing_Date</th>
-                    <th className="px-4 py-4 border-r border-slate-100">Work_Completed_Date</th>
-                    <th className="px-4 py-4 text-center">Work_Del</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Date</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Customer_Name</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Booking_Code</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Service_Job_No</th>
+                    <th className="px-4 py-3 border-r border-slate-100 text-center">Vehicle_Count</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Model_No</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Model_Name</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Serial_No</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Vehicle_Arrival_Date</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Compressor_Arrival_Date</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Work_Commsing_Date</th>
+                    <th className="px-4 py-3 border-r border-slate-100">Work_Completed_Date</th>
+                    <th className="px-4 py-3 border-r border-slate-100 text-center">Work_Del</th>
+                    <th className="px-4 py-3 text-center w-16 bg-slate-50/80">Del</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 text-[12px]">
+                <tbody className="divide-y divide-slate-100 text-[12px]">
                   {displayedDataset.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="py-24 text-center text-slate-300 italic">
+                      <td colSpan={14} className="py-20 text-center text-slate-300 italic">
                         {globalSearch ? `No records matching "${globalSearch}".` : 'No production records found for the selected parameters.'}
                       </td>
                     </tr>
                   ) : (
                     displayedDataset.map((row) => (
-                      <tr key={row.id} className="hover:bg-[#0097A7] hover:text-white group transition-colors h-14 border-b border-slate-50 last:border-0">
-                        <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.date}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-bold text-[#0097A7] group-hover:text-white uppercase">{row.customerName}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-medium text-slate-600 group-hover:text-white/90 uppercase">{row.customerCode || '25-26/0000'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-extrabold text-[#0097A7] group-hover:text-white">{row.serviceJobNo || row.serialJobNo || '-'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 text-center font-bold text-slate-800 group-hover:text-white">{row.vehicleCount || '-'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-medium text-[11px] text-slate-400 italic group-hover:text-white/60">{row.bomModelNo || row.modelNo || 'GH700-...'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-semibold text-slate-700 group-hover:text-white">{row.vehicleModelNo || row.modelName || '-'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 font-bold text-slate-800 group-hover:text-white">{row.vehicleSerialNo || row.serialNo || '-'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.vehicleArrivalDate || '-'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.compressorArrivalDate || '-'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.workCommsingDate || '-'}</td>
-                        <td className="px-4 py-2 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.workCompleteDate || '-'}</td>
-                        <td className="px-4 py-2 text-center text-slate-500 group-hover:text-white/80">{row.workDeliveryDate || '-'}</td>
+                      <tr key={row.id} className="hover:bg-[#0097A7] hover:text-white group transition-colors h-12 border-b border-slate-50 last:border-0">
+                        <td className="px-4 py-1.5 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.date}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 font-bold text-[#0097A7] group-hover:text-white uppercase">{row.customerName}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 font-medium text-slate-600 group-hover:text-white/90 uppercase">{row.customerCode || '25-26/0000'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 font-extrabold text-[#0097A7] group-hover:text-white">{row.serviceJobNo || row.serialJobNo || '-'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 text-center font-bold text-slate-800 group-hover:text-white">{row.vehicleCount || '-'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 font-medium text-[11px] text-slate-400 italic group-hover:text-white/60">{row.bomModelNo || row.modelNo || 'GH700-...'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 font-semibold text-slate-700 group-hover:text-white">{row.vehicleModelNo || row.modelName || '-'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 font-bold text-slate-800 group-hover:text-white">{row.vehicleSerialNo || row.serialNo || '-'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.vehicleArrivalDate || '-'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.compressorArrivalDate || '-'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.workCommsingDate || '-'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 text-slate-500 group-hover:text-white/80">{row.workCompleteDate || '-'}</td>
+                        <td className="px-4 py-1.5 border-r border-slate-50 text-center text-slate-500 group-hover:text-white/80">{row.workDeliveryDate || '-'}</td>
+                        <td className="px-4 py-1.5 text-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Are you sure you want to delete this record for ${row.customerName}?`)) {
+                                handleDelete(row.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all group-hover:text-white group-hover:hover:bg-rose-600/80"
+                            title="Delete Record"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
